@@ -1,0 +1,54 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Compiled object files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# CMake generated files (but keep source CMakeLists.txt)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+Makefile
+*.make
+
+# Data directories (user content)
+data/input/*
+data/output/*
+data/models/*
+!data/input/.gitkeep
+!data/output/.gitkeep
+!data/models/.gitkeep
+
+# Results (user generated)
+results/
+
+# Dependencies (but keep .gitmodules)
+third_party/*/
+!third_party/.gitkeep
+!.gitmodules
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
