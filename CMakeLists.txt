@@ -5,7 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include)
-add_executable(test_work
-        test/test_work.cpp
-        src/work.cpp
-)
+
+add_executable(test_workflow
+         test/test_workflow.cpp
+         src/work.cpp
+         src/flow.cpp)
