@@ -14,9 +14,11 @@ set(COMMON_SOURCES
         src/work.cpp
         src/flow.cpp
         src/runner.cpp
+        src/server.cpp
+        src/monitor.cpp
 )
 
-# Define test executables
+# Existing test executables
 add_executable(test_runner
         test/test_runner.cpp
         src/runner.cpp
@@ -28,23 +30,50 @@ add_executable(test_workflow
         src/flow.cpp
 )
 
-# Include directories
-target_include_directories(test_runner
-        PRIVATE
+add_executable(test_flow
+        test/test_flow.cpp
+        src/flow.cpp
+)
+
+add_executable(test_work
+        test/test_work.cpp
+        src/work.cpp
+)
+
+add_executable(test_monitor
+        test/test_monitor.cpp
+        src/runner.cpp
+        src/monitor.cpp
+        src/work.cpp
+        src/flow.cpp
+)
+
+add_executable(test_servermonitor
+        test/test_servermonitor.cpp
+        src/server.cpp
+        src/monitor.cpp
+        src/runner.cpp
+)
+
+# Include directories for all targets
+set(INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/include
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/ggml/include
 )
 
-target_include_directories(test_workflow
-        PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# Apply includes to all targets
+target_include_directories(test_runner PRIVATE ${INCLUDE_DIRS})
+target_include_directories(test_workflow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(test_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(test_work PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(test_servermonitor PRIVATE ${INCLUDE_DIRS})
+target_include_directories(test_monitor PRIVATE ${INCLUDE_DIRS})
 
 # Threading
 find_package(Threads REQUIRED)
 
-# Link against llama.cpp targets
+# Link libraries
 target_link_libraries(test_runner
         PRIVATE
         llama
@@ -53,5 +82,27 @@ target_link_libraries(test_runner
 
 target_link_libraries(test_workflow
         PRIVATE
+        Threads::Threads
+)
+
+target_link_libraries(test_flow
+        PRIVATE
+        Threads::Threads
+)
+
+target_link_libraries(test_work
+        PRIVATE
+        Threads::Threads
+)
+
+target_link_libraries(test_servermonitor
+        PRIVATE
+        llama
+        Threads::Threads
+)
+
+target_link_libraries(test_monitor
+        PRIVATE
+        llama
         Threads::Threads
 )
