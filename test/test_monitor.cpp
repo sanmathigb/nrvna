@@ -1,6 +1,7 @@
 #include "nrvna/monitor.hpp"
 #include "nrvna/work.hpp"
 #include "nrvna/flow.hpp"
+#include <iostream>
 #include <filesystem>
 
 int main() {
@@ -21,6 +22,14 @@ int main() {
     // Check result exists in output
     nrvna::Flow flow(workspace + "/output");
     auto result = flow.retrieve(jobId);
+
+    if (!result.inference.empty()) {
+        std::cout << "\n=== AI RESULT ===" << std::endl;
+        std::cout << result.inference << std::endl;
+        std::cout << "=== END RESULT ===" << std::endl;
+    } else {
+        std::cout << "No result found!" << std::endl;
+    }
 
     monitor.stop();
     //std::filesystem::remove_all(workspace);
