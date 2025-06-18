@@ -1,14 +1,14 @@
-/*
-* nrvna - Local AI Orchestration Engine
-* Copyright (c) 2025 Sanmathi Bharamgouda
-* SPDX-License-Identifier: MIT
-*/
 #include "nrvna/server.hpp"
-#include "nrvna/monitor.hpp"  // ✅ Uncommented
+#include "nrvna/monitor.hpp"
 #include <filesystem>
 #include <iostream>
+#include <csignal>
+#include <chrono>
+#include <thread>
 
 namespace nrvna {
+
+    std::atomic<bool> Server::shutdown_requested_{false};
 
     Server::Server(const std::string& modelPath, const std::string& workspace)
         : model_path_(modelPath), workspace_(workspace) {
@@ -19,39 +19,63 @@ namespace nrvna {
     }
 
     bool Server::start() {
-        if (monitor_) {
+        if (monitor_ || running_) {
             std::cerr << "Server already started" << std::endl;
             return false;
         }
 
-        if (!setupWorkspace()) {
+        if (!setup()) return false;
+
+        std::signal(SIGINT, signalHandler);
+        std::signal(SIGTERM, signalHandler);
+
+        monitor_ = std::make_unique<Monitor>(model_path_, workspace_);
+
+        if (!monitor_->start()) {
+            std::cerr << "Failed to start monitor" << std::endl;
             return false;
         }
 
-        // ✅ Actually create Monitor
-        monitor_ = std::make_unique<Monitor>(model_path_, workspace_);
-        return monitor_->start();  // This will load the AI model
+        running_ = true;
+        return true;
     }
 
     void Server::stop() {
+        if (running_) running_ = false;
         if (monitor_) {
             monitor_->stop();
             monitor_.reset();
-            std::cout << "Server stopped" << std::endl;
         }
     }
 
-    bool Server::setupWorkspace() {
-        try {
-            std::filesystem::create_directories(workspace_ + "/input");
-            std::filesystem::create_directories(workspace_ + "/output");
-            std::filesystem::create_directories(workspace_ + "/processing");
-            std::cout << "Workspace setup complete: " << workspace_ << std::endl;
-            return true;
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to setup workspace: " << e.what() << std::endl;
+    bool Server::waitForShutdown() {
+        if (!running_) return false;
+
+        monitor_->run();
+        while (running_ && !shutdown_requested_) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        stop();
+        return true;
+    }
+
+    bool Server::setup() {
+        if (!std::filesystem::exists(model_path_)) {
+            std::cerr << "Model file not found: " << model_path_ << std::endl;
             return false;
         }
+
+        try {
+            std::filesystem::create_directories(workspace_);
+            return true;
+        } catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    void Server::signalHandler(int signal) {
+        shutdown_requested_ = true;
     }
 
 } // namespace nrvna

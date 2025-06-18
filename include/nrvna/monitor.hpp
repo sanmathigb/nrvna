@@ -8,6 +8,11 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <thread>
+#include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 namespace nrvna {
     class Runner;
@@ -15,23 +20,34 @@ namespace nrvna {
     class Monitor {
     public:
         explicit Monitor(const std::string& modelPath,
-                        const std::string& workspace);
+                        const std::string& workspace,
+                        int numWorkers = 6);
         ~Monitor();
 
         bool start();
         void stop();
-
-        // Job processing method - exactly matches implementation
-        int processJobs();
+        int process();
+        void run();
 
     private:
         std::string model_path_;
         std::string workspace_;
-        std::unique_ptr<Runner> runner_;
+        int numWorkers_;
+        std::vector<std::unique_ptr<Runner>> runners_;
 
-        // Private methods - exactly match implementation
-        bool setupDirectories();
+        std::atomic<bool> running_;
+        std::vector<std::thread> workers_;
+        std::thread monitor_thread_;
+
+        // PNPL queue pattern
+        std::queue<std::string> job_queue_;
+        std::mutex queue_mutex_;
+        std::condition_variable job_available_;
+
+        bool setup();
         std::vector<std::string> findJobs() const;
-        bool processJob(const std::string& jobId);
+        bool processJob(const std::string& jobId, int workerId);
+        void monitorDirectory();
+        void workerFunction(int workerId);
     };
 } // namespace nrvna

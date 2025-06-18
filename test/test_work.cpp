@@ -1,5 +1,4 @@
 #include "nrvna/work.hpp"
-#include <filesystem>
 
 int main() {
     nrvna::Work wrk("./test_tmp");

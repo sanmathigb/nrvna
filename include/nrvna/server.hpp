@@ -7,6 +7,7 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <atomic>
 
 namespace nrvna {
     class Monitor;
@@ -14,17 +15,21 @@ namespace nrvna {
     class Server {
     public:
         explicit Server(const std::string& modelPath,
-                       const std::string& workspace = "./data");
+                       const std::string& workspace);
         ~Server();
 
         bool start();
         void stop();
+        bool waitForShutdown();
 
     private:
         std::string model_path_;
         std::string workspace_;
         std::unique_ptr<Monitor> monitor_;
+        std::atomic<bool> running_{false};
 
-        bool setupWorkspace();
+        bool setup();
+        static std::atomic<bool> shutdown_requested_;
+        static void signalHandler(int signal);
     };
 } // namespace nrvna

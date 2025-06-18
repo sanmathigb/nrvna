@@ -17,7 +17,7 @@ int main() {
     if (!monitor.start()) return 1;
 
     // Process jobs (should find and process our job)
-    int processed = monitor.processJobs();
+    int processed = monitor.process();
 
     // Check result exists in output
     nrvna::Flow flow(workspace + "/output");

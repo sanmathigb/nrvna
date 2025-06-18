@@ -8,13 +8,16 @@
 #include <string>
 
 namespace nrvna {
-class Work {
+    class Work {
     public:
         Work();
         explicit Work(const std::string& inputLocation);
         std::string submit(const std::string& content);
+
     private:
         std::string inputLocation_;
+
         std::string generateJobId();
+        void configure();
     };
 }
