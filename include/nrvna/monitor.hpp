@@ -39,7 +39,6 @@ namespace nrvna {
         std::vector<std::thread> workers_;
         std::thread monitor_thread_;
 
-        // PNPL queue pattern
         std::queue<std::string> job_queue_;
         std::mutex queue_mutex_;
         std::condition_variable job_available_;
@@ -49,5 +48,9 @@ namespace nrvna {
         bool processJob(const std::string& jobId, int workerId);
         void monitorDirectory();
         void workerFunction(int workerId);
+
+        // Email functionality
+        std::string readEmailFromMeta(const std::string& metaPath);
+        void sendEmailNotification(const std::string& email, const std::string& jobId, const std::string& result);
     };
 } // namespace nrvna

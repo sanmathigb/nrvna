@@ -12,12 +12,14 @@ namespace nrvna {
     public:
         Work();
         explicit Work(const std::string& inputLocation);
+
         std::string submit(const std::string& content);
+        std::string submit(const std::string& content, const std::string& email);
 
     private:
         std::string inputLocation_;
 
         std::string generateJobId();
-        void configure();
+        void setupDirectories();
     };
 }

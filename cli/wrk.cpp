@@ -1,27 +1,35 @@
 #include "nrvna/work.hpp"
 #include <iostream>
 #include <string>
+
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <workspace> <content>" << std::endl;
-        std::cerr << "Examples:" << std::endl;
-        std::cerr << "  " << argv[0] << " data-text \"write a blog post\"" << std::endl;
-        std::cerr << "  " << argv[0] << " data-code \"debug this function\"" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <workspace> <content> [--email <address>]\n";
         return 1;
     }
 
     std::string workspace = argv[1];
     std::string inputDir = workspace + "/input";
+    std::string email = "";
 
-    // Combine remaining arguments into content
+    // Parse content and optional email
     std::string content;
+    int contentStart = 2;
+
     for (int i = 2; i < argc; i++) {
-        if (i > 2) content += " ";
-        content += argv[i];
+        std::string arg = argv[i];
+
+        if (arg == "--email" && i + 1 < argc) {
+            email = argv[++i];
+        } else {
+            if (!content.empty()) content += " ";
+            content += arg;
+        }
     }
 
     nrvna::Work work(inputDir);
-    std::string jobId = work.submit(content);
+    std::string jobId = work.submit(content, email);
+
     if (!jobId.empty()) {
         std::cout << jobId << std::endl;
         return 0;

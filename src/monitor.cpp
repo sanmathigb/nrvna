@@ -1,11 +1,12 @@
 #include "nrvna/monitor.hpp"
 #include "nrvna/runner.hpp"
-#include "nrvna/logger.hpp"  // NEW: Thread-safe logging
+#include "nrvna/logger.hpp"
 #include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <cstdlib>
 
 namespace nrvna {
 
@@ -88,11 +89,18 @@ void Monitor::monitorDirectory() {
                 std::string readyPath = ready_dir + "/" + filename;
                 std::string processingPath = processing_dir + "/" + filename;
 
-                // CRITICAL FIX: Atomic rename BEFORE queuing
+                // Move metadata file if it exists
+                std::string readyMeta = ready_dir + "/" + jobId + ".meta";
+                std::string processingMeta = processing_dir + "/" + jobId + ".meta";
+
                 try {
                     std::filesystem::rename(readyPath, processingPath);
 
-                    // Only if rename succeeded, add to queue
+                    // Move metadata if exists
+                    if (std::filesystem::exists(readyMeta)) {
+                        std::filesystem::rename(readyMeta, processingMeta);
+                    }
+
                     {
                         std::lock_guard<std::mutex> lock(queue_mutex_);
                         job_queue_.push(jobId);
@@ -103,7 +111,6 @@ void Monitor::monitorDirectory() {
 
                 } catch (const std::filesystem::filesystem_error&) {
                     // Another monitor scan or manual intervention moved it
-                    // This is fine, just skip
                 }
             }
 
@@ -149,8 +156,8 @@ void Monitor::workerFunction(int workerId) {
 }
 
 bool Monitor::processJob(const std::string& jobId, int workerId) {
-    // File is already in processing directory!
     std::string processingPath = workspace_ + "/processing/" + jobId + ".txt";
+    std::string processingMeta = workspace_ + "/processing/" + jobId + ".meta";
     std::string outputPath = workspace_ + "/output/" + jobId + ".txt";
     std::string failedPath = workspace_ + "/failed/" + jobId + ".txt";
 
@@ -179,28 +186,76 @@ bool Monitor::processJob(const std::string& jobId, int workerId) {
         outFile << result;
         outFile.close();
 
-        // Cleanup processing file
+        // Check for email notification
+        std::string email = readEmailFromMeta(processingMeta);
+        if (!email.empty()) {
+            sendEmailNotification(email, jobId, result);
+        }
+
+        // Cleanup processing files
         std::filesystem::remove(processingPath);
+        if (std::filesystem::exists(processingMeta)) {
+            std::filesystem::remove(processingMeta);
+        }
+
         return true;
 
     } catch (const std::exception& e) {
         // Move to failed directory
         try {
             std::filesystem::rename(processingPath, failedPath);
+            if (std::filesystem::exists(processingMeta)) {
+                std::filesystem::remove(processingMeta);
+            }
         } catch (...) {
-            // Best effort cleanup
             try {
                 std::filesystem::remove(processingPath);
+                std::filesystem::remove(processingMeta);
             } catch (...) {}
         }
         return false;
     }
 }
 
+std::string Monitor::readEmailFromMeta(const std::string& metaPath) {
+    if (!std::filesystem::exists(metaPath)) {
+        return "";
+    }
+
+    std::ifstream metaFile(metaPath);
+    if (!metaFile) {
+        return "";
+    }
+
+    std::string line;
+    while (std::getline(metaFile, line)) {
+        if (line.size() >= 6 && line.substr(0, 6) == "email=") {
+            return line.substr(6); // Remove "email=" prefix
+        }
+    }
+    return "";
+}
+
+void Monitor::sendEmailNotification(const std::string& email, const std::string& jobId, const std::string& result) {
+    try {
+        // Use standard Unix mail command
+        std::string subject = "nrvna job " + jobId + " completed";
+        std::string command = "echo '" + result + "' | mail -s '" + subject + "' " + email;
+
+        int status = std::system(command.c_str());
+        if (status == 0) {
+            LOG_INFO("Emailed result for " + jobId + " to " + email);
+        } else {
+            LOG_ERROR("Failed to email result for " + jobId + " to " + email);
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR("Email error for " + jobId + ": " + std::string(e.what()));
+    }
+}
+
 int Monitor::process() {
     if (runners_.empty()) return 0;
 
-    // For single-shot processing, work directly on ready directory
     std::string ready_dir = workspace_ + "/input/ready";
     std::string processing_dir = workspace_ + "/processing";
     int processed = 0;
@@ -216,8 +271,16 @@ int Monitor::process() {
             std::string readyPath = ready_dir + "/" + filename;
             std::string processingPath = processing_dir + "/" + filename;
 
+            // Handle metadata file
+            std::string readyMeta = ready_dir + "/" + jobId + ".meta";
+            std::string processingMeta = processing_dir + "/" + jobId + ".meta";
+
             try {
                 std::filesystem::rename(readyPath, processingPath);
+                if (std::filesystem::exists(readyMeta)) {
+                    std::filesystem::rename(readyMeta, processingMeta);
+                }
+
                 if (processJob(jobId, 0)) {
                     processed++;
                 }
@@ -231,7 +294,6 @@ int Monitor::process() {
 }
 
 std::vector<std::string> Monitor::findJobs() const {
-    // Not used anymore - kept for compatibility
     std::vector<std::string> jobs;
     try {
         for (const auto& entry : std::filesystem::directory_iterator(workspace_ + "/input/ready")) {

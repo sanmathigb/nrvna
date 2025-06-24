@@ -11,6 +11,7 @@
 
 namespace nrvna {
     class Monitor;
+    class HttpReceiver;  // ← ADD THIS FORWARD DECLARATION
 
     class Server {
     public:
@@ -26,6 +27,7 @@ namespace nrvna {
         std::string model_path_;
         std::string workspace_;
         std::unique_ptr<Monitor> monitor_;
+        std::unique_ptr<HttpReceiver> http_server_;  // ← ADD THIS MEMBER
         std::atomic<bool> running_{false};
 
         bool setup();
