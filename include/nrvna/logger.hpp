@@ -1,73 +1,69 @@
-/*
-* nrvna - Local AI Orchestration Engine
-* Copyright (c) 2025 Sanmathi Bharamgouda
-* SPDX-License-Identifier: MIT
-*/
-
 #pragma once
-#include <string>
-#include <mutex>
+
 #include <iostream>
+#include <string>
+#include <chrono>
+#include <iomanip>
+#include <mutex>
 
-namespace nrvna {
+// Log levels
+enum class LogLevel {
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR
+};
 
-    enum class LogLevel {
-        ERROR = 0,
-        INFO = 1,
-        DEBUG = 2
-    };
+class Logger {
+public:
+    static Logger& instance() {
+        static Logger instance;
+        return instance;
+    }
 
-    class Logger {
-    public:
-        static Logger& instance() {
-            static Logger logger;
-            return logger;
-        }
+    void setLevel(LogLevel level) {
+        m_currentLogLevel = level;
+    }
 
-        void setLevel(LogLevel level) {
-            level_ = level;
-        }
+    LogLevel getLevel() const {
+        return m_currentLogLevel;
+    }
 
-        LogLevel getLevel() const {
-            return level_;
-        }
+    void log(LogLevel level, const std::string& message) const {
+        if (level >= m_currentLogLevel) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            auto now = std::chrono::system_clock::now();
+            auto in_time_t = std::chrono::system_clock::to_time_t(now);
+            struct tm buf;
+#ifdef _WIN32
+            localtime_s(&buf, &in_time_t);
+#else
+            localtime_r(&in_time_t, &buf);
+#endif
 
-        // Thread-safe logging methods
-        void error(const std::string& message) {
-            log(LogLevel::ERROR, "ERROR", message);
-        }
-
-        void info(const std::string& message) {
-            if (level_ >= LogLevel::INFO) {
-                log(LogLevel::INFO, "INFO", message);
+            std::string level_str;
+            switch (level) {
+                case LogLevel::DEBUG: level_str = "DEBUG"; break;
+                case LogLevel::INFO:  level_str = "INFO";  break;
+                case LogLevel::WARN:  level_str = "WARN";  break;
+                case LogLevel::ERROR: level_str = "ERROR"; break;
             }
+            
+            std::cerr << "[" << std::put_time(&buf, "%Y-%m-%d %X") 
+                      << "] [" << level_str << "] " << message << std::endl;
         }
+    }
 
-        void debug(const std::string& message) {
-            if (level_ >= LogLevel::DEBUG) {
-                log(LogLevel::DEBUG, "DEBUG", message);
-            }
-        }
+private:
+    Logger() : m_currentLogLevel(LogLevel::INFO) {}
+    LogLevel m_currentLogLevel;
+    mutable std::mutex m_mutex;
+};
 
-    private:
-        Logger() = default;
-        std::mutex mutex_;
-        LogLevel level_ = LogLevel::ERROR; // Default: only errors
+// Logging macros
+#define LOG_DEBUG(msg) Logger::instance().log(LogLevel::DEBUG, msg)
+#define LOG_INFO(msg)  Logger::instance().log(LogLevel::INFO, msg)
+#define LOG_WARN(msg)  Logger::instance().log(LogLevel::WARN, msg)
+#define LOG_ERROR(msg) Logger::instance().log(LogLevel::ERROR, msg)
 
-        void log(LogLevel level, const std::string& prefix, const std::string& message) {
-            std::lock_guard<std::mutex> lock(mutex_);
-
-            if (level == LogLevel::ERROR) {
-                std::cerr << "[" << prefix << "] " << message << std::endl;
-            } else {
-                std::cout << "[" << prefix << "] " << message << std::endl;
-            }
-        }
-    };
-
-    // Convenient macros for clean code
-#define LOG_ERROR(msg) nrvna::Logger::instance().error(msg)
-#define LOG_INFO(msg) nrvna::Logger::instance().info(msg)
-#define LOG_DEBUG(msg) nrvna::Logger::instance().debug(msg)
-
-} // namespace nrvna
+        

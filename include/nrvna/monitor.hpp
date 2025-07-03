@@ -26,7 +26,6 @@ namespace nrvna {
 
         bool start();
         void stop();
-        int process();
         void run();
 
     private:
@@ -44,7 +43,6 @@ namespace nrvna {
         std::condition_variable job_available_;
 
         bool setup();
-        std::vector<std::string> findJobs() const;
         bool processJob(const std::string& jobId, int workerId);
         void monitorDirectory();
         void workerFunction(int workerId);

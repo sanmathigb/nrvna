@@ -1,24 +1,31 @@
-#pragma once
+#ifndef NRVNA_HTTP_RECEIVER_HPP
+#define NRVNA_HTTP_RECEIVER_HPP
+
+#include <atomic>
 #include <string>
 #include <thread>
-#include <atomic>
 
 namespace nrvna {
-    class HttpReceiver {
-    public:
-        HttpReceiver(int port, const std::string& workspace);
-        ~HttpReceiver();
-        void start();
-        void stop();
 
-    private:
-        int port_;
-        int server_fd_;
-        std::string workspace_;
-        std::atomic<bool> running_;
-        std::thread server_thread_;
+class HttpReceiver {
+public:
+    explicit HttpReceiver(int port, const std::string& inputDir);
+    ~HttpReceiver();
 
-        void serve();
-        void handle_request(int client_socket);
-    };
-}
+    void start();
+    void stop();
+
+private:
+    void serverLoop();
+    void handleRequest(int clientSocket);
+
+    int port_;
+    std::string inputDir_;
+    std::atomic<bool> running_;
+    int serverSocket_;
+    std::thread serverThread_;
+};
+
+} // namespace nrvna
+
+#endif // NRVNA_HTTP_RECEIVER_HPP

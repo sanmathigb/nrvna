@@ -253,57 +253,6 @@ void Monitor::sendEmailNotification(const std::string& email, const std::string&
     }
 }
 
-int Monitor::process() {
-    if (runners_.empty()) return 0;
-
-    std::string ready_dir = workspace_ + "/input/ready";
-    std::string processing_dir = workspace_ + "/processing";
-    int processed = 0;
-
-    try {
-        for (const auto& entry : std::filesystem::directory_iterator(ready_dir)) {
-            if (!entry.is_regular_file() || entry.path().extension() != ".txt") {
-                continue;
-            }
-
-            std::string filename = entry.path().filename().string();
-            std::string jobId = entry.path().stem().string();
-            std::string readyPath = ready_dir + "/" + filename;
-            std::string processingPath = processing_dir + "/" + filename;
-
-            // Handle metadata file
-            std::string readyMeta = ready_dir + "/" + jobId + ".meta";
-            std::string processingMeta = processing_dir + "/" + jobId + ".meta";
-
-            try {
-                std::filesystem::rename(readyPath, processingPath);
-                if (std::filesystem::exists(readyMeta)) {
-                    std::filesystem::rename(readyMeta, processingMeta);
-                }
-
-                if (processJob(jobId, 0)) {
-                    processed++;
-                }
-            } catch (...) {
-                // Skip if can't move
-            }
-        }
-    } catch (...) {}
-
-    return processed;
-}
-
-std::vector<std::string> Monitor::findJobs() const {
-    std::vector<std::string> jobs;
-    try {
-        for (const auto& entry : std::filesystem::directory_iterator(workspace_ + "/input/ready")) {
-            if (entry.is_regular_file() && entry.path().extension() == ".txt") {
-                jobs.push_back(entry.path().stem().string());
-            }
-        }
-    } catch (...) {}
-    return jobs;
-}
 
 bool Monitor::setup() {
     try {

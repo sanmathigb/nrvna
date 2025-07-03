@@ -5,6 +5,7 @@
 */
 
 #include "nrvna/runner.hpp"
+#include "nrvna/logger.hpp"
 #include "llama.h"
 #include <vector>
 #include <stdexcept>
@@ -25,11 +26,13 @@ Runner::Runner(const std::string& modelLocation) {
 
     // Load model only if different path or not loaded
     if (!shared_model_ || current_model_path_ != modelLocation) {
+        LOG_DEBUG("Attempting to load model from: " + modelLocation);
         llama_model_params model_params = llama_model_default_params();
         model_params.n_gpu_layers = 0;  // CPU only for 2017 MacBook Pro
 
         llama_model* model = llama_model_load_from_file(modelLocation.c_str(), model_params);
         if (!model) {
+            LOG_ERROR("Failed to load model: " + modelLocation);
             throw std::runtime_error("Failed to load model: " + modelLocation);
         }
 
@@ -108,10 +111,10 @@ std::string Runner::run(const std::string& content) {
 
 std::string Runner::formatPrompt(const std::string& content) {
     // For Mistral:
-    return "<s>[INST] " + content + " [/INST]";
+    //return "<s>[INST] " + content + " [/INST]";
 
     // For TinyLlama (comment above, uncomment below):
-    // return "<|user|>\n" + content + "\n<|assistant|>\n";
+     return "<|user|>\n" + content + "\n<|assistant|>\n";
 }
 
 } // namespace nrvna

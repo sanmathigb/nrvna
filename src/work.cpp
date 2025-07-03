@@ -5,6 +5,7 @@
 */
 
 #include "nrvna/work.hpp"
+#include "nrvna/logger.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -34,7 +35,7 @@ std::string Work::submit(const std::string& content, const std::string& email) {
     std::string writingFile = inputLocation_ + "/writing/" + jobId + ".txt";
     std::ofstream file(writingFile);
     if (!file) {
-        std::cerr << "Failed to create writing file: " << writingFile << std::endl;
+        LOG_ERROR("Failed to create writing file: " + writingFile);
         return "";
     }
     file << content;
@@ -64,7 +65,7 @@ std::string Work::submit(const std::string& content, const std::string& email) {
 
         std::cout << "Job submitted: " << jobId << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Failed to move job to ready: " << e.what() << std::endl;
+        LOG_ERROR("Failed to move job to ready: " + std::string(e.what()));
         // Cleanup partial files
         std::filesystem::remove(writingFile);
         if (!email.empty()) {
@@ -81,7 +82,7 @@ void Work::setupDirectories() {
         std::filesystem::create_directories(inputLocation_ + "/writing");
         std::filesystem::create_directories(inputLocation_ + "/ready");
     } catch (const std::exception& e) {
-        std::cerr << "Failed to setup work directories: " << e.what() << std::endl;
+        LOG_ERROR("Failed to setup work directories: " + std::string(e.what()));
     }
 }
 

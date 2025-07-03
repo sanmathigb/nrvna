@@ -33,5 +33,8 @@ namespace nrvna {
         bool setup();
         static std::atomic<bool> shutdown_requested_;
         static void signalHandler(int signal);
+
+    public:
+        static void requestShutdown();
     };
 } // namespace nrvna

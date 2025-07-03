@@ -1,24 +1,56 @@
+// Enhanced cli/server.cpp with better logging control
+
 #include "nrvna/server.hpp"
 #include "nrvna/logger.hpp"
 #include <iostream>
+#include <string>
+
+using namespace nrvna;
+
+void printUsage(const char* program) {
+    std::cout << "usage: " << program << " <model> <workspace> [-v|-d]\n";
+}
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cout << "Usage: " << argv[0] << " <model_path> <workspace> [-v]\n";
+        printUsage(argv[0]);
         return 1;
     }
 
-    // Default: quiet (errors only)
-    nrvna::LogLevel logLevel = nrvna::LogLevel::ERROR;
+    // Default: Show only errors and critical startup info
+    LogLevel logLevel = LogLevel::ERROR;
 
-    // Check for -v flag
-    if (argc > 3 && std::string(argv[3]) == "-v") {
-        logLevel = nrvna::LogLevel::DEBUG;
+    // Parse logging flags
+    if (argc > 3) {
+        std::string flag = argv[3];
+        if (flag == "-q" || flag == "--quiet") {
+            logLevel = LogLevel::ERROR;
+        } else if (flag == "-v" || flag == "--verbose") {
+            logLevel = LogLevel::INFO;
+        } else if (flag == "-d" || flag == "--debug") {
+            logLevel = LogLevel::DEBUG;
+        } else if (flag == "-h" || flag == "--help") {
+            printUsage(argv[0]);
+            return 0;
+        } else {
+            std::cerr << "unknown option: " << flag << std::endl;
+            printUsage(argv[0]);
+            return 1;
+        }
     }
 
-    nrvna::Logger::instance().setLevel(logLevel);
+    // Set logging level
+    Logger::instance().setLevel(logLevel);
 
-    nrvna::Server server(argv[1], argv[2]);
-    if (!server.start()) return 1;
+    // Always show startup message (even in quiet mode)
+    std::cout << "zero: ready\n";
+
+    // Start the server
+    Server server(argv[1], argv[2]);
+    if (!server.start()) {
+        std::cerr << "failed to start server\n";
+        return 1;
+    }
+
     return server.waitForShutdown() ? 0 : 1;
 }
