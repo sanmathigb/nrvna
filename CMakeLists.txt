@@ -40,6 +40,11 @@ set(NRVNA_SOURCES
 
 # Core library
 add_library(nrvna_core STATIC ${NRVNA_SOURCES})
+if(TARGET llama-common)
+    set(NRVNA_LLAMA_COMMON_TARGET llama-common)
+else()
+    set(NRVNA_LLAMA_COMMON_TARGET common)
+endif()
 target_include_directories(nrvna_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/include
@@ -49,7 +54,7 @@ target_include_directories(nrvna_core PUBLIC
 target_link_libraries(nrvna_core PUBLIC
     llama
     mtmd
-    common
+    ${NRVNA_LLAMA_COMMON_TARGET}
     Threads::Threads
 )
 target_compile_options(nrvna_core PRIVATE -Wall -Wextra -Wpedantic)
