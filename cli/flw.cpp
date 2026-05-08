@@ -270,7 +270,10 @@ int main(int argc, char* argv[]) {
                     std::cout << std::filesystem::absolute(audioPath).string() << std::endl;
                     return 0;
                 }
-                std::cout << job->content << std::endl;
+                std::cout << job->content;
+                if (!job->content.empty() && job->content.back() != '\n') {
+                    std::cout << '\n';
+                }
                 return 0;
             } else if (job->status == Status::Failed) {
                 std::cerr << "Job failed: " << jobId << std::endl;

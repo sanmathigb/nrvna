@@ -8,12 +8,14 @@
 #include "nrvna/runner.hpp"
 #include "nrvna/server.hpp"
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -42,6 +44,22 @@ std::string toLower(std::string value) {
 
 bool containsToken(const std::string & haystack, const std::string & needle) {
     return haystack.find(needle) != std::string::npos;
+}
+
+int daemonGpuLayers() {
+    const char* value = std::getenv("NRVNA_GPU_LAYERS");
+    if (!value) return 0;
+
+    errno = 0;
+    char* end = nullptr;
+    long parsed = std::strtol(value, &end, 10);
+    if (end == value || *end != '\0' || errno == ERANGE ||
+        parsed < std::numeric_limits<int>::min() ||
+        parsed > std::numeric_limits<int>::max()) {
+        LOG_WARN("Invalid integer for NRVNA_GPU_LAYERS='" + std::string(value) + "', using default 0");
+        return 0;
+    }
+    return static_cast<int>(parsed);
 }
 
 std::filesystem::path resolveModelsDir(const char * argv0) {
@@ -192,13 +210,7 @@ void applyModelDefaults(const std::filesystem::path & modelPath, const ModelInfo
 
     constexpr uint64_t VRAM_4GB = 4ULL * 1024 * 1024 * 1024;
     if (info.model_size_bytes > VRAM_4GB) {
-        int gpuLayers = 99;
-#if !defined(__APPLE__)
-        gpuLayers = 0;
-#endif
-        if (std::getenv("NRVNA_GPU_LAYERS")) {
-            gpuLayers = std::atoi(std::getenv("NRVNA_GPU_LAYERS"));
-        }
+        int gpuLayers = daemonGpuLayers();
         if (gpuLayers > 0) {
             double gb = static_cast<double>(info.model_size_bytes) / (1024.0 * 1024.0 * 1024.0);
             LOG_WARN("Model size " + std::to_string(gb).substr(0, 4) + " GB may exceed efficient GPU fit (4 GB VRAM). "
@@ -256,6 +268,18 @@ int main(int argc, char * argv[]) {
     std::string mmprojPath;
     std::string vocoderPath;
     int workers = 4;
+    if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
+        try {
+            workers = std::stoi(envWorkers);
+        } catch (...) {
+            std::cerr << "Error: Invalid NRVNA_WORKERS value\n";
+            return 1;
+        }
+        if (workers < 1 || workers > 64) {
+            std::cerr << "Error: NRVNA_WORKERS must be between 1 and 64\n";
+            return 1;
+        }
+    }
 
     std::vector<std::string> positionalArgs;
     for (int i = 1; i < argc; ++i) {
@@ -353,6 +377,13 @@ int main(int argc, char * argv[]) {
     }
 
     applyModelDefaults(std::filesystem::path(modelPath), probeInfo);
+
+    LOG_INFO("nrvna daemon config: model=" + modelPath +
+             " workspace=" + workspace +
+             " workers=" + std::to_string(workers) +
+             " mmproj=" + (mmprojPath.empty() ? std::string("none") : mmprojPath) +
+             " vocoder=" + (vocoderPath.empty() ? std::string("none") : vocoderPath) +
+             " gpu_layers=" + std::to_string(daemonGpuLayers()));
 
     std::cout << "\n";
     std::cout << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90masync · inference · primitive\033[0m\n";

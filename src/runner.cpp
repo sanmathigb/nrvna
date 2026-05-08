@@ -190,11 +190,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 
             llama_model_params model_params = llama_model_default_params();
 
-            #if defined(__APPLE__)
-                model_params.n_gpu_layers = env_int("NRVNA_GPU_LAYERS", 99);
-            #else
-                model_params.n_gpu_layers = env_int("NRVNA_GPU_LAYERS", 0);
-            #endif
+            model_params.n_gpu_layers = effective_gpu_layers();
             if (model_params.n_gpu_layers <= 0) {
                 restrictModelToCpu(model_params);
             }
@@ -253,7 +249,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
     if (!mmprojPath.empty()) {
         LOG_INFO("Loading mmproj: " + mmprojPath);
         mtmd_context_params mparams = mtmd_context_params_default();
-        mparams.use_gpu = env_int("NRVNA_GPU_LAYERS", 0) > 0;
+        mparams.use_gpu = effective_gpu_layers() > 0;
 
         // Divide threads among workers to prevent parallel vision corruption
         int total_threads = std::thread::hardware_concurrency();
@@ -261,6 +257,12 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
         LOG_INFO("Vision threads per worker: " + std::to_string(mparams.n_threads) +
                  " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(numWorkers) + ")");
         mparams.print_timings = false;
+
+        int image_max_tokens = env_int("NRVNA_IMAGE_MAX_TOKENS", 0);
+        if (image_max_tokens > 0) {
+            mparams.image_max_tokens = image_max_tokens;
+            LOG_INFO("Image max tokens: " + std::to_string(image_max_tokens));
+        }
 
         mtmd_context* ctx = mtmd_init_from_file(mmprojPath.c_str(), shared_model_.get(), mparams);
         if (!ctx) {
@@ -296,14 +298,24 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
 
     config.max_ctx = std::min(n_ctx_train, env_int("NRVNA_MAX_CTX", 8192));
     int n_predict = env_int("NRVNA_PREDICT", 2048);
-    if (n_predict == 2048) {
+    if (!std::getenv("NRVNA_PREDICT")) {
         n_predict = env_int("NRVNA_N_PREDICT", 2048);
     }
     config.n_predict = n_predict;
 
-    LOG_INFO("Model context: " + std::to_string(n_ctx_train) +
-             ", using max_ctx=" + std::to_string(config.max_ctx) +
-             ", n_predict=" + std::to_string(config.n_predict));
+    const int batch = env_int("NRVNA_BATCH", 2048);
+    const int ubatch = env_int("NRVNA_UBATCH", batch);
+    const int image_max_tokens = env_int("NRVNA_IMAGE_MAX_TOKENS", 0);
+    const char* thinking = std::getenv("NRVNA_THINKING");
+
+    LOG_INFO("nrvna runtime config: gpu_layers=" + std::to_string(effective_gpu_layers()) +
+             " max_ctx=" + std::to_string(config.max_ctx) +
+             " n_predict=" + std::to_string(config.n_predict) +
+             " batch=" + std::to_string(batch) +
+             " ubatch=" + std::to_string(ubatch) +
+             " thinking=" + std::string(thinking && std::string(thinking) == "0" ? "off" : "on") +
+             " image_max_tokens=" + (image_max_tokens > 0 ? std::to_string(image_max_tokens) : std::string("default")) +
+             " model_ctx=" + std::to_string(n_ctx_train));
 
     return config;
 }
@@ -312,9 +324,11 @@ void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llam
     params = llama_context_default_params();
     params.n_ctx = std::min(n_prompt + config.n_predict + 64, config.max_ctx);
     params.n_batch = env_int("NRVNA_BATCH", 2048);  // Match reference CLI default
+    // Default ubatch to batch so vision encoders can opt into smaller chunks only when needed.
+    params.n_ubatch = env_int("NRVNA_UBATCH", params.n_batch);
     params.no_perf = false;
 
-    if (env_int("NRVNA_GPU_LAYERS", 0) <= 0) {
+    if (effective_gpu_layers() <= 0) {
         params.offload_kqv = false;
         params.op_offload = false;
     }
@@ -371,7 +385,7 @@ EmbedResult Runner::embed(const std::string& text) {
         ctx_params.n_ubatch = tokens.size();  // encoder requires n_ubatch >= n_tokens
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;  // Mean pooling for sentence embeddings
-        if (env_int("NRVNA_GPU_LAYERS", 0) <= 0) {
+        if (effective_gpu_layers() <= 0) {
             ctx_params.offload_kqv = false;
             ctx_params.op_offload = false;
         }
@@ -480,7 +494,7 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;
         ctx_params.no_perf = false;
-        if (env_int("NRVNA_GPU_LAYERS", 0) <= 0) {
+        if (effective_gpu_layers() <= 0) {
             ctx_params.offload_kqv = false;
             ctx_params.op_offload = false;
         }
@@ -577,8 +591,14 @@ RunResult Runner::runText(const std::string& prompt) {
             return {false, "", "Failed to tokenize input"};
         }
 
-        int max_predict = config.max_ctx - n_prompt - 64;
-        if (max_predict < 0) max_predict = 0;
+        constexpr int kContextOverhead = 64;
+        int max_predict = config.max_ctx - n_prompt - kContextOverhead;
+        if (max_predict <= 0) {
+            return {false, "", "Prompt too large for context budget: prompt_tokens=" +
+                std::to_string(n_prompt) + " max_ctx=" + std::to_string(config.max_ctx) +
+                " overhead=" + std::to_string(kContextOverhead) +
+                " requested_n_predict=" + std::to_string(config.n_predict)};
+        }
         if (config.n_predict > max_predict) {
             config.n_predict = max_predict;
         }
@@ -740,8 +760,16 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         }
 
         size_t n_prompt = mtmd_helper_get_n_tokens(chunks);
-        int max_predict = config.max_ctx - static_cast<int>(n_prompt) - 64;
-        if (max_predict < 0) max_predict = 0;
+        constexpr int kContextOverhead = 64;
+        int max_predict = config.max_ctx - static_cast<int>(n_prompt) - kContextOverhead;
+        if (max_predict <= 0) {
+            mtmd_input_chunks_free(chunks);
+            freeBitmaps(bitmaps);
+            return {false, "", "Prompt too large for context budget: prompt_tokens=" +
+                std::to_string(n_prompt) + " max_ctx=" + std::to_string(config.max_ctx) +
+                " overhead=" + std::to_string(kContextOverhead) +
+                " requested_n_predict=" + std::to_string(config.n_predict)};
+        }
         if (config.n_predict > max_predict) {
             config.n_predict = max_predict;
         }

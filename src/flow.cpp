@@ -317,7 +317,8 @@ std::string Flow::readResultContent(const JobId& id) const {
     std::ifstream file(resultFile);
     std::string content, line;
     while (std::getline(file, line)) {
-        content += line + "\n";
+        if (!content.empty()) content += "\n";
+        content += line;
     }
     return content;
 }

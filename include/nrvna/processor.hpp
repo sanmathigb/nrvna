@@ -17,6 +17,12 @@ namespace nrvnaai {
 class Runner;
 class TtsRunner;
 
+struct PromptReadResult {
+    bool ok;
+    std::string content;
+    std::string error;
+};
+
 enum class ProcessResult : uint8_t {
     Success,
     Failed,
@@ -60,7 +66,7 @@ private:
     [[nodiscard]] bool finalizeSuccess(const JobId& jobId, const std::string& result) noexcept;
     [[nodiscard]] bool finalizeFailure(const JobId& jobId, const std::string& error) noexcept;
     
-    [[nodiscard]] std::string readPrompt(const JobId& jobId) const noexcept;
+    [[nodiscard]] PromptReadResult readPrompt(const JobId& jobId) const noexcept;
     [[nodiscard]] std::string readJobType(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readImages(const JobId& jobId) const noexcept;
     [[nodiscard]] std::filesystem::path getJobPath(const char* phase, const JobId& jobId) const noexcept;
@@ -68,8 +74,8 @@ private:
     [[nodiscard]] bool finalizeAudio(const JobId& jobId, const std::vector<float>& audio, int sampleRate) noexcept;
 
     // Metal-compatible per-thread Runner management
-    std::unique_ptr<Runner>& getRunnerForWorker(int workerId);
-    std::unique_ptr<TtsRunner>& getTtsRunnerForWorker(int workerId);
+    Runner* getRunnerForWorker(int workerId);
+    TtsRunner* getTtsRunnerForWorker(int workerId);
 };
 
 }

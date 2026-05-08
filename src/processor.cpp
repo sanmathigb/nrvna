@@ -96,14 +96,22 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         auto startTime = std::chrono::steady_clock::now();
 
         // Step 2: Read prompt and route metadata
-        std::string prompt = readPrompt(jobId);
+        PromptReadResult promptRead = readPrompt(jobId);
         std::string jobType = readJobType(jobId);
         std::vector<std::filesystem::path> imagePaths = readImages(jobId);
+        if (!promptRead.ok) {
+            completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
+            printJobStatus(jobId, "failed", 0.0, "prompt read error");
+            (void)finalizeFailure(jobId, promptRead.error);
+            return ProcessResult::Failed;
+        }
+
+        const std::string& prompt = promptRead.content;
         const bool allowEmptyPrompt = prompt.empty() && jobType == "embed" && !imagePaths.empty();
         if (prompt.empty() && !allowEmptyPrompt) {
             completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
             printJobStatus(jobId, "failed", 0.0, "empty prompt");
-            (void)finalizeFailure(jobId, "Failed to read prompt file");
+            (void)finalizeFailure(jobId, "Empty prompt");
             return ProcessResult::Failed;
         }
 
@@ -117,7 +125,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 return ProcessResult::Failed;
             }
 
-            std::unique_ptr<TtsRunner>& ttsRunner = getTtsRunnerForWorker(workerId);
+            TtsRunner* ttsRunner = getTtsRunnerForWorker(workerId);
             if (!ttsRunner) {
                 auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
                 completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
@@ -154,7 +162,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         }
 
         // Text, embed, or vision — these all need the text Runner
-        std::unique_ptr<Runner>& runner = getRunnerForWorker(workerId);
+        Runner* runner = getRunnerForWorker(workerId);
         if (!runner) {
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
@@ -408,19 +416,19 @@ std::string Processor::readJobType(const JobId& jobId) const noexcept {
     }
 }
 
-std::string Processor::readPrompt(const JobId& jobId) const noexcept {
+PromptReadResult Processor::readPrompt(const JobId& jobId) const noexcept {
     try {
         auto promptPath = getJobPath("processing", jobId) / "prompt.txt";
         
         if (!std::filesystem::exists(promptPath)) {
             LOG_ERROR("Prompt file not found: " + promptPath.string());
-            return "";
+            return {false, "", "Prompt file not found"};
         }
         
         std::ifstream file(promptPath, std::ios::binary);
         if (!file) {
             LOG_ERROR("Failed to open prompt file: " + promptPath.string());
-            return "";
+            return {false, "", "Failed to open prompt file"};
         }
         
         std::string content((std::istreambuf_iterator<char>(file)), 
@@ -430,13 +438,13 @@ std::string Processor::readPrompt(const JobId& jobId) const noexcept {
             LOG_WARN("Empty prompt file: " + promptPath.string());
         }
         
-        return content;
+        return {true, content, ""};
     } catch (const std::exception& e) {
         LOG_ERROR("Exception reading prompt for job " + jobId + ": " + std::string(e.what()));
-        return "";
+        return {false, "", "Failed to read prompt: " + std::string(e.what())};
     } catch (...) {
         LOG_ERROR("Unknown error reading prompt for job: " + jobId);
-        return "";
+        return {false, "", "Unknown error reading prompt"};
     }
 }
 
@@ -472,7 +480,7 @@ bool Processor::initializeRunners(int numWorkers) {
 }
 
 // CRITICAL: Metal-compatible per-thread Runner management
-std::unique_ptr<Runner>& Processor::getRunnerForWorker(int workerId) {
+Runner* Processor::getRunnerForWorker(int workerId) {
     std::lock_guard<std::mutex> lock(runnersMutex_);
 
     auto it = runners_.find(workerId);
@@ -481,7 +489,7 @@ std::unique_ptr<Runner>& Processor::getRunnerForWorker(int workerId) {
         throw std::runtime_error("Runner not initialized for worker " + std::to_string(workerId));
     }
 
-    return it->second;
+    return it->second.get();
 }
 
 bool Processor::initializeTtsRunners(int numWorkers) {
@@ -504,7 +512,7 @@ bool Processor::initializeTtsRunners(int numWorkers) {
     }
 }
 
-std::unique_ptr<TtsRunner>& Processor::getTtsRunnerForWorker(int workerId) {
+TtsRunner* Processor::getTtsRunnerForWorker(int workerId) {
     std::lock_guard<std::mutex> lock(ttsRunnersMutex_);
 
     auto it = ttsRunners_.find(workerId);
@@ -513,7 +521,7 @@ std::unique_ptr<TtsRunner>& Processor::getTtsRunnerForWorker(int workerId) {
         throw std::runtime_error("TtsRunner not initialized for worker " + std::to_string(workerId));
     }
 
-    return it->second;
+    return it->second.get();
 }
 
 bool Processor::finalizeAudio(const JobId& jobId, const std::vector<float>& audio, int sampleRate) noexcept {
