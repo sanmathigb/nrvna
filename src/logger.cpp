@@ -13,7 +13,6 @@
 #include <sstream>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
 #include <ctime>
 
 namespace nrvnaai {
@@ -22,7 +21,6 @@ static LogLevel g_level = LogLevel::INFO;
 static std::mutex g_log_mutex;
 static std::mutex g_time_mutex;
 static bool g_level_initialized = false;
-static std::unordered_map<std::thread::id, std::string> g_thread_names;
 thread_local static std::string g_thread_name;
 
 static std::tm toLocalTime(std::time_t raw_time) {
@@ -129,8 +127,6 @@ const char* Logger::levelToString(LogLevel level) noexcept {
 
 void setThreadName(const std::string& name) {
     g_thread_name = name;
-    std::lock_guard<std::mutex> lock(g_log_mutex);
-    g_thread_names[std::this_thread::get_id()] = name;
 }
 
 std::string getThreadName(int worker_id) {
