@@ -48,11 +48,15 @@ void writeCompletionMeta(const std::filesystem::path& jobPath,
     (void)nrvnaai::writeMetaJson(jobPath, meta);
 }
 
+static const char* kColorRunning  = "\033[33m"; // yellow
+static const char* kColorDone     = "\033[32m"; // green
+static const char* kColorFailed   = "\033[31m"; // red
+
 void printJobStatus(const nrvnaai::JobId& id, const std::string& status, double elapsed = -1.0, const std::string& detail = "") {
     std::lock_guard<std::mutex> lock(g_output_mutex);
-    const char* color = "\033[33m"; // yellow = running
-    if (status == "done")   color = "\033[32m";
-    if (status == "failed") color = "\033[31m";
+    const char* color = kColorRunning;
+    if (status == "done")   color = kColorDone;
+    if (status == "failed") color = kColorFailed;
 
     std::cout << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
     if (elapsed >= 0.0) {

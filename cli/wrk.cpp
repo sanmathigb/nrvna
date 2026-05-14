@@ -83,15 +83,6 @@ int main(int argc, char* argv[]) {
     std::string mode;
     SubmitOptions submitOptions;
 
-    auto isValidTag = [](const std::string& tag) {
-        if (tag.empty() || tag.size() > 64) return false;
-        for (char c : tag) {
-            unsigned char uc = static_cast<unsigned char>(c);
-            if (!std::isalnum(uc) && c != '-' && c != '_') return false;
-        }
-        return true;
-    };
-
     // Detect stdin input: `wrk ws` with piped stdin, or `wrk ws - ...`
     bool readStdin = false;
     if (argc == 2 && !isatty(fileno(stdin))) {
@@ -133,7 +124,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             std::string tag = argv[++i];
-            if (!isValidTag(tag)) {
+            if (!Work::isValidTag(tag)) {
                 std::cerr << "Error: invalid tag '" << tag << "'\n";
                 return 1;
             }

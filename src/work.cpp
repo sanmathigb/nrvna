@@ -119,14 +119,14 @@ bool validateAudioPath(const std::filesystem::path& path, SubmissionError& code,
     return true;
 }
 
-bool isValidTag(const std::string& tag) {
+}
+bool Work::isValidTag(const std::string& tag) noexcept {
     if (tag.empty() || tag.size() > 64) {
         return false;
     }
     return std::all_of(tag.begin(), tag.end(), [](unsigned char c) {
         return std::isalnum(c) || c == '-' || c == '_';
     });
-}
 }
 
 Work::Work(const std::filesystem::path& workspace, bool createIfMissing)

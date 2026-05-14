@@ -55,8 +55,9 @@ public:
                                       const std::vector<std::filesystem::path>& imagePaths = {},
                                       const SubmitOptions& opts = {});
     [[nodiscard]] SubmitResult submitAudio(const std::string& prompt,
-                                           const std::vector<std::filesystem::path>& audioPaths,
-                                           const SubmitOptions& opts = {});
+                                            const std::vector<std::filesystem::path>& audioPaths,
+                                            const SubmitOptions& opts = {});
+    [[nodiscard]] static bool isValidTag(const std::string& tag) noexcept;
 
     void setMaxSize(std::size_t maxBytes) noexcept { maxBytes_ = maxBytes; }
     [[nodiscard]] std::size_t maxSize() const noexcept { return maxBytes_; }

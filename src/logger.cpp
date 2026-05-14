@@ -23,6 +23,7 @@ static std::mutex g_log_mutex;
 static std::mutex g_time_mutex;
 static bool g_level_initialized = false;
 static std::unordered_map<std::thread::id, std::string> g_thread_names;
+thread_local static std::string g_thread_name;
 
 static std::tm toLocalTime(std::time_t raw_time) {
 #if defined(_WIN32)
@@ -72,20 +73,10 @@ void Logger::log(LogLevel level, const std::string& message) noexcept {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             now.time_since_epoch()) % 1000;
 
-        // Get thread name/ID
-        std::string thread_info;
-        {
-            std::lock_guard<std::mutex> lock(g_log_mutex);
-            auto tid = std::this_thread::get_id();
-            auto it = g_thread_names.find(tid);
-            if (it != g_thread_names.end()) {
-                thread_info = it->second;
-            } else {
-                std::ostringstream oss;
-                oss << "T" << tid;
-                thread_info = oss.str();
-            }
-        }
+        // Get thread name from thread_local storage (no lock needed)
+        std::string thread_info = g_thread_name.empty()
+            ? "T" + std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()))
+            : g_thread_name;
 
         const std::tm tm_local = toLocalTime(time_t);
 
@@ -136,8 +127,8 @@ const char* Logger::levelToString(LogLevel level) noexcept {
     }
 }
 
-// Helper function to name threads for better logging
 void setThreadName(const std::string& name) {
+    g_thread_name = name;
     std::lock_guard<std::mutex> lock(g_log_mutex);
     g_thread_names[std::this_thread::get_id()] = name;
 }
