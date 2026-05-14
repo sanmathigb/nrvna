@@ -99,6 +99,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         PromptReadResult promptRead = readPrompt(jobId);
         std::string jobType = readJobType(jobId);
         std::vector<std::filesystem::path> imagePaths = readImages(jobId);
+        std::vector<std::filesystem::path> audioPaths = readAudio(jobId);
         if (!promptRead.ok) {
             completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
             printJobStatus(jobId, "failed", 0.0, "prompt read error");
@@ -107,7 +108,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         }
 
         const std::string& prompt = promptRead.content;
-        const bool allowEmptyPrompt = prompt.empty() && jobType == "embed" && !imagePaths.empty();
+        const bool allowEmptyPrompt = prompt.empty() &&
+            ((jobType == "embed" && !imagePaths.empty()) || (jobType == "stt" && !audioPaths.empty()));
         if (prompt.empty() && !allowEmptyPrompt) {
             completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
             printJobStatus(jobId, "failed", 0.0, "empty prompt");
@@ -169,6 +171,34 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             printJobStatus(jobId, "failed", elapsed, "no runner");
             (void)finalizeFailure(jobId, "No runner available");
             return ProcessResult::SystemError;
+        }
+
+        if (jobType == "stt") {
+            auto sttResult = runner->transcribe(prompt, audioPaths);
+            auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
+            if (sttResult.ok) {
+                if (finalizeTranscript(jobId, sttResult.output)) {
+                    completeJob(getJobPath("output", jobId), elapsed, {"transcript.txt"}, "done");
+                    printJobStatus(jobId, "done", elapsed);
+                    LOG_INFO("STT COMPLETED: " + jobId + " -> " + std::to_string(sttResult.output.size()) + " chars");
+                    return ProcessResult::Success;
+                } else {
+                    LOG_ERROR("Failed to finalize STT job: " + jobId);
+                    if (!finalizeFailure(jobId, "Failed to write transcript to output directory")) {
+                        LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
+                    } else {
+                        completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
+                    }
+                    return ProcessResult::SystemError;
+                }
+            } else {
+                printJobStatus(jobId, "failed", elapsed);
+                if (finalizeFailure(jobId, sttResult.error)) {
+                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
+                }
+                LOG_WARN("STT job failed: " + jobId + " - " + sttResult.error);
+                return ProcessResult::Failed;
+            }
         }
 
         if (jobType == "embed") {
@@ -343,6 +373,38 @@ bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& 
     }
 }
 
+bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transcript) noexcept {
+    try {
+        auto processingPath = getJobPath("processing", jobId);
+        auto outputPath = getJobPath("output", jobId);
+
+        auto tempPath = processingPath / "transcript.txt.tmp";
+        {
+            std::ofstream file(tempPath, std::ios::binary);
+            if (!file) return false;
+            file << transcript;
+            if (!transcript.empty() && transcript.back() != '\n') {
+                file << '\n';
+            }
+            file.flush();
+            if (!file.good()) return false;
+        }
+
+        auto finalPath = processingPath / "transcript.txt";
+        std::filesystem::rename(tempPath, finalPath);
+        std::filesystem::rename(processingPath, outputPath);
+
+        LOG_DEBUG("Transcript job finalized: " + jobId);
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR("Failed to finalize transcript for job " + jobId + ": " + std::string(e.what()));
+        return false;
+    } catch (...) {
+        LOG_ERROR("Unknown error finalizing transcript for job: " + jobId);
+        return false;
+    }
+}
+
 bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) noexcept {
     try {
         auto processingPath = getJobPath("processing", jobId);
@@ -393,6 +455,27 @@ std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) con
         return imagePaths;
     }
     return imagePaths;
+}
+
+std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) const noexcept {
+    std::vector<std::filesystem::path> audioPaths;
+    try {
+        auto audioDir = getJobPath("processing", jobId) / "audio";
+        if (!std::filesystem::exists(audioDir) || !std::filesystem::is_directory(audioDir)) {
+            return audioPaths;
+        }
+
+        for (const auto& entry : std::filesystem::directory_iterator(audioDir)) {
+            if (entry.is_regular_file() || entry.is_symlink()) {
+                audioPaths.push_back(entry.path());
+            }
+        }
+
+        std::sort(audioPaths.begin(), audioPaths.end());
+    } catch (...) {
+        return audioPaths;
+    }
+    return audioPaths;
 }
 
 std::string Processor::readJobType(const JobId& jobId) const noexcept {

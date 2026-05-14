@@ -59,6 +59,7 @@ public:
 
     [[nodiscard]] RunResult run(const std::string& prompt);
     [[nodiscard]] RunResult run(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
+    [[nodiscard]] RunResult transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     [[nodiscard]] EmbedResult embed(const std::string& text);
     [[nodiscard]] EmbedResult embedVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
     [[nodiscard]] bool isMultimodal() const noexcept { return mtmd_ctx_ != nullptr; }
@@ -106,7 +107,9 @@ private:
     llama_sampler* buildSampler(const SamplingConfig& config) const;
     RunResult runText(const std::string& prompt);
     RunResult runVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
+    RunResult runStt(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     std::vector<mtmd_bitmap*> loadImages(const std::vector<std::filesystem::path>& imagePaths) const;
+    std::vector<mtmd_bitmap*> loadAudio(const std::vector<std::filesystem::path>& audioPaths) const;
     void freeBitmaps(std::vector<mtmd_bitmap*>& bitmaps) const noexcept;
 
     mtmd_context* mtmd_ctx_ = nullptr;

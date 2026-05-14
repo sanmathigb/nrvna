@@ -69,8 +69,10 @@ private:
     [[nodiscard]] PromptReadResult readPrompt(const JobId& jobId) const noexcept;
     [[nodiscard]] std::string readJobType(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readImages(const JobId& jobId) const noexcept;
+    [[nodiscard]] std::vector<std::filesystem::path> readAudio(const JobId& jobId) const noexcept;
     [[nodiscard]] std::filesystem::path getJobPath(const char* phase, const JobId& jobId) const noexcept;
     [[nodiscard]] bool finalizeEmbedding(const JobId& jobId, const std::vector<float>& embedding) noexcept;
+    [[nodiscard]] bool finalizeTranscript(const JobId& jobId, const std::string& transcript) noexcept;
     [[nodiscard]] bool finalizeAudio(const JobId& jobId, const std::vector<float>& audio, int sampleRate) noexcept;
 
     // Metal-compatible per-thread Runner management

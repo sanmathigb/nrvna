@@ -246,10 +246,13 @@ int main(int argc, char* argv[]) {
 
                 if (job->status == Status::Done) {
                     auto resultPath = outputDir / "result.txt";
+                    auto transcriptPath = outputDir / "transcript.txt";
                     auto audioPath = outputDir / "audio.wav";
                     auto embeddingPath = outputDir / "embedding.json";
                     if (std::filesystem::exists(resultPath)) {
                         out << ",\"result\":\"" << escapeJson(job->content) << "\"";
+                    } else if (std::filesystem::exists(transcriptPath)) {
+                        out << ",\"transcript\":\"" << escapeJson(job->content) << "\"";
                     } else if (std::filesystem::exists(audioPath)) {
                         out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(audioPath).string()) << "\"";
                     } else if (std::filesystem::exists(embeddingPath)) {

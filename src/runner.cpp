@@ -14,6 +14,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <cctype>
 
 namespace nrvnaai {
 
@@ -40,6 +41,15 @@ static std::mutex vision_encoding_mutex_;
 // Strip <think>...</think> blocks from reasoning models (DeepSeek-R1, QwQ, Qwen3, etc.)
 // Handles both closed (<think>...</think>) and unclosed (<think>... to end) blocks —
 // unclosed blocks occur when the model exhausts n_predict tokens while still reasoning.
+static std::string trimWhitespace(const std::string& text) {
+    size_t start = text.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) {
+        return "";
+    }
+    size_t end = text.find_last_not_of(" \t\n\r");
+    return text.substr(start, end - start + 1);
+}
+
 static std::string stripThinkBlocks(const std::string& text) {
     std::string result = text;
     size_t pos = 0;
@@ -94,8 +104,21 @@ static std::string stripThinkBlocks(const std::string& text) {
         }
     }
 
-    size_t start = result.find_first_not_of(" \t\n\r");
-    return (start == std::string::npos) ? "" : result.substr(start);
+    return trimWhitespace(result);
+}
+
+static std::string extractAsrText(const std::string& text) {
+    std::string result = stripThinkBlocks(text);
+    const std::string marker = "<asr_text>";
+    size_t pos = result.find(marker);
+    if (pos != std::string::npos) {
+        result = result.substr(pos + marker.size());
+        size_t end = result.rfind("</asr_text>");
+        if (end != std::string::npos) {
+            result = result.substr(0, end);
+        }
+    }
+    return trimWhitespace(result);
 }
 
 // Read GGUF metadata helpers
@@ -257,11 +280,18 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
         LOG_INFO("Vision threads per worker: " + std::to_string(mparams.n_threads) +
                  " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(numWorkers) + ")");
         mparams.print_timings = false;
+        mparams.warmup = env_int("NRVNA_WARMUP", 0) != 0;
 
         int image_max_tokens = env_int("NRVNA_IMAGE_MAX_TOKENS", 0);
         if (image_max_tokens > 0) {
             mparams.image_max_tokens = image_max_tokens;
             LOG_INFO("Image max tokens: " + std::to_string(image_max_tokens));
+        }
+
+        int flash_attn = env_int("NRVNA_FLASH_ATTN", -1);
+        if (flash_attn >= 0) {
+            mparams.flash_attn_type = static_cast<llama_flash_attn_type>(flash_attn);
+            LOG_INFO("Flash attention: " + std::to_string(flash_attn));
         }
 
         mtmd_context* ctx = mtmd_init_from_file(mmprojPath.c_str(), shared_model_.get(), mparams);
@@ -357,6 +387,10 @@ llama_sampler* Runner::buildSampler(const SamplingConfig& config) const {
 
 RunResult Runner::run(const std::string& prompt) {
     return runText(prompt);
+}
+
+RunResult Runner::transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths) {
+    return runStt(prompt, audioPaths);
 }
 
 EmbedResult Runner::embed(const std::string& text) {
@@ -854,6 +888,150 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
     }
 }
 
+RunResult Runner::runStt(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths) {
+    if (!shared_model_) {
+        return {false, "", "Model not loaded"};
+    }
+
+    if (!mtmd_ctx_) {
+        return {false, "", "STT job requires --mmproj flag"};
+    }
+
+    if (!mtmd_support_audio(mtmd_ctx_)) {
+        return {false, "", "Current mmproj does not support audio input"};
+    }
+
+    if (audioPaths.empty()) {
+        return {false, "", "No audio file provided for STT"};
+    }
+
+    try {
+        SamplingConfig config = buildSamplingConfig();
+        config.temp = env_float("NRVNA_STT_TEMP", config.temp);
+        config.n_predict = env_int("NRVNA_STT_PREDICT", config.n_predict);
+
+        LOG_INFO("STT job: " + std::to_string(audioPaths.size()) + " audio file(s), temp=" + std::to_string(config.temp));
+
+        const char* marker = mtmd_default_marker();
+        const std::string task = prompt.empty() ? "Transcribe the audio." : prompt;
+        std::string formatted_prompt = formatMultimodalPrompt(task, audioPaths.size(), marker);
+
+        std::vector<mtmd_bitmap*> audioBitmaps = loadAudio(audioPaths);
+        if (audioBitmaps.empty()) {
+            return {false, "", "Failed to load audio file(s)"};
+        }
+
+        mtmd_input_text text;
+        text.text = formatted_prompt.c_str();
+        text.add_special = true;
+        text.parse_special = true;
+
+        mtmd_input_chunks* chunks = mtmd_input_chunks_init();
+        if (!chunks) {
+            freeBitmaps(audioBitmaps);
+            return {false, "", "Failed to init audio chunks"};
+        }
+
+        std::vector<const mtmd_bitmap*> bitmap_ptrs;
+        bitmap_ptrs.reserve(audioBitmaps.size());
+        for (auto* bmp : audioBitmaps) {
+            bitmap_ptrs.push_back(bmp);
+        }
+
+        int32_t res = mtmd_tokenize(mtmd_ctx_, chunks, &text, bitmap_ptrs.data(), bitmap_ptrs.size());
+        if (res != 0) {
+            mtmd_input_chunks_free(chunks);
+            freeBitmaps(audioBitmaps);
+            return {false, "", "Failed to tokenize audio prompt"};
+        }
+
+        size_t n_prompt = mtmd_helper_get_n_tokens(chunks);
+        constexpr int kContextOverhead = 64;
+        int max_predict = config.max_ctx - static_cast<int>(n_prompt) - kContextOverhead;
+        if (max_predict <= 0) {
+            mtmd_input_chunks_free(chunks);
+            freeBitmaps(audioBitmaps);
+            return {false, "", "Prompt too large for context budget: prompt_tokens=" +
+                std::to_string(n_prompt) + " max_ctx=" + std::to_string(config.max_ctx) +
+                " overhead=" + std::to_string(kContextOverhead) +
+                " requested_n_predict=" + std::to_string(config.n_predict)};
+        }
+        if (config.n_predict > max_predict) {
+            config.n_predict = max_predict;
+        }
+
+        llama_context_params ctx_params;
+        buildContextParams(static_cast<int>(n_prompt), config, ctx_params);
+        llama_context* ctx = llama_init_from_model(shared_model_.get(), ctx_params);
+        if (!ctx) {
+            mtmd_input_chunks_free(chunks);
+            freeBitmaps(audioBitmaps);
+            return {false, "", "Failed to create STT context"};
+        }
+
+        llama_sampler* smpl = buildSampler(config);
+        llama_pos n_past = 0;
+        {
+            std::lock_guard<std::mutex> media_lock(vision_encoding_mutex_);
+            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx, chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
+                llama_sampler_free(smpl);
+                llama_free(ctx);
+                mtmd_input_chunks_free(chunks);
+                freeBitmaps(audioBitmaps);
+                return {false, "", "Failed to eval audio prompt"};
+            }
+        }
+
+        mtmd_input_chunks_free(chunks);
+        freeBitmaps(audioBitmaps);
+
+        const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
+        std::string output;
+        llama_batch batch = llama_batch_init(1, 0, 1);
+
+        for (int i = 0; i < config.n_predict; ++i) {
+            llama_token new_token_id = llama_sampler_sample(smpl, ctx, -1);
+            llama_sampler_accept(smpl, new_token_id);
+
+            if (llama_vocab_is_eog(vocab, new_token_id)) {
+                break;
+            }
+
+            char buf[128];
+            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
+            if (n < 0) {
+                break;
+            }
+            output.append(buf, n);
+
+            batch.n_tokens = 1;
+            batch.token[0] = new_token_id;
+            batch.pos[0] = n_past++;
+            batch.n_seq_id[0] = 1;
+            batch.seq_id[0][0] = 0;
+            batch.logits[0] = true;
+
+            if (llama_decode(ctx, batch)) {
+                break;
+            }
+        }
+
+        llama_batch_free(batch);
+        llama_sampler_free(smpl);
+        llama_free(ctx);
+
+        output = extractAsrText(output);
+        LOG_INFO("STT generated " + std::to_string(output.size()) + " chars");
+        if (output.empty()) {
+            return {false, "", "Model produced no transcript content"};
+        }
+        return {true, output, ""};
+
+    } catch (const std::exception& e) {
+        return {false, "", "STT inference error: " + std::string(e.what())};
+    }
+}
+
 std::string Runner::formatPrompt(const std::string& content) {
     if (!chat_templates_) {
         return content;
@@ -917,6 +1095,23 @@ std::vector<mtmd_bitmap*> Runner::loadImages(const std::vector<std::filesystem::
     for (const auto& path : imagePaths) {
         mtmd_bitmap* bmp = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str());
         if (!bmp) {
+            freeBitmaps(bitmaps);
+            return {};
+        }
+        bitmaps.push_back(bmp);
+    }
+    return bitmaps;
+}
+
+std::vector<mtmd_bitmap*> Runner::loadAudio(const std::vector<std::filesystem::path>& audioPaths) const {
+    std::vector<mtmd_bitmap*> bitmaps;
+    bitmaps.reserve(audioPaths.size());
+    for (const auto& path : audioPaths) {
+        mtmd_bitmap* bmp = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str());
+        if (!bmp || !mtmd_bitmap_is_audio(bmp)) {
+            if (bmp) {
+                mtmd_bitmap_free(bmp);
+            }
             freeBitmaps(bitmaps);
             return {};
         }

@@ -206,6 +206,11 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 | `NRVNA_SEED` | 0 | Random seed |
 | `NRVNA_MODELS_DIR` | ./models/ | Model search path |
 | `NRVNA_MAX_IMAGE_SIZE` | 50MB | Max image file size |
+| `NRVNA_MAX_AUDIO_SIZE` | 200MB | Max audio file size (STT) |
+| `NRVNA_STT_TEMP` | (base temp) | STT sampling temperature |
+| `NRVNA_STT_PREDICT` | (base predict) | STT max tokens |
+| `NRVNA_WARMUP` | 0 | mtmd context warmup (0/1) |
+| `NRVNA_FLASH_ATTN` | -1 | mtmd flash attention type (-1 = auto) |
 | `NRVNA_QUIET` | (unset) | Suppress mtmd timing logs |
 | `LLAMA_LOG_LEVEL` | error | llama.cpp log verbosity |
 

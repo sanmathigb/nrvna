@@ -238,7 +238,7 @@ void printHelp() {
     std::cout << "  wrk <workspace> \"prompt\"                     submit work\n";
     std::cout << "  flw <workspace> [job-id]                     collect results\n\n";
     std::cout << "OPTIONS\n\n";
-    std::cout << "  --mmproj <path>     Vision projection model\n";
+    std::cout << "  --mmproj <path>     Multimodal projection model (vision/audio)\n";
     std::cout << "  --vocoder <path>    TTS vocoder model\n";
     std::cout << "  -w, --workers <n>   Worker threads (default: 4)\n";
     std::cout << "  -v, --version       Show version\n";

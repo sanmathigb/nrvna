@@ -80,11 +80,15 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
         if (jobStatus == Status::Done) {
             auto outputDir = workspace_ / "output" / id;
             auto resultFile = outputDir / "result.txt";
+            auto transcriptFile = outputDir / "transcript.txt";
             auto audioFile = outputDir / "audio.wav";
 
             std::string content;
             if (std::filesystem::exists(resultFile)) {
                 content = readResultContent(id);
+            } else if (std::filesystem::exists(transcriptFile)) {
+                std::ifstream file(transcriptFile, std::ios::binary);
+                content.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             } else if (std::filesystem::exists(audioFile)) {
                 // Audio output — return absolute path as content
                 content = std::filesystem::absolute(audioFile).string();
@@ -147,9 +151,11 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
             if (!std::filesystem::exists(dir)) continue;
             for (const auto& entry : std::filesystem::directory_iterator(dir)) {
                 if (entry.is_directory()) {
+                    std::string id = entry.path().filename().string();
+                    if (!isValidJobId(id)) continue;
                     auto ts = std::filesystem::last_write_time(entry);
                     auto sctp = toSystemTime(ts);
-                    jobs.push_back({entry.path().filename().string(), status, "", sctp});
+                    jobs.push_back({id, status, "", sctp});
                 }
             }
         }
@@ -278,7 +284,10 @@ static std::size_t countSubdirs(const std::filesystem::path& dir) noexcept {
     try {
         if (!std::filesystem::exists(dir)) return 0;
         for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            if (entry.is_directory()) ++n;
+            if (entry.is_directory()) {
+                std::string id = entry.path().filename().string();
+                if (Flow::isValidJobId(id)) ++n;
+            }
         }
     } catch (...) {}
     return n;

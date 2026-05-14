@@ -111,3 +111,9 @@ scripts/transcribe
 !ADVANCED.md
 !ARCHITECTURE.md
 !LICENSE
+
+# Local docs, test tooling, scripts
+docs/
+testing/
+scripts/
+include/nrvna/README.md

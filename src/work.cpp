@@ -80,6 +80,45 @@ bool validateImagePath(const std::filesystem::path& path, SubmissionError& code,
     return true;
 }
 
+bool validateAudioPath(const std::filesystem::path& path, SubmissionError& code, std::string& error) {
+    if (!std::filesystem::exists(path)) {
+        error = "Audio file not found: " + path.string();
+        code = SubmissionError::InvalidContent;
+        return false;
+    }
+    if (!std::filesystem::is_regular_file(path)) {
+        error = "Audio path is not a file: " + path.string();
+        code = SubmissionError::InvalidContent;
+        return false;
+    }
+    std::string ext = toLowerCopy(path.extension().string());
+    if (ext.empty()) {
+        error = "Audio file has no extension: " + path.string();
+        code = SubmissionError::InvalidContent;
+        return false;
+    }
+    static const std::vector<std::string> valid_ext = {".wav", ".mp3", ".flac"};
+    if (std::find(valid_ext.begin(), valid_ext.end(), ext) == valid_ext.end()) {
+        error = "Unsupported audio extension: " + path.string();
+        code = SubmissionError::InvalidContent;
+        return false;
+    }
+    std::size_t max_bytes = env_size("NRVNA_MAX_AUDIO_SIZE", 200ULL * 1024 * 1024);
+    std::error_code ec;
+    auto size = std::filesystem::file_size(path, ec);
+    if (ec) {
+        error = "Failed to read audio size: " + path.string();
+        code = SubmissionError::IoError;
+        return false;
+    }
+    if (size > max_bytes) {
+        error = "Audio exceeds size limit (" + std::to_string(max_bytes) + " bytes): " + path.string();
+        code = SubmissionError::InvalidSize;
+        return false;
+    }
+    return true;
+}
+
 bool isValidTag(const std::string& tag) {
     if (tag.empty() || tag.size() > 64) {
         return false;
@@ -164,6 +203,65 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
     }
 
     LOG_INFO("Job submitted successfully: " + jobId);
+    return {true, jobId, SubmissionError::None, ""};
+}
+
+SubmitResult Work::submitAudio(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths, const SubmitOptions& opts) {
+    if (prompt.size() > maxBytes_) {
+        LOG_DEBUG("Prompt exceeds size limit: " + std::to_string(prompt.size()) + " > " + std::to_string(maxBytes_));
+        return {false, "", SubmissionError::InvalidSize, "Prompt exceeds maximum size limit (" + std::to_string(maxBytes_) + " bytes)"};
+    }
+
+    if (audioPaths.empty()) {
+        return {false, "", SubmissionError::InvalidContent, "No audio file provided"};
+    }
+
+    for (const auto& path : audioPaths) {
+        std::string error;
+        SubmissionError code = SubmissionError::None;
+        if (!validateAudioPath(path, code, error)) {
+            LOG_ERROR(error);
+            return {false, "", code, error};
+        }
+    }
+
+    JobId jobId = generateId();
+    LOG_DEBUG("Generated audio job ID: " + jobId);
+
+    if (!createJobDirectory(jobId)) {
+        LOG_ERROR("Failed to create job directory for: " + jobId);
+        return {false, "", SubmissionError::IoError, "Failed to create job directory"};
+    }
+
+    if (!writePromptFile(jobId, prompt)) {
+        LOG_ERROR("Failed to write prompt file for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write prompt file"};
+    }
+
+    if (!writeAudioFiles(jobId, audioPaths)) {
+        LOG_ERROR("Failed to write audio files for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write audio files"};
+    }
+
+    if (!writeTypeFile(jobId, JobType::Stt)) {
+        LOG_ERROR("Failed to write type file for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write type file"};
+    }
+
+    if (!writeMetaFile(jobId, JobType::Stt, opts)) {
+        LOG_WARN("Failed to write meta.json for: " + jobId + " (non-fatal)");
+    }
+
+    if (!atomicPublish(jobId)) {
+        LOG_ERROR("Failed to publish job: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to publish job"};
+    }
+
+    LOG_INFO("Audio job submitted successfully: " + jobId);
     return {true, jobId, SubmissionError::None, ""};
 }
 
@@ -268,6 +366,38 @@ bool Work::writeImageFiles(const JobId& jobId, const std::vector<std::filesystem
     }
 }
 
+bool Work::writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem::path>& audioPaths) const noexcept {
+    try {
+        auto jobPath = workspace_ / "input" / "writing" / jobId;
+        auto audioDir = jobPath / "audio";
+        std::filesystem::create_directories(audioDir);
+
+        int idx = 0;
+        for (const auto& srcPath : audioPaths) {
+            if (!std::filesystem::exists(srcPath)) {
+                LOG_ERROR("Audio file not found: " + srcPath.string());
+                return false;
+            }
+            std::string ext = srcPath.extension().string();
+            std::ostringstream filename;
+            filename << "audio_" << std::setw(6) << std::setfill('0') << idx << ext;
+            auto destPath = audioDir / filename.str();
+            std::error_code ec;
+            // Jobs must remain self-contained after submission.
+            std::filesystem::copy_file(srcPath, destPath, std::filesystem::copy_options::overwrite_existing, ec);
+            if (ec) {
+                LOG_ERROR("Failed to write audio file: " + srcPath.string());
+                return false;
+            }
+            ++idx;
+        }
+
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool Work::writeTypeFile(const JobId& jobId, JobType type) const noexcept {
     try {
         auto typePath = workspace_ / "input" / "writing" / jobId / "type.txt";
@@ -283,6 +413,9 @@ bool Work::writeTypeFile(const JobId& jobId, JobType type) const noexcept {
                 break;
             case JobType::Tts:
                 file << "tts";
+                break;
+            case JobType::Stt:
+                file << "stt";
                 break;
             default:
                 file << "text";

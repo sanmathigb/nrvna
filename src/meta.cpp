@@ -17,13 +17,22 @@ std::string escapeJson(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 16);
     for (char c : s) {
+        unsigned char uc = static_cast<unsigned char>(c);
         switch (c) {
             case '"':  out += "\\\""; break;
             case '\\': out += "\\\\"; break;
             case '\n': out += "\\n"; break;
             case '\r': out += "\\r"; break;
             case '\t': out += "\\t"; break;
-            default:   out += c; break;
+            default:
+                if (uc < 0x20) {
+                    out += "\\u00";
+                    out += "0123456789ABCDEF"[((uc >> 4) & 0xF)];
+                    out += "0123456789ABCDEF"[uc & 0xF];
+                } else {
+                    out += c;
+                }
+                break;
         }
     }
     return out;
@@ -159,6 +168,7 @@ std::string jobTypeToString(JobType type) {
         case JobType::Embed: return "embed";
         case JobType::Vision: return "vision";
         case JobType::Tts: return "tts";
+        case JobType::Stt: return "stt";
         default: return "text";
     }
 }

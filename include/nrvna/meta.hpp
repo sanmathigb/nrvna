@@ -16,7 +16,7 @@ namespace nrvnaai {
 struct JobMeta {
     // Submission phase (written by Work)
     std::string submitted_at;
-    std::string mode;           // "text", "embed", "vision", "tts"
+    std::string mode;           // "text", "embed", "vision", "tts", "stt"
     JobId parent;               // empty if none
     std::vector<std::string> tags;
 

@@ -22,6 +22,7 @@ void printUsage(const char* progName) {
     std::cout << "Usage: " << progName << " <workspace> <prompt...> [--image <path> ...]\n";
     std::cout << "       " << progName << " <workspace> <text> --embed\n";
     std::cout << "       " << progName << " <workspace> <text> --tts\n";
+    std::cout << "       " << progName << " <workspace> --audio <path> --stt\n";
     std::cout << "       " << progName << " <workspace> -     (read prompt from stdin)\n";
     std::cout << "       " << progName << " --help | --version\n\n";
     std::cout << "Arguments:\n";
@@ -30,9 +31,12 @@ void printUsage(const char* progName) {
     std::cout << "  -             Read prompt from stdin\n\n";
     std::cout << "Options:\n";
     std::cout << "  --image <path>   Attach image (repeatable)\n";
+    std::cout << "  --audio <path>   Attach audio for speech-to-text (repeatable)\n";
     std::cout << "  --embed          Submit as embedding job (returns vector)\n";
     std::cout << "  --tts            Submit as text-to-speech job\n";
-    std::cout << "  --mode <type>    Job mode: tts (text-to-speech)\n";
+    std::cout << "  --stt            Submit as speech-to-text job\n";
+    std::cout << "  --mode <type>    Job mode: tts or stt\n";
+    std::cout << "  --               Treat remaining args as prompt (for prompts containing dashes)\n";
     std::cout << "  --parent <id>    Optional parent job ID\n";
     std::cout << "  --tag <tag>      Optional tag (repeatable)\n";
     std::cout << "  -h, --help       Show this help message\n";
@@ -43,6 +47,7 @@ void printUsage(const char* progName) {
     std::cout << "  " << progName << " ./workspace \"What is the capital of France?\"\n";
     std::cout << "  " << progName << " ./workspace Write a hello world program\n";
     std::cout << "  " << progName << " ./workspace \"Machine learning is...\" --embed\n";
+    std::cout << "  " << progName << " ./workspace --audio note.wav --stt\n";
     std::cout << "  echo \"Hello\" | " << progName << " ./workspace -\n";
 }
 
@@ -72,6 +77,8 @@ int main(int argc, char* argv[]) {
     std::string workspace = argv[1];
     std::string prompt;
     std::vector<std::filesystem::path> imagePaths;
+    std::vector<std::filesystem::path> audioPaths;
+    std::vector<std::string> promptParts;
     bool useEmbed = false;
     std::string mode;
     SubmitOptions submitOptions;
@@ -85,7 +92,7 @@ int main(int argc, char* argv[]) {
         return true;
     };
 
-    // Check for stdin input
+    // Detect stdin input: `wrk ws` with piped stdin, or `wrk ws - ...`
     bool readStdin = false;
     if (argc == 2 && !isatty(fileno(stdin))) {
         readStdin = true;
@@ -95,12 +102,21 @@ int main(int argc, char* argv[]) {
 
     for (int i = 2; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--image" || arg == "-i") {
+        if (arg == "--") {
+            while (++i < argc) promptParts.push_back(argv[i]);
+            break;
+        } else if (arg == "--image" || arg == "-i") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --image requires a path\n";
                 return 1;
             }
             imagePaths.emplace_back(argv[++i]);
+        } else if (arg == "--audio") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --audio requires a path\n";
+                return 1;
+            }
+            audioPaths.emplace_back(argv[++i]);
         } else if (arg == "--parent") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --parent requires a job ID\n";
@@ -126,15 +142,19 @@ int main(int argc, char* argv[]) {
             useEmbed = true;
         } else if (arg == "--tts") {
             mode = "tts";
+        } else if (arg == "--stt") {
+            mode = "stt";
         } else if (arg == "--mode") {
             if (i + 1 >= argc) {
-                std::cerr << "Error: --mode requires a type (e.g. tts)\n";
+                std::cerr << "Error: --mode requires a type (e.g. tts or stt)\n";
                 return 1;
             }
             mode = argv[++i];
-        } else if (arg.size() > 1 && arg[0] == '-' && arg[1] == '-') {
+        } else if (arg.size() > 1 && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
             return 1;
+        } else {
+            promptParts.push_back(arg);
         }
     }
 
@@ -146,49 +166,44 @@ int main(int argc, char* argv[]) {
             prompt.pop_back();
         }
     } else {
-        if (argc < 3) {
-            printUsage(argv[0]);
-            return 1;
+        for (size_t i = 0; i < promptParts.size(); ++i) {
+            if (i > 0) prompt += ' ';
+            prompt += promptParts[i];
         }
-
-        std::ostringstream promptStream;
-        bool first = true;
-        for (int i = 2; i < argc; ++i) {
-            std::string arg = argv[i];
-            if (arg == "--image" || arg == "-i") {
-                ++i;
-                continue;
-            }
-            if (arg == "--parent" || arg == "--tag" || arg == "--mode") {
-                ++i;
-                continue;
-            }
-            if (arg == "--embed") continue;
-            if (arg == "--tts") continue;
-            if (!first) promptStream << " ";
-            promptStream << argv[i];
-            first = false;
-        }
-        prompt = promptStream.str();
     }
 
-    if (prompt.empty() && !(useEmbed && !imagePaths.empty())) {
+    if (!mode.empty() && mode != "tts" && mode != "stt") {
+        std::cerr << "Error: Unknown mode '" << mode << "'. Supported: tts, stt\n";
+        return 1;
+    }
+
+    if (!audioPaths.empty() && mode != "stt") {
+        std::cerr << "Error: --audio requires --stt or --mode stt\n";
+        return 1;
+    }
+
+    if (mode == "stt" && audioPaths.empty()) {
+        std::cerr << "Error: --stt requires --audio <path>\n";
+        return 1;
+    }
+
+    if (prompt.empty() && !(useEmbed && !imagePaths.empty()) && !(mode == "stt" && !audioPaths.empty())) {
         std::cerr << "Error: Empty prompt provided\n";
         return 1;
     }
 
-    if (!mode.empty() && mode != "tts") {
-        std::cerr << "Error: Unknown mode '" << mode << "'. Supported: tts\n";
-        return 1;
-    }
-
     if (useEmbed && !mode.empty()) {
-        std::cerr << "Error: --embed and --tts are mutually exclusive\n";
+        std::cerr << "Error: --embed and --tts/--stt are mutually exclusive\n";
         return 1;
     }
 
-    if (mode == "tts" && !imagePaths.empty()) {
-        std::cerr << "Error: --tts and --image are mutually exclusive\n";
+    if (mode == "tts" && (!imagePaths.empty() || !audioPaths.empty())) {
+        std::cerr << "Error: --tts cannot be combined with --image or --audio\n";
+        return 1;
+    }
+
+    if (mode == "stt" && !imagePaths.empty()) {
+        std::cerr << "Error: --stt and --image are mutually exclusive\n";
         return 1;
     }
 
@@ -198,6 +213,8 @@ int main(int argc, char* argv[]) {
         SubmitResult result;
         if (mode == "tts") {
             result = work.submit(prompt, JobType::Tts, {}, submitOptions);
+        } else if (mode == "stt") {
+            result = work.submitAudio(prompt, audioPaths, submitOptions);
         } else if (useEmbed && !imagePaths.empty()) {
             result = work.submit(prompt, JobType::Embed, imagePaths, submitOptions);
         } else if (useEmbed) {

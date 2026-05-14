@@ -16,7 +16,8 @@ enum class JobType : uint8_t {
     Text = 0,
     Embed = 1,
     Vision = 2,
-    Tts = 3
+    Tts = 3,
+    Stt = 4
 };
 
 struct SubmitOptions {
@@ -53,6 +54,9 @@ public:
                                       JobType type = JobType::Text,
                                       const std::vector<std::filesystem::path>& imagePaths = {},
                                       const SubmitOptions& opts = {});
+    [[nodiscard]] SubmitResult submitAudio(const std::string& prompt,
+                                           const std::vector<std::filesystem::path>& audioPaths,
+                                           const SubmitOptions& opts = {});
 
     void setMaxSize(std::size_t maxBytes) noexcept { maxBytes_ = maxBytes; }
     [[nodiscard]] std::size_t maxSize() const noexcept { return maxBytes_; }
@@ -68,6 +72,7 @@ private:
     [[nodiscard]] bool createJobDirectory(const JobId& jobId) const noexcept;
     [[nodiscard]] bool writePromptFile(const JobId& jobId, const std::string& prompt) const noexcept;
     [[nodiscard]] bool writeImageFiles(const JobId& jobId, const std::vector<std::filesystem::path>& imagePaths) const noexcept;
+    [[nodiscard]] bool writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem::path>& audioPaths) const noexcept;
     [[nodiscard]] bool writeTypeFile(const JobId& jobId, JobType type) const noexcept;
     [[nodiscard]] bool writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& opts) const noexcept;
     [[nodiscard]] bool atomicPublish(const JobId& jobId) const noexcept;

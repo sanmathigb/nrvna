@@ -184,8 +184,12 @@ bool Server::recoverOrphanedJobs() noexcept {
                 std::error_code ec;
                 std::filesystem::rename(entry.path(), workspace_ / "input" / "ready" / jobId, ec);
                 if (ec) {
-                    LOG_ERROR("Failed to recover job " + jobId + ": " + ec.message());
-                    std::filesystem::rename(entry.path(), workspace_ / "failed" / jobId, ec);
+                    LOG_ERROR("Failed to recover job " + jobId + " (ready failed: " + ec.message() + "). Trying failed dir...");
+                    std::error_code ec2;
+                    std::filesystem::rename(entry.path(), workspace_ / "failed" / jobId, ec2);
+                    if (ec2) {
+                        LOG_ERROR("Orphan recovery failed for " + jobId + ": ready=" + ec.message() + ", failed=" + ec2.message());
+                    }
                 } else {
                     recovered++;
                 }

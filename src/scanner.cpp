@@ -107,18 +107,20 @@ bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexce
             return false;
         }
 
-        // Prompt file must not be empty, except for image-backed embed jobs.
+        // Prompt file must not be empty, except for media-backed jobs that have
+        // a useful default prompt at execution time.
         if (std::filesystem::file_size(promptFile) == 0) {
             auto typeFile = dir / "type.txt";
             auto imagesDir = dir / "images";
+            auto audioDir = dir / "audio";
             std::string type;
             if (std::filesystem::exists(typeFile) && std::filesystem::is_regular_file(typeFile)) {
                 std::ifstream in(typeFile);
                 std::getline(in, type);
             }
-            const bool allowEmptyPrompt = type == "embed" &&
-                                          std::filesystem::exists(imagesDir) &&
-                                          std::filesystem::is_directory(imagesDir);
+            const bool allowEmptyPrompt =
+                (type == "embed" && std::filesystem::exists(imagesDir) && std::filesystem::is_directory(imagesDir)) ||
+                (type == "stt" && std::filesystem::exists(audioDir) && std::filesystem::is_directory(audioDir) && !std::filesystem::is_empty(audioDir));
             if (!allowEmptyPrompt) {
                 LOG_DEBUG("Invalid job directory (empty prompt.txt): " + dir.string());
                 return false;
