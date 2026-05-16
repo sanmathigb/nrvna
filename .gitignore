@@ -115,6 +115,6 @@ scripts/transcribe
 # Local docs, test tooling, scripts
 docs/
 testing/
-scripts/
+scripts/*
 !scripts/imgsrch
 include/nrvna/README.md
