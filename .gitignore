@@ -116,4 +116,5 @@ scripts/transcribe
 docs/
 testing/
 scripts/
+!scripts/imgsrch
 include/nrvna/README.md
