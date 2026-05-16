@@ -51,7 +51,17 @@ imgsrch-demo/
 
 `demo` queues image work, collects for a while, runs a sample search, and writes `index.qmd`.
 
-If Quarto is installed, it also renders HTML. If not, open `index.qmd` directly.
+The demo command may take several minutes on CPU-heavy models. For live demos, pre-index first:
+
+```bash
+scripts/imgsrch status my-shots
+```
+
+or use the already-indexed project:
+
+```bash
+scripts/imgsrch search <pre-indexed-project> "query"
+```
 
 ## 4. Use your own screenshots
 
