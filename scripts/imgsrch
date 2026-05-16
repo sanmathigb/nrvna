@@ -312,99 +312,72 @@ cmd_collect() {
     ensure_project "$project"
     load_config "$project"
 
-    local cap_ws o_ws emb_ws waited interval max_wait started_embed
+    local cap_ws o_ws emb_ws started_embed
     cap_ws="$(caption_ws "$project")"
     o_ws="$(ocr_ws "$project")"
     emb_ws="$(embed_ws "$project")"
-    waited=0
-    interval=10
-    max_wait="${IMGSRCH_WAIT_TIMEOUT:-600}"
     started_embed=0
 
-    while true; do
-        local did_work=false
+    # Single pass: advance every item as far as it can go right now, then
+    # return. No polling, no waiting — nobody is watching. Re-run when you
+    # come back; the filesystem holds the state between runs.
+    local tmp
+    tmp="$(mktemp)"
+    printf 'key\tpath\tcaption_job\tocr_job\tembed_job\n' > "$tmp"
 
-        local tmp
-        tmp="$(mktemp)"
-        printf 'key\tpath\tcaption_job\tocr_job\tembed_job\n' > "$tmp"
+    local n_cap=0 n_ocr=0 n_comb=0 n_emb=0 n_idx=0 n_queued=0
 
-        local n_cap=0 n_ocr=0 n_comb=0 n_emb=0 n_idx=0 n_queued=0
+    while IFS=$'\t' read -r key path cap_job ocr_job embed_job; do
+        [ -n "${key:-}" ] || continue
+        local adir="$(artifacts_dir "$project")/$key"
+        mkdir -p "$adir"
+        local cap_file="$adir/caption.txt"
+        local ocr_file="$adir/ocr.txt"
+        local combined_file="$adir/combined.md"
+        local emb_file="$adir/embedding.json"
 
-        while IFS=$'\t' read -r key path cap_job ocr_job embed_job; do
-            [ -n "${key:-}" ] || continue
-            local adir="$(artifacts_dir "$project")/$key"
-            mkdir -p "$adir"
-            local cap_file="$adir/caption.txt"
-            local ocr_file="$adir/ocr.txt"
-            local combined_file="$adir/combined.md"
-            local emb_file="$adir/embedding.json"
-
-            if [ -n "${cap_job:-}" ] && [ ! -f "$cap_file" ] && [ -f "$cap_ws/output/$cap_job/result.txt" ]; then
-                cp "$cap_ws/output/$cap_job/result.txt" "$cap_file"
-                n_cap=$((n_cap + 1))
-                did_work=true
-            fi
-
-            if [ -n "${ocr_job:-}" ] && [ ! -f "$ocr_file" ] && [ -f "$o_ws/output/$ocr_job/result.txt" ]; then
-                cp "$o_ws/output/$ocr_job/result.txt" "$ocr_file"
-                n_ocr=$((n_ocr + 1))
-                did_work=true
-            fi
-
-            if [ -f "$cap_file" ] && [ -f "$ocr_file" ] && [ ! -f "$combined_file" ]; then
-                write_combined "$cap_file" "$ocr_file" "$combined_file"
-                n_comb=$((n_comb + 1))
-                did_work=true
-            fi
-
-            if [ -f "$combined_file" ] && [ -z "${embed_job:-}" ]; then
-                if [ "$started_embed" -eq 0 ]; then
-                    start_embed "$project" >/dev/null 2>&1
-                    started_embed=1
-                fi
-                local payload
-                payload="$(tr '\n' ' ' < "$combined_file")"
-                embed_job="$(printf '%s%s\n' "$META_DOC_PREFIX" "$payload" | "$NRVNA_WRK" "$emb_ws" - --embed)"
-                n_queued=$((n_queued + 1))
-                did_work=true
-            fi
-
-            if [ -n "${embed_job:-}" ] && [ ! -f "$emb_file" ] && [ -f "$emb_ws/output/$embed_job/embedding.json" ]; then
-                cp "$emb_ws/output/$embed_job/embedding.json" "$emb_file"
-                n_emb=$((n_emb + 1))
-                did_work=true
-            fi
-
-            if [ -f "$emb_file" ] && ! awk -F '\t' -v k="$key" 'NR>1 && $1==k{f=1} END{exit !f}' "$(index_dir "$project")/index.tsv"; then
-                printf '%s\t%s\t%s\n' "$key" "$path" ".imgsrch/artifacts/$key/embedding.json" >> "$(index_dir "$project")/index.tsv"
-                n_idx=$((n_idx + 1))
-            fi
-
-            printf '%s\t%s\t%s\t%s\t%s\n' "$key" "$path" "${cap_job:-}" "${ocr_job:-}" "${embed_job:-}" >> "$tmp"
-        done < <(tail -n +2 "$(items_file "$project")")
-
-        mv "$tmp" "$(items_file "$project")"
-
-        local total indexed
-        total=$(($(wc -l < "$(items_file "$project")") - 1))
-        indexed=$(($(wc -l < "$(index_dir "$project")/index.tsv") - 1))
-
-        if [ "$total" -gt 0 ] && ([ "$n_cap" -gt 0 ] || [ "$n_ocr" -gt 0 ] || [ "$n_comb" -gt 0 ] || [ "$n_emb" -gt 0 ] || [ "$n_idx" -gt 0 ]); then
-            echo "caption:  $n_cap | ocr: $n_ocr | combined: $n_comb | embed: $n_emb (queued $n_queued) | searchable $indexed/$total"
+        if [ -n "${cap_job:-}" ] && [ ! -f "$cap_file" ] && [ -f "$cap_ws/output/$cap_job/result.txt" ]; then
+            cp "$cap_ws/output/$cap_job/result.txt" "$cap_file"
+            n_cap=$((n_cap + 1))
         fi
 
-        if [ "$total" -gt 0 ] && [ "$indexed" -ge "$total" ]; then
-            break
+        if [ -n "${ocr_job:-}" ] && [ ! -f "$ocr_file" ] && [ -f "$o_ws/output/$ocr_job/result.txt" ]; then
+            cp "$o_ws/output/$ocr_job/result.txt" "$ocr_file"
+            n_ocr=$((n_ocr + 1))
         fi
 
-        if [ "$waited" -ge "$max_wait" ]; then
-            [ "$waited" -gt 0 ] && echo "(timeout)"
-            break
+        if [ -f "$cap_file" ] && [ -f "$ocr_file" ] && [ ! -f "$combined_file" ]; then
+            write_combined "$cap_file" "$ocr_file" "$combined_file"
+            n_comb=$((n_comb + 1))
         fi
 
-        sleep "$interval"
-        waited=$((waited + interval))
-    done
+        if [ -f "$combined_file" ] && [ -z "${embed_job:-}" ]; then
+            ensure_embed_daemon "$project"
+            local payload
+            payload="$(tr '\n' ' ' < "$combined_file")"
+            embed_job="$(printf '%s%s\n' "$META_DOC_PREFIX" "$payload" | "$NRVNA_WRK" "$emb_ws" - --embed)"
+            n_queued=$((n_queued + 1))
+        fi
+
+        if [ -n "${embed_job:-}" ] && [ ! -f "$emb_file" ] && [ -f "$emb_ws/output/$embed_job/embedding.json" ]; then
+            cp "$emb_ws/output/$embed_job/embedding.json" "$emb_file"
+            n_emb=$((n_emb + 1))
+        fi
+
+        if [ -f "$emb_file" ] && ! awk -F '\t' -v k="$key" 'NR>1 && $1==k{f=1} END{exit !f}' "$(index_dir "$project")/index.tsv"; then
+            printf '%s\t%s\t%s\n' "$key" "$path" ".imgsrch/artifacts/$key/embedding.json" >> "$(index_dir "$project")/index.tsv"
+            n_idx=$((n_idx + 1))
+        fi
+
+        printf '%s\t%s\t%s\t%s\t%s\n' "$key" "$path" "${cap_job:-}" "${ocr_job:-}" "${embed_job:-}" >> "$tmp"
+    done < <(tail -n +2 "$(items_file "$project")")
+
+    mv "$tmp" "$(items_file "$project")"
+
+    local total indexed
+    total=$(($(wc -l < "$(items_file "$project")") - 1))
+    indexed=$(($(wc -l < "$(index_dir "$project")/index.tsv") - 1))
+    echo "advanced: caption +$n_cap | ocr +$n_ocr | combined +$n_comb | embed +$n_emb (queued $n_queued) | searchable $indexed/$total"
 }
 
 count_files() {
