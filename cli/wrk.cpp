@@ -17,38 +17,34 @@ using namespace nrvnaai;
 
 constexpr const char* VERSION = "0.1.0";
 
-void printUsage(const char* progName) {
-    std::cout << "nrvna-ai Work Submission Tool v" << VERSION << "\n\n";
-    std::cout << "Usage: " << progName << " <workspace> <prompt...> [--image <path> ...]\n";
-    std::cout << "       " << progName << " <workspace> <text> --embed\n";
-    std::cout << "       " << progName << " <workspace> <text> --tts\n";
-    std::cout << "       " << progName << " <workspace> --audio <path> --stt\n";
-    std::cout << "       " << progName << " <workspace> -     (read prompt from stdin)\n";
-    std::cout << "       " << progName << " --help | --version\n\n";
-    std::cout << "Arguments:\n";
-    std::cout << "  workspace     Directory for job storage\n";
-    std::cout << "  prompt        Text prompt for inference (can be multiple words)\n";
-    std::cout << "  -             Read prompt from stdin\n\n";
-    std::cout << "Options:\n";
+void printUsage() {
+    std::cout << "nrvna " << VERSION << "                        async · inference · primitive\n\n";
+    std::cout << "USAGE\n\n";
+    std::cout << "  wrk <workspace> <prompt...> [--image <path> ...]\n";
+    std::cout << "  wrk <workspace> <text> --embed\n";
+    std::cout << "  wrk <workspace> <text> --tts\n";
+    std::cout << "  wrk <workspace> --audio <path> --stt\n";
+    std::cout << "  wrk <workspace> -                 read prompt from stdin\n";
+    std::cout << "  wrk --help | --version\n\n";
+    std::cout << "OPTIONS\n\n";
     std::cout << "  --image <path>   Attach image (repeatable)\n";
     std::cout << "  --audio <path>   Attach audio for speech-to-text (repeatable)\n";
     std::cout << "  --embed          Submit as embedding job (returns vector)\n";
     std::cout << "  --tts            Submit as text-to-speech job\n";
     std::cout << "  --stt            Submit as speech-to-text job\n";
-    std::cout << "  --mode <type>    Job mode: tts or stt\n";
     std::cout << "  --               Treat remaining args as prompt (for prompts containing dashes)\n";
     std::cout << "  --parent <id>    Optional parent job ID\n";
     std::cout << "  --tag <tag>      Optional tag (repeatable)\n";
-    std::cout << "  -h, --help       Show this help message\n";
-    std::cout << "  -v, --version    Show version\n\n";
-    std::cout << "Environment Variables:\n";
+    std::cout << "  -v, --version    Show version\n";
+    std::cout << "  -h, --help       Show this help\n\n";
+    std::cout << "ENVIRONMENT\n\n";
     std::cout << "  NRVNA_LOG_LEVEL    Log level (ERROR, WARN, INFO, DEBUG, TRACE)\n\n";
-    std::cout << "Examples:\n";
-    std::cout << "  " << progName << " ./workspace \"What is the capital of France?\"\n";
-    std::cout << "  " << progName << " ./workspace Write a hello world program\n";
-    std::cout << "  " << progName << " ./workspace \"Machine learning is...\" --embed\n";
-    std::cout << "  " << progName << " ./workspace --audio note.wav --stt\n";
-    std::cout << "  echo \"Hello\" | " << progName << " ./workspace -\n";
+    std::cout << "EXAMPLES\n\n";
+    std::cout << "  wrk ./workspace \"What is the capital of France?\"\n";
+    std::cout << "  wrk ./workspace Write a hello world program\n";
+    std::cout << "  wrk ./workspace \"Machine learning is...\" --embed\n";
+    std::cout << "  wrk ./workspace --audio note.wav --stt\n";
+    std::cout << "  echo \"Hello\" | wrk ./workspace -\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -60,7 +56,7 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
-            printUsage(argv[0]);
+            printUsage();
             return 0;
         }
         if (arg == "-v" || arg == "--version") {
@@ -70,7 +66,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (argc < 2) {
-        printUsage(argv[0]);
+        printUsage();
         return 1;
     }
 
@@ -135,12 +131,6 @@ int main(int argc, char* argv[]) {
             mode = "tts";
         } else if (arg == "--stt") {
             mode = "stt";
-        } else if (arg == "--mode") {
-            if (i + 1 >= argc) {
-                std::cerr << "Error: --mode requires a type (e.g. tts or stt)\n";
-                return 1;
-            }
-            mode = argv[++i];
         } else if (arg.size() > 1 && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
             return 1;
@@ -169,7 +159,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (!audioPaths.empty() && mode != "stt") {
-        std::cerr << "Error: --audio requires --stt or --mode stt\n";
+        std::cerr << "Error: --audio requires --stt\n";
         return 1;
     }
 

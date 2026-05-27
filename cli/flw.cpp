@@ -18,31 +18,29 @@ using namespace nrvnaai;
 
 constexpr const char* VERSION = "0.1.0";
 
-void printUsage(const char* progName) {
-    std::cout << "nrvna-ai Flow Retrieval Tool v" << VERSION << "\n\n";
-    std::cout << "Usage: " << progName << " <workspace> [options] [job_id]\n";
-    std::cout << "       " << progName << " --help | --version\n\n";
-    std::cout << "Arguments:\n";
-    std::cout << "  workspace     Directory for job storage\n";
-    std::cout << "  job_id        Specific job ID to retrieve (optional)\n\n";
-    std::cout << "Options:\n";
-    std::cout << "  -w, --wait    Wait for job to complete before returning\n";
-    std::cout << "  -W, --wait-idle Wait for workspace to be idle (all jobs done)\n";
-    std::cout << "  --json        Output structured JSON\n";
-    std::cout << "  -h, --help    Show this help message\n";
-    std::cout << "  -v, --version Show version\n\n";
-    std::cout << "Behavior:\n";
+void printUsage() {
+    std::cout << "nrvna " << VERSION << "                        async · inference · primitive\n\n";
+    std::cout << "USAGE\n\n";
+    std::cout << "  flw <workspace> [options] [job_id]\n";
+    std::cout << "  flw --help | --version\n\n";
+    std::cout << "OPTIONS\n\n";
+    std::cout << "  -w, --wait        Wait for job to complete before returning\n";
+    std::cout << "  -W, --wait-idle   Wait for workspace to be idle (all jobs done)\n";
+    std::cout << "  --json            Output structured JSON\n";
+    std::cout << "  -v, --version     Show version\n";
+    std::cout << "  -h, --help        Show this help\n\n";
+    std::cout << "BEHAVIOR\n\n";
     std::cout << "  - No job_id: show workspace status (counts + recent jobs)\n";
     std::cout << "  - With job_id: retrieve that job's result\n";
     std::cout << "  - With -w and job_id: wait for job to complete, then print result\n";
     std::cout << "  - Piped input: reads job_id from stdin (wrk ... | flw <ws> -w)\n\n";
-    std::cout << "Environment Variables:\n";
+    std::cout << "ENVIRONMENT\n\n";
     std::cout << "  NRVNA_LOG_LEVEL    Log level (ERROR, WARN, INFO, DEBUG, TRACE)\n\n";
-    std::cout << "Examples:\n";
-    std::cout << "  " << progName << " ./ws                      Show workspace status\n";
-    std::cout << "  " << progName << " ./ws --json               Status as JSON\n";
-    std::cout << "  " << progName << " ./ws -w <job_id>          Wait and print result\n";
-    std::cout << "  wrk ./ws \"Hello\" | " << progName << " ./ws -w   Submit and collect\n";
+    std::cout << "EXAMPLES\n\n";
+    std::cout << "  flw ./ws                      Show workspace status\n";
+    std::cout << "  flw ./ws --json               Status as JSON\n";
+    std::cout << "  flw ./ws -w <job_id>          Wait and print result\n";
+    std::cout << "  wrk ./ws \"Hello\" | flw ./ws -w   Submit and collect\n";
 }
 
 std::string readFileRaw(const std::filesystem::path& path) {
@@ -82,7 +80,7 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
-            printUsage(argv[0]);
+            printUsage();
             return 0;
         }
         if (arg == "-v" || arg == "--version") {
@@ -92,7 +90,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (argc < 2) {
-        printUsage(argv[0]);
+        printUsage();
         return 1;
     }
 
