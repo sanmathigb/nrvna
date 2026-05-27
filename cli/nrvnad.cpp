@@ -32,6 +32,14 @@ static std::filesystem::path g_models_dir;
 
 void signalHandler(int signal) {
     (void) signal;
+    if (g_shutdown_requested) {
+        // Second signal: caller asked to stop twice. A worker may be mid-inference
+        // (no cancellation hook), so graceful join can block. Force exit now.
+        const char msg[] = "\nForce exit (signal received twice).\n";
+        ssize_t n = ::write(STDERR_FILENO, msg, sizeof(msg) - 1);
+        (void) n;
+        _exit(130);
+    }
     g_shutdown_requested = 1;
 }
 
