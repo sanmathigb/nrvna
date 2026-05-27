@@ -587,7 +587,9 @@ cmd_doctor() {
     for pair in "nrvnad:$NRVNA_DAEMON" "wrk:$NRVNA_WRK" "flw:$NRVNA_FLW"; do
         local name path
         name="${pair%%:*}"; path="${pair#*:}"
-        if [ -n "$path" ] && [ -x "$path" ]; then echo "  ✓ $name $path"; else echo "  ✗ $name missing"; ok=1; fi
+        if [ -z "$path" ] || [ ! -x "$path" ]; then echo "  ✗ $name missing"; ok=1
+        elif [ ! -s "$path" ] || ! "$path" --version >/dev/null 2>&1; then echo "  ✗ $name broken (zero-byte or won't run): $path"; ok=1
+        else echo "  ✓ $name $path"; fi
     done
     [ -x "$SCRIPT_DIR/media-search" ] && echo "  ✓ media-search $SCRIPT_DIR/media-search" || echo "  - media-search not needed for imgsrch"
     echo

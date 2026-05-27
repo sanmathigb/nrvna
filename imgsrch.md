@@ -49,19 +49,21 @@ imgsrch-demo/
     └── index/
 ```
 
-`demo` queues image work, collects for a while, runs a sample search, and writes `index.qmd`.
+`demo` queues image work, then collects and runs a sample search as results land, and writes `index.qmd`.
 
-The demo command may take several minutes on CPU-heavy models. For live demos, pre-index first:
+A live demo is the one time someone is watching — that's the case to prepare for. Pre-index the project beforehand so search is instant:
 
 ```bash
 scripts/imgsrch status my-shots
 ```
 
-or use the already-indexed project:
+or point at an already-indexed project:
 
 ```bash
 scripts/imgsrch search <pre-indexed-project> "query"
 ```
+
+`scripts/imgsrch demo` is for unattended runs — submit and walk away.
 
 ## 4. Use your own screenshots
 
