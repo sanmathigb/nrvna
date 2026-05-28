@@ -15,6 +15,7 @@
 #include <thread>
 #include <algorithm>
 #include <cctype>
+#include <fstream>
 
 namespace nrvnaai {
 
@@ -261,8 +262,20 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 
             LOG_INFO("Model loaded successfully");
 
-            // Initialize chat templates (auto-detects Jinja vs legacy)
-            auto tmpl_ptr = common_chat_templates_init(shared_model_.get(), "", "", "");
+            // Initialize chat templates (auto-detects Jinja vs legacy).
+            // NRVNA_CHAT_TEMPLATE_FILE overrides the GGUF-embedded template — needed
+            // for models like TranslateGemma whose strict template rejects plain-string content.
+            std::string tmpl_override;
+            if (const char* path = std::getenv("NRVNA_CHAT_TEMPLATE_FILE")) {
+                std::ifstream f(path);
+                if (f) {
+                    tmpl_override.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+                    LOG_INFO("Chat template overridden from: " + std::string(path));
+                } else {
+                    LOG_WARN("NRVNA_CHAT_TEMPLATE_FILE set but unreadable: " + std::string(path));
+                }
+            }
+            auto tmpl_ptr = common_chat_templates_init(shared_model_.get(), tmpl_override, "", "");
             chat_templates_ = tmpl_ptr.release();
         }
     }
