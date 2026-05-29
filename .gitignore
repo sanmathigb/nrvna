@@ -118,4 +118,5 @@ docs/
 testing/
 scripts/*
 !scripts/imgsrch
+!scripts/nrvna-lib.sh
 include/nrvna/README.md
