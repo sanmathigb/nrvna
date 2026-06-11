@@ -24,7 +24,7 @@ jobs:
         include:
           - os: macos-14
             target: darwin-arm64
-          - os: macos-13
+          - os: macos-15-intel
             target: darwin-x86_64
           - os: ubuntu-22.04
             target: linux-x86_64
@@ -52,7 +52,9 @@ jobs:
 
       - name: Build imgsrch
         working-directory: imgsrch-go
-        run: go build -trimpath -ldflags="-s -w" -o ../dist/stage/imgsrch .
+        run: |
+          mkdir -p ../dist/stage
+          go build -trimpath -ldflags="-s -w" -o ../dist/stage/imgsrch .
 
       - name: Package
         run: |
