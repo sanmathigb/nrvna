@@ -1106,12 +1106,12 @@ std::vector<mtmd_bitmap*> Runner::loadImages(const std::vector<std::filesystem::
     std::vector<mtmd_bitmap*> bitmaps;
     bitmaps.reserve(imagePaths.size());
     for (const auto& path : imagePaths) {
-        mtmd_bitmap* bmp = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str());
-        if (!bmp) {
+        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false);
+        if (!res.bitmap) {
             freeBitmaps(bitmaps);
             return {};
         }
-        bitmaps.push_back(bmp);
+        bitmaps.push_back(res.bitmap);
     }
     return bitmaps;
 }
@@ -1120,15 +1120,15 @@ std::vector<mtmd_bitmap*> Runner::loadAudio(const std::vector<std::filesystem::p
     std::vector<mtmd_bitmap*> bitmaps;
     bitmaps.reserve(audioPaths.size());
     for (const auto& path : audioPaths) {
-        mtmd_bitmap* bmp = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str());
-        if (!bmp || !mtmd_bitmap_is_audio(bmp)) {
-            if (bmp) {
-                mtmd_bitmap_free(bmp);
+        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false);
+        if (!res.bitmap || !mtmd_bitmap_is_audio(res.bitmap)) {
+            if (res.bitmap) {
+                mtmd_bitmap_free(res.bitmap);
             }
             freeBitmaps(bitmaps);
             return {};
         }
-        bitmaps.push_back(bmp);
+        bitmaps.push_back(res.bitmap);
     }
     return bitmaps;
 }
