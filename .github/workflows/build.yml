@@ -3,10 +3,12 @@ name: build
 # Builds the imgsrch release artifact per platform: the Go binary plus the
 # three engine binaries (nrvnad/wrk/flw) in one tarball.
 #
-# llama.cpp is vendored manually here instead of via `submodules: true`
-# because the local submodule pin includes two Metal patch commits that exist
-# only as patches/*.patch in this repo. CI clones the pinned upstream base and
-# applies them — identical content, fetchable anywhere.
+# llama.cpp is vendored at the pinned upstream commit (LLAMA_BASE), which now
+# matches the committed submodule gitlink — a vanilla public commit, so
+# `git clone --recursive` also works. The Metal discrete-GPU patch in patches/
+# is NOT applied here: it only helps Intel Macs with a discrete GPU doing GPU
+# offload, is a no-op (and a slight pessimization) on Apple Silicon's unified
+# memory, and is unused on Linux. It stays an opt-in local overlay for dev.
 
 on:
   workflow_dispatch:
@@ -36,12 +38,11 @@ jobs:
         with:
           submodules: false
 
-      - name: Vendor llama.cpp at pinned base + Metal patches
+      - name: Vendor llama.cpp at pinned upstream base
         run: |
           rm -rf third_party/llama.cpp
           git clone --no-checkout https://github.com/ggml-org/llama.cpp third_party/llama.cpp
           git -C third_party/llama.cpp checkout "$LLAMA_BASE"
-          git -C third_party/llama.cpp apply "$GITHUB_WORKSPACE"/patches/*.patch
 
       - name: Build engine
         run: |
