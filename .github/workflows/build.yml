@@ -12,6 +12,8 @@ on:
   workflow_dispatch:
   push:
     tags: ['v*']
+    # TEMPORARY: auto-run on this branch while bringing CI green. Remove before merge.
+    branches: ['worktree-imgsrch-go']
 
 env:
   LLAMA_BASE: 3ac3c20c968cc6d485d89382f202ec440767875a # b9572 era
