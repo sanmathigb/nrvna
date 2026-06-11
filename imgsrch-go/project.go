@@ -1,0 +1,208 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// Accepted formats = what the inference engine (llama.cpp/stb_image) can
+// actually decode, intersected with what screenshots are. Everything else is
+// loudly skipped — never silently dropped, never accepted-then-failed.
+var acceptExt = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true}
+
+func imgDir(p string) string       { return filepath.Join(p, "images") }
+func rootDir(p string) string      { return filepath.Join(p, ".imgsrch") }
+func itemsFile(p string) string    { return filepath.Join(p, ".imgsrch", "items.tsv") }
+func artifactsDir(p string) string { return filepath.Join(p, ".imgsrch", "artifacts") }
+func indexFile(p string) string    { return filepath.Join(p, ".imgsrch", "index", "index.tsv") }
+func logsDir(p string) string      { return filepath.Join(p, ".imgsrch", "logs") }
+func captionWs(p string) string    { return filepath.Join(p, ".imgsrch", "workspaces", "caption") }
+func ocrWs(p string) string        { return filepath.Join(p, ".imgsrch", "workspaces", "ocr") }
+func embedWs(p string) string      { return filepath.Join(p, ".imgsrch", "workspaces", "embed") }
+
+type item struct {
+	Key, Path, CapJob, OcrJob, EmbJob string
+}
+
+func ensureProject(project string) error {
+	for _, d := range []string{
+		imgDir(project), artifactsDir(project),
+		filepath.Dir(indexFile(project)), logsDir(project),
+		filepath.Join(rootDir(project), "workspaces"),
+	} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Stat(itemsFile(project)); err != nil {
+		if err := os.WriteFile(itemsFile(project), []byte("key\tpath\tcaption_job\tocr_job\tembed_job\n"), 0o644); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Stat(indexFile(project)); err != nil {
+		if err := os.WriteFile(indexFile(project), []byte("key\tpath\tembedding_path\n"), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func readItems(project string) ([]item, error) {
+	data, err := os.ReadFile(itemsFile(project))
+	if err != nil {
+		return nil, err
+	}
+	var items []item
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		if i == 0 || strings.TrimSpace(line) == "" {
+			continue
+		}
+		f := strings.Split(line, "\t")
+		for len(f) < 5 {
+			f = append(f, "")
+		}
+		items = append(items, item{f[0], f[1], f[2], f[3], f[4]})
+	}
+	return items, nil
+}
+
+// writeItems replaces the manifest atomically (temp file + rename).
+func writeItems(project string, items []item) error {
+	var b strings.Builder
+	b.WriteString("key\tpath\tcaption_job\tocr_job\tembed_job\n")
+	for _, it := range items {
+		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\t%s\n", it.Key, it.Path, it.CapJob, it.OcrJob, it.EmbJob)
+	}
+	tmp := itemsFile(project) + ".tmp"
+	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, itemsFile(project))
+}
+
+func readIndexKeys(project string) (map[string]bool, error) {
+	keys := map[string]bool{}
+	data, err := os.ReadFile(indexFile(project))
+	if err != nil {
+		return keys, err
+	}
+	for i, line := range strings.Split(string(data), "\n") {
+		if i == 0 || strings.TrimSpace(line) == "" {
+			continue
+		}
+		if f := strings.Split(line, "\t"); len(f) >= 1 {
+			keys[f[0]] = true
+		}
+	}
+	return keys, nil
+}
+
+func appendIndexRow(project, key, path string) error {
+	f, err := os.OpenFile(indexFile(project), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = fmt.Fprintf(f, "%s\t%s\t%s\n", key, path, ".imgsrch/artifacts/"+key+"/embedding.json")
+	return err
+}
+
+// contentKey is the first 16 hex chars of the file's SHA-256 — identical to
+// the bash spec, so existing project indexes stay valid.
+func contentKey(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16], nil
+}
+
+// collectImages lists accepted images in the project, sorted. Files with
+// unsupported extensions are returned separately so callers can be loud.
+func collectImages(project string) (accepted, skipped []string, err error) {
+	dir := imgDir(project)
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, werr error) error {
+		if werr != nil || info.IsDir() {
+			return nil
+		}
+		if acceptExt[strings.ToLower(filepath.Ext(path))] {
+			accepted = append(accepted, path)
+		} else {
+			skipped = append(skipped, path)
+		}
+		return nil
+	})
+	sort.Strings(accepted)
+	sort.Strings(skipped)
+	return accepted, skipped, err
+}
+
+func cmdInit(project string) error {
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		return err
+	}
+	if err := ensureProject(project); err != nil {
+		return err
+	}
+	if err := writeDefaultConfig(project); err != nil {
+		return err
+	}
+	note("initialized %s", project)
+	return nil
+}
+
+func cmdAdd(project string, images []string) error {
+	if err := ensureProject(project); err != nil {
+		return err
+	}
+	copied, skipped := 0, 0
+	for _, img := range images {
+		st, err := os.Stat(img)
+		if err != nil || st.IsDir() {
+			note("not a file: %s", img)
+			continue
+		}
+		if !acceptExt[strings.ToLower(filepath.Ext(img))] {
+			note("skipped %s (format not supported by the inference engine; use png/jpg/jpeg/gif)", filepath.Base(img))
+			skipped++
+			continue
+		}
+		dst := filepath.Join(imgDir(project), filepath.Base(img))
+		if err := copyFile(img, dst); err != nil {
+			return fmt.Errorf("copying %s: %w", img, err)
+		}
+		copied++
+	}
+	note("added %d image(s) to %s", copied, imgDir(project))
+	if skipped > 0 {
+		note("skipped %d unsupported file(s)", skipped)
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
