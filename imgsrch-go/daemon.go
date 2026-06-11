@@ -22,8 +22,13 @@ func findBin(envVar, name string) string {
 		return filepath.Join(d, name)
 	}
 	if exe, err := os.Executable(); err == nil {
-		if p := filepath.Join(filepath.Dir(exe), name); isExecutable(p) {
-			return p
+		for _, p := range []string{
+			filepath.Join(filepath.Dir(exe), "bin", name), // release kit layout
+			filepath.Join(filepath.Dir(exe), name),
+		} {
+			if isExecutable(p) {
+				return p
+			}
 		}
 	}
 	if p, _ := filepath.Abs(filepath.Join("build", name)); isExecutable(p) {

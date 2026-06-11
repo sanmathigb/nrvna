@@ -10,8 +10,8 @@ import (
 // Known-good local defaults, identical to the validated bash spec.
 // Override precedence: environment > <project>/.imgsrch/config > defaults.
 const (
-	defaultCaptionModel  = "models/LFM2.5 VL 1.6B GGUF.gguf"
-	defaultCaptionMmproj = "models/mmproj-LFM2.5-VL-1.6B-Q8_0.gguf"
+	defaultCaptionModel  = "models/LFM2.5-VL-1.6B-Q8_0.gguf"
+	defaultCaptionMmproj = "models/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf"
 	defaultOcrModel      = "models/GLM-OCR-Q8_0.gguf"
 	defaultOcrMmproj     = "models/mmproj-GLM-OCR-Q8_0.gguf"
 	defaultEmbedModel    = "models/nomic-embed-text-v1.5.Q8_0.gguf"
@@ -66,11 +66,11 @@ func loadConfig(project string) config {
 		return def
 	}
 	c := config{
-		CaptionModel:  resolvePath(pick("CAPTION_MODEL", defaultCaptionModel)),
-		CaptionMmproj: resolvePath(pick("CAPTION_MMPROJ", defaultCaptionMmproj)),
-		OcrModel:      resolvePath(pick("OCR_MODEL", defaultOcrModel)),
-		OcrMmproj:     resolvePath(pick("OCR_MMPROJ", defaultOcrMmproj)),
-		EmbedModel:    resolvePath(pick("EMBED_MODEL", defaultEmbedModel)),
+		CaptionModel:  resolveModel(pick("CAPTION_MODEL", defaultCaptionModel)),
+		CaptionMmproj: resolveModel(pick("CAPTION_MMPROJ", defaultCaptionMmproj)),
+		OcrModel:      resolveModel(pick("OCR_MODEL", defaultOcrModel)),
+		OcrMmproj:     resolveModel(pick("OCR_MMPROJ", defaultOcrMmproj)),
+		EmbedModel:    resolveModel(pick("EMBED_MODEL", defaultEmbedModel)),
 		CaptionPrompt: envOr("CAPTION_PROMPT", defaultCaptionPrompt),
 		OcrPrompt:     envOr("OCR_PROMPT", defaultOcrPrompt),
 		DocPrefix:     envOr("META_DOC_PREFIX", defaultDocPrefix),
@@ -79,9 +79,11 @@ func loadConfig(project string) config {
 	return c
 }
 
-// resolvePath makes an existing relative path absolute; nonexistent paths pass
-// through untouched so error messages show what was asked for.
-func resolvePath(p string) string {
+// resolveModel resolves a model reference: absolute paths and existing
+// relative paths win (dev trees, explicit overrides); otherwise fall back to
+// the models home that 'imgsrch setup' populates. Unresolvable references
+// pass through untouched so error messages show what was asked for.
+func resolveModel(p string) string {
 	if filepath.IsAbs(p) {
 		return p
 	}
@@ -89,6 +91,9 @@ func resolvePath(p string) string {
 		if abs, err := filepath.Abs(p); err == nil {
 			return abs
 		}
+	}
+	if h := filepath.Join(modelsHome(), filepath.Base(p)); exists(h) {
+		return h
 	}
 	return p
 }

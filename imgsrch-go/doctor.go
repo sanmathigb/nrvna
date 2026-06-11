@@ -48,7 +48,7 @@ func cmdDoctor(project string) error {
 	}
 
 	if bad {
-		return fmt.Errorf("doctor found problems (see above)")
+		return fmt.Errorf("doctor found problems (see above); missing models can be fetched with 'imgsrch setup'")
 	}
 	return nil
 }

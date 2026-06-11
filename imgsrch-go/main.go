@@ -10,6 +10,7 @@ import (
 )
 
 const usageText = `Usage:
+  imgsrch setup
   imgsrch init   <project>
   imgsrch add    <project> <image...>
   imgsrch index  <project>
@@ -42,6 +43,8 @@ func main() {
 
 	var err error
 	switch cmd {
+	case "setup":
+		err = cmdSetup()
 	case "init":
 		if len(rest) != 1 {
 			usage()

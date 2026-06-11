@@ -1,0 +1,62 @@
+From d7aafaf050a968f809f575e8f6ed47dc9c396d7c Mon Sep 17 00:00:00 2001
+From: Sanmathi Bharamgouda <sanmathigb@gmail.com>
+Date: Wed, 4 Mar 2026 07:57:44 -0800
+Subject: [PATCH 1/2] fix: Metal discrete GPU support (newBufferWithBytes for
+ non-page-aligned pointers)
+
+---
+ ggml/src/ggml-metal/ggml-metal-device.m | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/ggml/src/ggml-metal/ggml-metal-device.m b/ggml/src/ggml-metal/ggml-metal-device.m
+index 05d7f4305..041c97ae6 100644
+--- a/ggml/src/ggml-metal/ggml-metal-device.m
++++ b/ggml/src/ggml-metal/ggml-metal-device.m
+@@ -1703,12 +1703,12 @@ void ggml_metal_buffer_set_tensor(ggml_metal_buffer_t buf, struct ggml_tensor *
+     }
+ 
+     @autoreleasepool {
+-        // src
+-        void * data_ptr = (void *)(uintptr_t) data; // "const cast" the src data
+-        id<MTLBuffer> buf_src = [buf->dev->mtl_device newBufferWithBytesNoCopy:data_ptr
+-                                                               length:size
+-                                                              options:MTLResourceStorageModeShared
+-                                                          deallocator:nil];
++        // src — use newBufferWithBytes (alloc+copy) instead of newBufferWithBytesNoCopy
++        // (zero-copy wrap). NoCopy fails on discrete GPUs (AMD/Intel) when the source
++        // pointer is not page-aligned or not in a DMA-accessible region.
++        id<MTLBuffer> buf_src = [buf->dev->mtl_device newBufferWithBytes:data
++                                                                 length:size
++                                                                options:MTLResourceStorageModeShared];
+ 
+         GGML_ASSERT(buf_src);
+ 
+@@ -1761,11 +1761,10 @@ void ggml_metal_buffer_get_tensor(ggml_metal_buffer_t buf, const struct ggml_ten
+         struct ggml_metal_buffer_id bid_src = ggml_metal_buffer_get_id(buf, tensor);
+         bid_src.offs += offset;
+ 
+-        // dst
+-        id<MTLBuffer> buf_dst = [buf->dev->mtl_device newBufferWithBytesNoCopy:data
+-                                                               length:size
+-                                                              options:MTLResourceStorageModeShared
+-                                                          deallocator:nil];
++        // dst — use newBufferWithLength (allocate empty) instead of newBufferWithBytesNoCopy.
++        // NoCopy fails on discrete GPUs for non-page-aligned pointers.
++        id<MTLBuffer> buf_dst = [buf->dev->mtl_device newBufferWithLength:size
++                                                                  options:MTLResourceStorageModeShared];
+ 
+         GGML_ASSERT(buf_dst);
+ 
+@@ -1785,6 +1784,9 @@ void ggml_metal_buffer_get_tensor(ggml_metal_buffer_t buf, const struct ggml_ten
+ 
+         [cmd_buf commit];
+         [cmd_buf waitUntilCompleted];
++
++        // Copy from staging buffer back to caller's memory
++        memcpy(data, [buf_dst contents], size);
+     }
+ }
+ 
+-- 
+2.39.2 (Apple Git-143)
+
