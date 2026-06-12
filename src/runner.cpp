@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <memory>
 
 namespace nrvnaai {
 
@@ -38,6 +39,20 @@ int   Runner::gguf_repeat_last_n_  = 64;
 // because the underlying GGML compute graph has shared state that corrupts
 // when multiple vision encodings run simultaneously
 static std::mutex vision_encoding_mutex_;
+
+struct LlamaContextDeleter {
+    void operator()(llama_context* ctx) const noexcept {
+        if (ctx) llama_free(ctx);
+    }
+};
+using LlamaContextPtr = std::unique_ptr<llama_context, LlamaContextDeleter>;
+
+struct LlamaSamplerDeleter {
+    void operator()(llama_sampler* smpl) const noexcept {
+        if (smpl) llama_sampler_free(smpl);
+    }
+};
+using LlamaSamplerPtr = std::unique_ptr<llama_sampler, LlamaSamplerDeleter>;
 
 // Strip <think>...</think> blocks from reasoning models (DeepSeek-R1, QwQ, Qwen3, etc.)
 // Handles both closed (<think>...</think>) and unclosed (<think>... to end) blocks —
@@ -272,7 +287,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
                     tmpl_override.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
                     LOG_INFO("Chat template overridden from: " + std::string(path));
                 } else {
-                    LOG_WARN("NRVNA_CHAT_TEMPLATE_FILE set but unreadable: " + std::string(path));
+                    throw std::runtime_error("NRVNA_CHAT_TEMPLATE_FILE set but unreadable: " + std::string(path));
                 }
             }
             auto tmpl_ptr = common_chat_templates_init(shared_model_.get(), tmpl_override, "", "");
@@ -346,8 +361,8 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
     }
     config.n_predict = n_predict;
 
-    const int batch = env_int("NRVNA_BATCH", 2048);
-    const int ubatch = env_int("NRVNA_UBATCH", batch);
+    const int batch = env_positive_int("NRVNA_BATCH", 2048);
+    const int ubatch = env_positive_int("NRVNA_UBATCH", batch);
     const int image_max_tokens = env_int("NRVNA_IMAGE_MAX_TOKENS", 0);
     const char* thinking = std::getenv("NRVNA_THINKING");
 
@@ -366,9 +381,10 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
 void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llama_context_params& params) const {
     params = llama_context_default_params();
     params.n_ctx = std::min(n_prompt + config.n_predict + 64, config.max_ctx);
-    params.n_batch = env_int("NRVNA_BATCH", 2048);  // Match reference CLI default
+    const int n_batch = std::max(1, std::min(n_prompt, env_positive_int("NRVNA_BATCH", 2048)));
+    params.n_batch = n_batch;
     // Default ubatch to batch so vision encoders can opt into smaller chunks only when needed.
-    params.n_ubatch = env_int("NRVNA_UBATCH", params.n_batch);
+    params.n_ubatch = std::max(1, std::min(n_batch, env_positive_int("NRVNA_UBATCH", n_batch)));
     params.no_perf = false;
 
     if (effective_gpu_layers() <= 0) {
@@ -425,11 +441,17 @@ EmbedResult Runner::embed(const std::string& text) {
             return {false, {}, "Failed to tokenize input"};
         }
 
+        const int max_ctx = std::min(llama_model_n_ctx_train(shared_model_.get()), env_positive_int("NRVNA_MAX_CTX", 8192));
+        if (n_tokens + 1 > max_ctx) {
+            return {false, {}, "Embedding input too large for context budget: input_tokens=" +
+                std::to_string(n_tokens) + " max_ctx=" + std::to_string(max_ctx)};
+        }
+
         // Create context with embedding mode enabled
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = tokens.size() + 1;
-        ctx_params.n_batch = tokens.size();
-        ctx_params.n_ubatch = tokens.size();  // encoder requires n_ubatch >= n_tokens
+        ctx_params.n_ctx = n_tokens + 1;
+        ctx_params.n_batch = n_tokens;
+        ctx_params.n_ubatch = n_tokens;  // encoder requires n_ubatch >= n_tokens
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;  // Mean pooling for sentence embeddings
         if (effective_gpu_layers() <= 0) {
@@ -437,33 +459,30 @@ EmbedResult Runner::embed(const std::string& text) {
             ctx_params.op_offload = false;
         }
 
-        llama_context* ctx = llama_init_from_model(shared_model_.get(), ctx_params);
+        LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
             return {false, {}, "Failed to create embedding context"};
         }
 
         // Create batch and decode
         llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
-        if (llama_decode(ctx, batch) != 0) {
-            llama_free(ctx);
+        if (llama_decode(ctx.get(), batch) != 0) {
             return {false, {}, "Failed to decode for embeddings"};
         }
 
         // Get embeddings
-        float* emb = llama_get_embeddings_seq(ctx, 0);
+        float* emb = llama_get_embeddings_seq(ctx.get(), 0);
         if (!emb) {
             // Fall back to getting embeddings from last token
-            emb = llama_get_embeddings_ith(ctx, -1);
+            emb = llama_get_embeddings_ith(ctx.get(), -1);
         }
 
         if (!emb) {
-            llama_free(ctx);
             return {false, {}, "Failed to get embeddings"};
         }
 
         int n_embd = llama_model_n_embd_out(shared_model_.get());
         std::vector<float> embedding(emb, emb + n_embd);
-        llama_free(ctx);
 
         // L2 normalize — upstream does this in common_embd_normalize(, , , 2)
         // Without it, stored vectors aren't unit length, forcing every consumer
@@ -627,8 +646,7 @@ RunResult Runner::runText(const std::string& prompt) {
     if (!shared_model_) {
         return {false, "", "Model not loaded"};
     }
-    
-    llama_sampler* smpl = nullptr;
+
     try {
         SamplingConfig config = buildSamplingConfig();
         std::string formatted_prompt = formatPrompt(prompt);
@@ -657,22 +675,20 @@ RunResult Runner::runText(const std::string& prompt) {
 
         llama_context_params ctx_params;
         buildContextParams(n_prompt, config, ctx_params);
-        llama_context* ctx = llama_init_from_model(shared_model_.get(), ctx_params);
+        LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
             return {false, "", "Failed to create context"};
         }
 
         LOG_DEBUG("Context: " + std::to_string(ctx_params.n_ctx) + " tokens");
 
-        smpl = buildSampler(config);
+        LlamaSamplerPtr smpl(buildSampler(config));
 
         llama_token decoder_start_token_id = 0;
         if (llama_model_has_encoder(shared_model_.get())) {
             llama_batch enc_batch = llama_batch_get_one(prompt_tokens.data(), prompt_tokens.size());
-            if (llama_encode(ctx, enc_batch)) {
+            if (llama_encode(ctx.get(), enc_batch)) {
                 LOG_ERROR("Failed to encode");
-                llama_sampler_free(smpl);
-                llama_free(ctx);
                 return {false, "", "Failed to encode"};
             }
 
@@ -688,10 +704,8 @@ RunResult Runner::runText(const std::string& prompt) {
         if (decoder_start_token_id != 0) {
             // Encoder model: decode the start token
             llama_batch start_batch = llama_batch_get_one(&decoder_start_token_id, 1);
-            if (llama_decode(ctx, start_batch)) {
+            if (llama_decode(ctx.get(), start_batch)) {
                 LOG_ERROR("Failed to decode start token");
-                llama_sampler_free(smpl);
-                llama_free(ctx);
                 return {false, "", "Failed to decode start token"};
             }
         } else {
@@ -699,10 +713,8 @@ RunResult Runner::runText(const std::string& prompt) {
             for (int i = 0; i < n_prompt; i += n_batch) {
                 int n_eval = std::min(n_batch, n_prompt - i);
                 llama_batch batch = llama_batch_get_one(prompt_tokens.data() + i, n_eval);
-                if (llama_decode(ctx, batch)) {
+                if (llama_decode(ctx.get(), batch)) {
                     LOG_ERROR("Failed to decode prompt chunk");
-                    llama_sampler_free(smpl);
-                    llama_free(ctx);
                     return {false, "", "Failed to decode prompt"};
                 }
             }
@@ -713,8 +725,8 @@ RunResult Runner::runText(const std::string& prompt) {
 
         int generated = 0;
         for (; generated < config.n_predict; ) {
-            new_token_id = llama_sampler_sample(smpl, ctx, -1);
-            llama_sampler_accept(smpl, new_token_id);
+            new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
+            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -730,25 +742,18 @@ RunResult Runner::runText(const std::string& prompt) {
             output.append(buf, n);
 
             llama_batch gen_batch = llama_batch_get_one(&new_token_id, 1);
-            if (llama_decode(ctx, gen_batch)) {
+            if (llama_decode(ctx.get(), gen_batch)) {
                 LOG_ERROR("Failed to decode generated token");
                 break;
             }
             generated += 1;
         }
 
-        llama_sampler_free(smpl);
-        llama_free(ctx);
-
         LOG_INFO("Generated " + std::to_string(output.size()) + " bytes");
         output = stripThinkBlocks(output);
         return {true, output, ""};
 
     } catch (const std::exception& e) {
-        if (smpl) {
-            llama_sampler_free(smpl);
-            smpl = nullptr;
-        }
         LOG_ERROR("Inference error: " + std::string(e.what()));
         return {false, "", "Inference error: " + std::string(e.what())};
     }
@@ -822,14 +827,14 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         }
         llama_context_params ctx_params;
         buildContextParams(static_cast<int>(n_prompt), config, ctx_params);
-        llama_context* ctx = llama_init_from_model(shared_model_.get(), ctx_params);
+        LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
             mtmd_input_chunks_free(chunks);
             freeBitmaps(bitmaps);
             return {false, "", "Failed to create context"};
         }
 
-        llama_sampler* smpl = buildSampler(config);
+        LlamaSamplerPtr smpl(buildSampler(config));
         llama_pos n_past = 0;
 
         // CRITICAL: Serialize vision encoding across all workers
@@ -838,9 +843,7 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         auto encodeStart = std::chrono::steady_clock::now();
         {
             std::lock_guard<std::mutex> vision_lock(vision_encoding_mutex_);
-            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx, chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
-                llama_sampler_free(smpl);
-                llama_free(ctx);
+            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
                 mtmd_input_chunks_free(chunks);
                 freeBitmaps(bitmaps);
                 return {false, "", "Failed to eval multimodal prompt"};
@@ -860,8 +863,8 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         llama_batch batch = llama_batch_init(1, 0, 1);
 
         for (int i = 0; i < config.n_predict; ++i) {
-            new_token_id = llama_sampler_sample(smpl, ctx, -1);
-            llama_sampler_accept(smpl, new_token_id);
+            new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
+            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -882,15 +885,12 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
             batch.seq_id[0][0] = 0;
             batch.logits[0] = true;
 
-            if (llama_decode(ctx, batch)) {
+            if (llama_decode(ctx.get(), batch)) {
                 break;
             }
         }
 
         llama_batch_free(batch);
-
-        llama_sampler_free(smpl);
-        llama_free(ctx);
 
         LOG_INFO("Generated " + std::to_string(output.size()) + " bytes before strip");
         output = stripThinkBlocks(output);
@@ -975,20 +975,18 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
 
         llama_context_params ctx_params;
         buildContextParams(static_cast<int>(n_prompt), config, ctx_params);
-        llama_context* ctx = llama_init_from_model(shared_model_.get(), ctx_params);
+        LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
             mtmd_input_chunks_free(chunks);
             freeBitmaps(audioBitmaps);
             return {false, "", "Failed to create STT context"};
         }
 
-        llama_sampler* smpl = buildSampler(config);
+        LlamaSamplerPtr smpl(buildSampler(config));
         llama_pos n_past = 0;
         {
             std::lock_guard<std::mutex> media_lock(vision_encoding_mutex_);
-            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx, chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
-                llama_sampler_free(smpl);
-                llama_free(ctx);
+            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
                 mtmd_input_chunks_free(chunks);
                 freeBitmaps(audioBitmaps);
                 return {false, "", "Failed to eval audio prompt"};
@@ -1003,8 +1001,8 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         llama_batch batch = llama_batch_init(1, 0, 1);
 
         for (int i = 0; i < config.n_predict; ++i) {
-            llama_token new_token_id = llama_sampler_sample(smpl, ctx, -1);
-            llama_sampler_accept(smpl, new_token_id);
+            llama_token new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
+            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -1024,14 +1022,12 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
             batch.seq_id[0][0] = 0;
             batch.logits[0] = true;
 
-            if (llama_decode(ctx, batch)) {
+            if (llama_decode(ctx.get(), batch)) {
                 break;
             }
         }
 
         llama_batch_free(batch);
-        llama_sampler_free(smpl);
-        llama_free(ctx);
 
         output = extractAsrText(output);
         LOG_INFO("STT generated " + std::to_string(output.size()) + " chars");

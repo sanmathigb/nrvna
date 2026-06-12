@@ -79,7 +79,14 @@ nrvna__runtime_config() {
         printf '\n'
         printf 'env.NRVNA_WORKERS=%s\n' "${NRVNA_WORKERS:-4}"
         printf 'env.NRVNA_GPU_LAYERS=%s\n' "${NRVNA_GPU_LAYERS:-0}"
+        printf 'env.NRVNA_MAX_CTX=%s\n' "${NRVNA_MAX_CTX:-8192}"
+        printf 'env.NRVNA_BATCH=%s\n' "${NRVNA_BATCH:-2048}"
+        printf 'env.NRVNA_UBATCH=%s\n' "${NRVNA_UBATCH:-${NRVNA_BATCH:-2048}}"
+        printf 'env.NRVNA_PREDICT=%s\n' "${NRVNA_PREDICT:-${NRVNA_N_PREDICT:-2048}}"
+        printf 'env.NRVNA_TEMP=%s\n' "${NRVNA_TEMP:-0.8}"
+        printf 'env.NRVNA_THINKING=%s\n' "${NRVNA_THINKING:-1}"
         printf 'env.NRVNA_IMAGE_MAX_TOKENS=%s\n' "${NRVNA_IMAGE_MAX_TOKENS:-0}"
+        printf 'env.NRVNA_CHAT_TEMPLATE_FILE=%s\n' "${NRVNA_CHAT_TEMPLATE_FILE:-}"
     }
 }
 
@@ -104,14 +111,42 @@ nrvna__same_runtime() {
     [ "$saved" = "$current" ]
 }
 
+nrvna__pid_is_nrvnad() {
+    local pid="$1"
+    kill -0 "$pid" 2>/dev/null || return 1
+    local comm
+    comm="$(ps -p "$pid" -o comm= 2>/dev/null | awk '{print $1}')"
+    [ "$(basename "$comm")" = "nrvnad" ]
+}
+
+nrvna__lock_is_held() {
+    python3 - "$1" <<'PY'
+import fcntl, os, sys
+path = os.path.join(sys.argv[1], '.nrvnad.lock')
+try:
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+except OSError:
+    raise SystemExit(1)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(0)
+else:
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    raise SystemExit(1)
+finally:
+    os.close(fd)
+PY
+}
+
 nrvna_status() {
     local ws="$1"
     local pid
     pid="$(nrvna__read_pid "$ws")" || return 1
-    if kill -0 "$pid" 2>/dev/null; then
+    if nrvna__pid_is_nrvnad "$pid" && nrvna__lock_is_held "$ws"; then
         return 0
     fi
-    rm -f "$(nrvna__pid_file "$ws")"
+    rm -f "$(nrvna__pid_file "$ws")" "$(nrvna__meta_file "$ws")"
     return 1
 }
 
@@ -180,7 +215,7 @@ nrvna_stop() {
     pid="$(nrvna__read_pid "$ws" || true)"
     [ -n "${pid:-}" ] || return 0
 
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! nrvna__pid_is_nrvnad "$pid" || ! nrvna__lock_is_held "$ws"; then
         rm -f "$(nrvna__pid_file "$ws")" "$(nrvna__meta_file "$ws")"
         return 0
     fi

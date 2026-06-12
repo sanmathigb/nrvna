@@ -37,6 +37,19 @@ inline int env_int(const char* name, int defv) {
     return defv;
 }
 
+// Get a positive integer from env. Values <= 0 are invalid for llama batch
+// sizes and loop strides; falling back prevents hangs like `NRVNA_BATCH=0`.
+inline int env_positive_int(const char* name, int defv) {
+    int value = env_int(name, defv);
+    if (value <= 0) {
+        if (const char* raw = std::getenv(name)) {
+            warn_invalid_env(name, raw, "positive integer", std::to_string(defv));
+        }
+        return defv > 0 ? defv : 1;
+    }
+    return value;
+}
+
 // Get float from env with default. Invalid or partial values fall back.
 inline float env_float(const char* name, float defv) {
     if (const char* v = std::getenv(name)) {

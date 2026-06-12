@@ -21,6 +21,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <unistd.h>
+#include <sys/file.h>
+#include <fcntl.h>
 #include <optional>
 
 using namespace nrvnaai;
@@ -29,6 +31,7 @@ constexpr const char * VERSION = "0.1.0";
 
 static volatile sig_atomic_t g_shutdown_requested = 0;
 static std::filesystem::path g_models_dir;
+static int g_workspace_lock_fd = -1;
 
 void signalHandler(int signal) {
     (void) signal;
@@ -41,6 +44,41 @@ void signalHandler(int signal) {
         _exit(130);
     }
     g_shutdown_requested = 1;
+}
+
+bool acquireWorkspaceLock(const std::filesystem::path& workspace) {
+    std::error_code ec;
+    std::filesystem::create_directories(workspace, ec);
+    if (ec) {
+        std::cerr << "Error: cannot create workspace: " << ec.message() << "\n";
+        return false;
+    }
+
+    auto lockPath = workspace / ".nrvnad.lock";
+    int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, 0644);
+    if (fd < 0) {
+        std::cerr << "Error: cannot open workspace lock: " << lockPath << "\n";
+        return false;
+    }
+    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        std::cerr << "Error: workspace already has a running nrvnad: " << workspace << "\n";
+        ::close(fd);
+        return false;
+    }
+
+    (void)::ftruncate(fd, 0);
+    std::string pid = std::to_string(getpid()) + "\n";
+    (void)::write(fd, pid.c_str(), pid.size());
+    g_workspace_lock_fd = fd;
+    return true;
+}
+
+void releaseWorkspaceLock() {
+    if (g_workspace_lock_fd >= 0) {
+        (void)::flock(g_workspace_lock_fd, LOCK_UN);
+        (void)::close(g_workspace_lock_fd);
+        g_workspace_lock_fd = -1;
+    }
 }
 
 std::string toLower(std::string value) {
@@ -352,12 +390,17 @@ int main(int argc, char * argv[]) {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
+    if (!acquireWorkspaceLock(std::filesystem::path(workspace))) {
+        return 1;
+    }
+
     if (auto resolved = resolveModelPath(modelPath)) {
         modelPath = resolved->string();
     }
 
     if (!std::filesystem::exists(std::filesystem::path(modelPath))) {
         std::cerr << "Error: Model not found: " << modelPath << "\n";
+        releaseWorkspaceLock();
         return 1;
     }
 
@@ -375,12 +418,14 @@ int main(int argc, char * argv[]) {
 
     if (!vocoderPath.empty() && !std::filesystem::exists(std::filesystem::path(vocoderPath))) {
         std::cerr << "Error: Vocoder not found: " << vocoderPath << "\n";
+        releaseWorkspaceLock();
         return 1;
     }
 
     ModelInfo probeInfo = Runner::probeModelInfo(modelPath);
     if (!probeInfo.valid) {
         std::cerr << "Error: Failed to probe model metadata: " << modelPath << "\n";
+        releaseWorkspaceLock();
         return 1;
     }
 
@@ -416,6 +461,7 @@ int main(int argc, char * argv[]) {
 
         if (!server->start()) {
             std::cout << "  \033[31mFailed to start\033[0m\n";
+            releaseWorkspaceLock();
             return 1;
         }
 
@@ -457,11 +503,14 @@ int main(int argc, char * argv[]) {
             std::filesystem::remove(pidPath, ec);
         }
         server->shutdown();
+        releaseWorkspaceLock();
 
     } catch (const std::exception & e) {
+        releaseWorkspaceLock();
         LOG_ERROR("Server error: " + std::string(e.what()));
         return 1;
     } catch (...) {
+        releaseWorkspaceLock();
         LOG_ERROR("Unknown server error");
         return 1;
     }

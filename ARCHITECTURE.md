@@ -207,6 +207,8 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 | `NRVNA_MODELS_DIR` | ./models/ | Model search path |
 | `NRVNA_MAX_IMAGE_SIZE` | 50MB | Max image file size |
 | `NRVNA_MAX_AUDIO_SIZE` | 200MB | Max audio file size (STT) |
+| `NRVNA_MAX_PROMPT_SIZE` | 10MB | Max prompt.txt size read by daemon |
+| `NRVNA_CHAT_TEMPLATE_FILE` | (unset) | Override GGUF chat template; unreadable files fail startup |
 | `NRVNA_STT_TEMP` | (base temp) | STT sampling temperature |
 | `NRVNA_STT_PREDICT` | (base predict) | STT max tokens |
 | `NRVNA_WARMUP` | 0 | mtmd context warmup (0/1) |

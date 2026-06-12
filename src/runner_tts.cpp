@@ -575,7 +575,7 @@ TtsResult TtsRunner::run(const std::string& text) {
         // Create context for text-to-codes generation
         int n_predict = env_int("NRVNA_PREDICT", 4096);
         int n_ctx_train = llama_model_n_ctx_train(shared_tts_model_.get());
-        int max_ctx = std::min(n_ctx_train, env_int("NRVNA_MAX_CTX", 8192));
+        int max_ctx = std::min(n_ctx_train, env_positive_int("NRVNA_MAX_CTX", 8192));
         int n_prompt = static_cast<int>(prompt_tokens.size());
         int n_ctx = std::min(n_prompt + n_predict, max_ctx);
 
@@ -587,7 +587,7 @@ TtsResult TtsRunner::run(const std::string& text) {
 
         llama_context_params ctx_params = llama_context_default_params();
         ctx_params.n_ctx = n_ctx;
-        ctx_params.n_batch = env_int("NRVNA_BATCH", 8192);
+        ctx_params.n_batch = std::max(1, std::min(n_ctx, env_positive_int("NRVNA_BATCH", 8192)));
         ctx_params.no_perf = false;
         // TTS: CPU-only — model loaded with n_gpu_layers=0, context must match
         ctx_params.offload_kqv = false;

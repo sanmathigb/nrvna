@@ -9,6 +9,7 @@
 #include "nrvna/runner.hpp"
 #include "nrvna/runner_tts.hpp"
 #include "nrvna/logger.hpp"
+#include "llama_util.hpp"
 #include <chrono>
 #include <cstdio>
 #include <ctime>
@@ -507,9 +508,27 @@ PromptReadResult Processor::readPrompt(const JobId& jobId) const noexcept {
     try {
         auto promptPath = getJobPath("processing", jobId) / "prompt.txt";
         
-        if (!std::filesystem::exists(promptPath)) {
+        std::error_code ec;
+        auto st = std::filesystem::symlink_status(promptPath, ec);
+        if (ec || !std::filesystem::exists(st)) {
             LOG_ERROR("Prompt file not found: " + promptPath.string());
             return {false, "", "Prompt file not found"};
+        }
+        if (std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
+            LOG_ERROR("Prompt file is not a regular file: " + promptPath.string());
+            return {false, "", "Prompt file is not a regular file"};
+        }
+
+        const auto maxPromptBytes = static_cast<std::uintmax_t>(env_positive_int("NRVNA_MAX_PROMPT_SIZE", 10'000'000));
+        auto promptBytes = std::filesystem::file_size(promptPath, ec);
+        if (ec) {
+            LOG_ERROR("Failed to stat prompt file: " + promptPath.string() + " - " + ec.message());
+            return {false, "", "Failed to stat prompt file"};
+        }
+        if (promptBytes > maxPromptBytes) {
+            LOG_ERROR("Prompt file too large: " + promptPath.string());
+            return {false, "", "Prompt file too large: " + std::to_string(promptBytes) +
+                " bytes (limit " + std::to_string(maxPromptBytes) + ")"};
         }
         
         std::ifstream file(promptPath, std::ios::binary);
