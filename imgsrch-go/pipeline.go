@@ -112,6 +112,22 @@ func cmdIndex(project string) error {
 		return err
 	}
 
+	accepted, unsupported, err := collectImages(project)
+	if err != nil {
+		return err
+	}
+	for _, f := range unsupported {
+		note("skipped %s (format not supported by the inference engine)", filepath.Base(f))
+	}
+
+	// Lock around the submit loop: persist each image's job ids immediately so an
+	// interrupt never orphans them, and serialize against a concurrent status/search.
+	unlock, err := lockProject(project)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	items, err := readItems(project)
 	if err != nil {
 		return err
@@ -119,14 +135,6 @@ func cmdIndex(project string) error {
 	known := map[string]bool{}
 	for _, it := range items {
 		known[it.Key] = true
-	}
-
-	accepted, unsupported, err := collectImages(project)
-	if err != nil {
-		return err
-	}
-	for _, f := range unsupported {
-		note("skipped %s (format not supported by the inference engine)", filepath.Base(f))
 	}
 
 	absProject, _ := filepath.Abs(project)
@@ -153,12 +161,12 @@ func cmdIndex(project string) error {
 		if err != nil {
 			return err
 		}
-		items = append(items, item{key, rel, capJob, ocrJob, ""})
+		// Persist immediately — an interrupt here must not orphan the jobs.
+		if err := appendItem(project, item{key, rel, capJob, ocrJob, ""}); err != nil {
+			return err
+		}
 		known[key] = true
 		queued++
-	}
-	if err := writeItems(project, items); err != nil {
-		return err
 	}
 
 	fmt.Printf("queued:  %d image(s)\n", queued)
@@ -186,6 +194,13 @@ func advance(project string, verbose bool) (progress, error) {
 		return pr, err
 	}
 	c := loadConfig(project)
+
+	// Serialize the manifest read-modify-write against a concurrent index run.
+	unlock, err := lockProject(project)
+	if err != nil {
+		return pr, err
+	}
+	defer unlock()
 
 	items, err := readItems(project)
 	if err != nil {

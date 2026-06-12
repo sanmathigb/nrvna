@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 // Accepted formats = what the inference engine (llama.cpp/stb_image) can
@@ -102,6 +103,37 @@ func readIndexKeys(project string) (map[string]bool, error) {
 		}
 	}
 	return keys, nil
+}
+
+// lockProject takes an exclusive flock on .imgsrch/.lock and returns an unlock
+// func. It serializes manifest mutations so a concurrent `index` and
+// `status`/`search` can't clobber each other's job ids. The lock auto-releases
+// if the process dies (flock semantics), so a crash never deadlocks the next run.
+func lockProject(project string) (func(), error) {
+	f, err := os.OpenFile(filepath.Join(rootDir(project), ".lock"), os.O_RDWR|os.O_CREATE, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() {
+		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		f.Close()
+	}, nil
+}
+
+// appendItem durably appends one manifest row. index persists per image so an
+// interrupt mid-run never orphans already-submitted jobs (matches the bash spec).
+func appendItem(project string, it item) error {
+	f, err := os.OpenFile(itemsFile(project), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = fmt.Fprintf(f, "%s\t%s\t%s\t%s\t%s\n", it.Key, it.Path, it.CapJob, it.OcrJob, it.EmbJob)
+	return err
 }
 
 func appendIndexRow(project, key, path string) error {
