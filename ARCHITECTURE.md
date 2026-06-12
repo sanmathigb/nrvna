@@ -26,7 +26,7 @@ WORKSPACE/
 | **Scanner** | `scanner.hpp/cpp` | Finds jobs in `input/ready/` |
 | **Pool** | `pool.hpp/cpp` | Thread pool for workers |
 | **Processor** | `processor.hpp/cpp` | Routes jobs by type, manages Runners, moves jobs through states |
-| **Runner** | `runner.hpp/cpp` | Wraps llama.cpp for text, vision, and embedding inference |
+| **Runner** | `runner.hpp/cpp` | Wraps llama.cpp for text, vision, embedding, and speech-to-text (STT) inference |
 | **TtsRunner** | `runner_tts.hpp/cpp` | Text-to-speech inference with OuteTTS + vocoder |
 | **Logger** | `logger.hpp/cpp` | Thread-safe logging to stderr |
 
@@ -78,9 +78,10 @@ SERVER (main thread)
    b. Read prompt from processing/<job_id>/prompt.txt
    c. Read type from processing/<job_id>/type.txt (default: text)
    d. Route by type:
-      - text/vision → Runner::run()    → result.txt
-      - embed       → Runner::embed()  → embedding.json
-      - tts         → TtsRunner::run() → audio.wav
+      - text/vision → Runner::run()       → result.txt
+      - embed       → Runner::embed()     → embedding.json
+      - stt (--audio) → Runner::runStt()  → result.txt (transcript)
+      - tts         → TtsRunner::run()    → audio.wav
    e. On success: write output file, RENAME -> output/<job_id>
    f. On failure: write error.txt, RENAME -> failed/<job_id>
 ```
@@ -124,7 +125,7 @@ Based on llama.cpp `examples/simple/simple.cpp` and `tools/mtmd/mtmd-cli.cpp`.
 - Per-worker `llama_context` created fresh for each job, freed after
 - Per-worker `mtmd_context` for vision (NOT thread-safe)
 - Vision encoding serialized via mutex (GGML shared compute graph state)
-- Chat template applied via `llama_chat_apply_template` (falls back to raw prompt for base models)
+- Chat template applied via `common_chat_templates` with Jinja (`use_jinja=true`); `NRVNA_CHAT_TEMPLATE_FILE` overrides (unreadable override fails startup)
 - Sampler chain: penalties → top_k → top_p → min_p → temp → dist
 - `stripThinkBlocks()` removes `<think>...</think>` from reasoning models
 
@@ -192,7 +193,7 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 |----------|---------|-------------|
 | `NRVNA_WORKERS` | 4 | Worker threads |
 | `NRVNA_LOG_LEVEL` | info | Log verbosity |
-| `NRVNA_GPU_LAYERS` | 99 (Mac) / 0 (other) | GPU layers for model |
+| `NRVNA_GPU_LAYERS` | 0 | GPU layers to offload (default CPU; set >0 to use GPU, e.g. 99 on Apple Silicon) |
 | `NRVNA_PREDICT` | 2048 | Max tokens to generate |
 | `NRVNA_MAX_CTX` | 8192 | Context window size |
 | `NRVNA_BATCH` | 2048 | Batch size |

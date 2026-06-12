@@ -229,7 +229,7 @@ wrk "$ws" "Process this: $input"
 | `NRVNA_TOP_P` | `0.9` | Top-P (nucleus) sampling |
 | `NRVNA_MIN_P` | `0.05` | Min-P sampling |
 | `NRVNA_REPEAT_PENALTY` | `1.1` | Repetition penalty |
-| `NRVNA_GPU_LAYERS` | `99` (Mac) / `0` (other) | Layers offloaded to GPU |
+| `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to GPU (default CPU; set >0 to offload, e.g. `99` on Apple Silicon) |
 | `NRVNA_MODELS_DIR` | `./models/` | Model search path |
 | `NRVNA_LOG_LEVEL` | `info` | Logging: error, warn, info, debug, trace |
 
