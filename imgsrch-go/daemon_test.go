@@ -61,11 +61,17 @@ func TestDaemonRunningRejectsUnrelatedLivePID(t *testing.T) {
 	if err := os.WriteFile(pidFile(ws), []byte("1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(metaFile(ws), []byte("stale"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if daemonRunning(ws) {
 		t.Fatal("unrelated PID was accepted as the workspace daemon")
 	}
 	if _, err := os.Stat(pidFile(ws)); !os.IsNotExist(err) {
 		t.Fatalf("stale pidfile was not removed: %v", err)
+	}
+	if _, err := os.Stat(metaFile(ws)); !os.IsNotExist(err) {
+		t.Fatalf("stale metafile was not removed: %v", err)
 	}
 }
 

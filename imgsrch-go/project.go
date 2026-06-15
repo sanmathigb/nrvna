@@ -200,12 +200,10 @@ func cmdAdd(project string, images []string) error {
 			continue
 		}
 		dst := filepath.Join(imgDir(project), filepath.Base(img))
-		if _, err := os.Stat(dst); err == nil {
-			return fmt.Errorf("%s already exists in the project; rename the new image first", filepath.Base(img))
-		} else if !os.IsNotExist(err) {
-			return fmt.Errorf("checking %s: %w", dst, err)
-		}
-		if err := copyFile(img, dst); err != nil {
+		if err := copyFileNoClobber(img, dst); err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%s already exists in the project; rename the new image first", filepath.Base(img))
+			}
 			return fmt.Errorf("copying %s: %w", img, err)
 		}
 		copied++
@@ -224,6 +222,21 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func copyFileNoClobber(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}

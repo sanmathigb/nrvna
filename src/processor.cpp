@@ -160,9 +160,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, ttsResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, ttsResult.error);
                 LOG_WARN("TTS job failed: " + jobId + " - " + ttsResult.error);
                 return ProcessResult::Failed;
             }
@@ -197,9 +196,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, sttResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, sttResult.error);
                 LOG_WARN("STT job failed: " + jobId + " - " + sttResult.error);
                 return ProcessResult::Failed;
             }
@@ -226,9 +224,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, embedResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, embedResult.error);
                 LOG_WARN("Embed job failed: " + jobId + " - " + embedResult.error);
                 return ProcessResult::Failed;
             }
@@ -258,9 +255,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             }
         } else {
             printJobStatus(jobId, "failed", elapsed);
-            if (finalizeFailure(jobId, result.error)) {
-                completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-            }
+            completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+            (void)finalizeFailure(jobId, result.error);
             LOG_WARN("Job failed during inference: " + jobId + " - " + result.error);
             return ProcessResult::Failed;
         }

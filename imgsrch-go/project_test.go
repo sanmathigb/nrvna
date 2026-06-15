@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -37,5 +38,48 @@ func TestCmdAddRejectsExistingBasename(t *testing.T) {
 	}
 	if string(got) != "first" {
 		t.Fatalf("existing image was overwritten: %q", got)
+	}
+}
+
+func TestCopyFileNoClobberIsAtomic(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.png")
+	second := filepath.Join(dir, "second.png")
+	dst := filepath.Join(dir, "same.png")
+	if err := os.WriteFile(first, []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("second"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, src := range []string{first, second} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- copyFileNoClobber(src, dst)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	successes, exists := 0, 0
+	for err := range errs {
+		switch {
+		case err == nil:
+			successes++
+		case os.IsExist(err):
+			exists++
+		default:
+			t.Fatalf("unexpected copy error: %v", err)
+		}
+	}
+	if successes != 1 || exists != 1 {
+		t.Fatalf("successes=%d exists=%d; want one of each", successes, exists)
 	}
 }

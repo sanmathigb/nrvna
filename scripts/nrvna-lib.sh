@@ -229,6 +229,11 @@ nrvna_stop() {
             sleep 2
             if kill -0 "$pid" 2>/dev/null; then
                 kill -KILL "$pid" 2>/dev/null || true
+                sleep 1
+                if nrvna__pid_is_nrvnad "$pid" && nrvna__lock_is_held "$ws"; then
+                    nrvna__err "failed to stop daemon for $ws (pid $pid still owns the workspace)"
+                    return 1
+                fi
             fi
             break
         fi
