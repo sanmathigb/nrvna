@@ -45,8 +45,15 @@ jobs:
 
       - name: Build engine
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_CURL=OFF \
+            -DLLAMA_OPENSSL=OFF
           cmake --build build -j4 --target nrvnad wrk flw
+
+      - name: Test primitive CLI contracts
+        run: bash tests/primitive-contract.sh build
 
       - uses: actions/setup-go@v5
         with:
@@ -67,6 +74,22 @@ jobs:
           cp LICENSE "dist/$kit/"
           tar -C dist -czf "dist/$kit.tar.gz" "$kit"
           shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
+
+      - name: Smoke-test packaged binaries
+        run: |
+          kit="imgsrch-${{ matrix.target }}"
+          mkdir -p dist/smoke
+          tar -C dist/smoke -xzf "dist/$kit.tar.gz"
+          export NRVNA_BUILD_DIR="$PWD/dist/smoke/$kit/bin"
+          export CAPTION_MODEL="$PWD/dist/smoke/$kit/LICENSE"
+          export CAPTION_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"
+          export OCR_MODEL="$PWD/dist/smoke/$kit/LICENSE"
+          export OCR_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"
+          export EMBED_MODEL="$PWD/dist/smoke/$kit/LICENSE"
+          "dist/smoke/$kit/imgsrch" doctor
+          "dist/smoke/$kit/bin/nrvnad" --version
+          "dist/smoke/$kit/bin/wrk" --version
+          "dist/smoke/$kit/bin/flw" --version
 
       - uses: actions/upload-artifact@v4
         with:

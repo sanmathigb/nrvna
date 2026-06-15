@@ -7,21 +7,29 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
-const usageText = `Usage:
-  imgsrch setup
-  imgsrch init   <project>
-  imgsrch add    <project> <image...>
-  imgsrch index  <project>
-  imgsrch status <project>
-  imgsrch search <project> <query> [top_n]
-  imgsrch stop   <project>
-  imgsrch doctor [project]
+const version = "0.1.0"
 
-imgsrch turns a folder of images into a searchable local index.
-Indexing is asynchronous: run 'index', walk away, come back to 'status'
-and 'search'. Supported formats: png, jpg, jpeg, gif.
+const usageText = `Local semantic search for images.
+
+Usage:
+  imgsrch <command> [arguments]
+
+Commands:
+  setup                                  Download the default models
+  init <project>                         Create a project
+  add <project> <image...>               Add images to a project
+  index <project>                        Index project images
+  status <project>                       Show indexing status
+  search <project> <query> [top_n]       Search a project
+  stop <project>                         Stop background indexing
+  doctor [project]                       Check the installation
+
+Options:
+  -h, --help       Show help
+  -v, --version    Show version
 `
 
 func usage() { fmt.Fprint(os.Stderr, usageText) }
@@ -33,10 +41,22 @@ func fail(format string, a ...any) {
 	os.Exit(1)
 }
 
+func parseTopN(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("top_n must be a positive integer")
+	}
+	return n, nil
+}
+
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
 		usage()
+		return
+	}
+	if args[0] == "-v" || args[0] == "--version" || args[0] == "version" {
+		fmt.Printf("imgsrch %s\n", version)
 		return
 	}
 	cmd, rest := args[0], args[1:]
@@ -44,6 +64,10 @@ func main() {
 	var err error
 	switch cmd {
 	case "setup":
+		if len(rest) != 0 {
+			usage()
+			os.Exit(1)
+		}
 		err = cmdSetup()
 	case "init":
 		if len(rest) != 1 {
@@ -76,7 +100,10 @@ func main() {
 		}
 		topN := 5
 		if len(rest) == 3 {
-			fmt.Sscanf(rest[2], "%d", &topN)
+			topN, err = parseTopN(rest[2])
+			if err != nil {
+				break
+			}
 		}
 		err = cmdSearch(rest[0], rest[1], topN)
 	case "stop":
@@ -92,6 +119,10 @@ func main() {
 		}
 		_, err = advance(rest[0], true)
 	case "doctor":
+		if len(rest) > 1 {
+			usage()
+			os.Exit(1)
+		}
 		p := ""
 		if len(rest) > 0 {
 			p = rest[0]

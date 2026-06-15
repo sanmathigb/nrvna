@@ -224,8 +224,13 @@ nrvna_stop() {
     elapsed="0"
     while kill -0 "$pid" 2>/dev/null; do
         if nrvna__float_ge "$elapsed" "$NRVNA_STOP_TIMEOUT"; then
-            nrvna__err "timed out stopping PID $pid for $ws"
-            return 1
+            nrvna__note "worker still busy; forcing stop for $ws"
+            kill -TERM "$pid" 2>/dev/null || true
+            sleep 2
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -KILL "$pid" 2>/dev/null || true
+            fi
+            break
         fi
         sleep "$NRVNA_POLL_INTERVAL"
         elapsed="$(awk -v a="$elapsed" -v b="$NRVNA_POLL_INTERVAL" 'BEGIN { printf "%.3f", a + b }')"

@@ -5,6 +5,19 @@ import (
 	"os/exec"
 )
 
+func engineEnvVar(name string) string {
+	switch name {
+	case "nrvnad":
+		return "NRVNA_DAEMON_BIN"
+	case "wrk":
+		return "NRVNA_WRK_BIN"
+	case "flw":
+		return "NRVNA_FLW_BIN"
+	default:
+		return ""
+	}
+}
+
 // doctor verifies the engine binaries and models are present and runnable.
 // It is the one place engine internals are named — that's its job.
 func cmdDoctor(project string) error {
@@ -22,7 +35,7 @@ func cmdDoctor(project string) error {
 	} {
 		switch {
 		case b.path == "":
-			fmt.Printf("  ✗ %s missing (set NRVNA_BUILD_DIR or NRVNA_%s_BIN)\n", b.name, b.name)
+			fmt.Printf("  ✗ %s missing (set NRVNA_BUILD_DIR or %s)\n", b.name, engineEnvVar(b.name))
 			bad = true
 		case exec.Command(b.path, "--version").Run() != nil:
 			fmt.Printf("  ✗ %s won't run: %s\n", b.name, b.path)

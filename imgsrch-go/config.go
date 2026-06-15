@@ -66,11 +66,11 @@ func loadConfig(project string) config {
 		return def
 	}
 	c := config{
-		CaptionModel:  resolveModel(pick("CAPTION_MODEL", defaultCaptionModel)),
-		CaptionMmproj: resolveModel(pick("CAPTION_MMPROJ", defaultCaptionMmproj)),
-		OcrModel:      resolveModel(pick("OCR_MODEL", defaultOcrModel)),
-		OcrMmproj:     resolveModel(pick("OCR_MMPROJ", defaultOcrMmproj)),
-		EmbedModel:    resolveModel(pick("EMBED_MODEL", defaultEmbedModel)),
+		CaptionModel:  resolveModel(project, pick("CAPTION_MODEL", defaultCaptionModel)),
+		CaptionMmproj: resolveModel(project, pick("CAPTION_MMPROJ", defaultCaptionMmproj)),
+		OcrModel:      resolveModel(project, pick("OCR_MODEL", defaultOcrModel)),
+		OcrMmproj:     resolveModel(project, pick("OCR_MMPROJ", defaultOcrMmproj)),
+		EmbedModel:    resolveModel(project, pick("EMBED_MODEL", defaultEmbedModel)),
 		CaptionPrompt: envOr("CAPTION_PROMPT", defaultCaptionPrompt),
 		OcrPrompt:     envOr("OCR_PROMPT", defaultOcrPrompt),
 		DocPrefix:     envOr("META_DOC_PREFIX", defaultDocPrefix),
@@ -79,21 +79,26 @@ func loadConfig(project string) config {
 	return c
 }
 
-// resolveModel resolves a model reference: absolute paths and existing
-// relative paths win (dev trees, explicit overrides); otherwise fall back to
-// the models home that 'imgsrch setup' populates. Unresolvable references
-// pass through untouched so error messages show what was asked for.
-func resolveModel(p string) string {
+// resolveModel keeps project configuration independent of the caller's cwd.
+// Relative paths resolve from the project, then the managed models directory.
+func resolveModel(project, p string) string {
 	if filepath.IsAbs(p) {
 		return p
 	}
-	if _, err := os.Stat(p); err == nil {
-		if abs, err := filepath.Abs(p); err == nil {
-			return abs
+	var projectPath string
+	if project != "" {
+		if abs, err := filepath.Abs(project); err == nil {
+			projectPath = filepath.Join(abs, p)
+			if exists(projectPath) {
+				return projectPath
+			}
 		}
 	}
 	if h := filepath.Join(modelsHome(), filepath.Base(p)); exists(h) {
 		return h
+	}
+	if projectPath != "" {
+		return projectPath
 	}
 	return p
 }

@@ -42,6 +42,12 @@ var modelManifest = []modelSpec{
 		"3e24342164b3d94991ba9692fdc0dd08e3fd7362e0aacc396a9a5c54a544c3b7", 146146432},
 }
 
+func newDownloadClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
+
+var downloadClient = newDownloadClient(2 * time.Hour)
+
 // modelsHome is where setup installs models and where defaults resolve as a
 // fallback after ./models — one fixed, predictable place per user.
 func modelsHome() string {
@@ -93,7 +99,7 @@ func download(m modelSpec, dest string) error {
 	url := fmt.Sprintf("https://huggingface.co/%s/resolve/%s/%s", m.Repo, m.Revision, m.Path)
 	fmt.Printf("  ↓ %-15s %s (%.1f GB)\n", m.Label, m.Name, float64(m.Size)/1e9)
 
-	resp, err := http.Get(url)
+	resp, err := downloadClient.Get(url)
 	if err != nil {
 		return err
 	}

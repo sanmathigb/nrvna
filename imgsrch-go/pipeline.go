@@ -9,8 +9,7 @@ import (
 )
 
 // Worker configurations — the exact validated settings from the bash spec.
-// CPU-only is deliberate: it is the safe default everywhere; users with
-// known-good GPUs opt in via NRVNA_GPU_LAYERS.
+// imgsrch's MVP keeps inference on CPU for predictable portability.
 func captionEnv() map[string]string {
 	return map[string]string{
 		"NRVNA_GPU_LAYERS":       "0",
@@ -80,6 +79,43 @@ func submitStdin(ws, payload string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+type submitJobFunc func(string, ...string) (string, error)
+type persistItemFunc func(item) error
+
+func submitMissingImageJobs(
+	it item,
+	capWs, ocrWs, captionPrompt, ocrPrompt, image string,
+	submitFn submitJobFunc,
+	persistFn persistItemFunc,
+) (item, error) {
+	if it.CapJob == "" {
+		job, err := submitFn(capWs, captionPrompt, "--image", image)
+		if err != nil {
+			return it, err
+		}
+		it.CapJob = job
+		if err := persistFn(it); err != nil {
+			return it, err
+		}
+	}
+	if it.OcrJob == "" {
+		job, err := submitFn(ocrWs, ocrPrompt, "--image", image)
+		if err != nil {
+			return it, err
+		}
+		it.OcrJob = job
+		if err := persistFn(it); err != nil {
+			return it, err
+		}
+	}
+	return it, nil
+}
+
+func persistEmbedJob(items []item, index int, job string, persist func([]item) error) error {
+	items[index].EmbJob = job
+	return persist(items)
+}
+
 func jobOutput(ws, job, name string) (string, bool) {
 	p := filepath.Join(ws, "output", job, name)
 	if _, err := os.Stat(p); err == nil {
@@ -95,6 +131,34 @@ func jobError(ws, job string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(string(data)), true
+}
+
+type jobFailedFunc func(string, string) bool
+
+func resetFailedImageJobs(it item, failed jobFailedFunc, capWs, ocrWs string) (item, bool) {
+	changed := false
+	if it.CapJob != "" && failed(capWs, it.CapJob) {
+		it.CapJob = ""
+		changed = true
+	}
+	if it.OcrJob != "" && failed(ocrWs, it.OcrJob) {
+		it.OcrJob = ""
+		changed = true
+	}
+	return it, changed
+}
+
+func resetFailedEmbedJob(it item, failed jobFailedFunc, embedWs string) (item, bool) {
+	if it.EmbJob != "" && failed(embedWs, it.EmbJob) {
+		it.EmbJob = ""
+		return it, true
+	}
+	return it, false
+}
+
+func jobFailed(ws, job string) bool {
+	_, failed := jobError(ws, job)
+	return failed
 }
 
 func cmdIndex(project string) error {
@@ -132,9 +196,9 @@ func cmdIndex(project string) error {
 	if err != nil {
 		return err
 	}
-	known := map[string]bool{}
-	for _, it := range items {
-		known[it.Key] = true
+	known := map[string]int{}
+	for i, it := range items {
+		known[it.Key] = i
 	}
 
 	absProject, _ := filepath.Abs(project)
@@ -144,28 +208,46 @@ func cmdIndex(project string) error {
 		if err != nil {
 			return err
 		}
-		if known[key] {
-			skipped++
-			continue
-		}
 		absImg, _ := filepath.Abs(img)
 		rel, err := filepath.Rel(absProject, absImg)
 		if err != nil {
 			rel = img
 		}
-		capJob, err := submit(captionWs(project), c.CaptionPrompt, "--image", absImg)
-		if err != nil {
+		idx, exists := known[key]
+		it := item{Key: key, Path: rel}
+		if exists {
+			it = items[idx]
+			var retry bool
+			it, retry = resetFailedImageJobs(it, jobFailed, captionWs(project), ocrWs(project))
+			if retry {
+				items[idx] = it
+				if err := writeItems(project, items); err != nil {
+					return err
+				}
+			}
+			if it.CapJob != "" && it.OcrJob != "" {
+				skipped++
+				continue
+			}
+		}
+		persist := func(updated item) error {
+			if !exists {
+				items = append(items, updated)
+				idx = len(items) - 1
+				known[key] = idx
+				exists = true
+			} else {
+				items[idx] = updated
+			}
+			return writeItems(project, items)
+		}
+		if _, err := submitMissingImageJobs(
+			it, captionWs(project), ocrWs(project),
+			c.CaptionPrompt, c.OcrPrompt, absImg,
+			submit, persist,
+		); err != nil {
 			return err
 		}
-		ocrJob, err := submit(ocrWs(project), c.OcrPrompt, "--image", absImg)
-		if err != nil {
-			return err
-		}
-		// Persist immediately — an interrupt here must not orphan the jobs.
-		if err := appendItem(project, item{key, rel, capJob, ocrJob, ""}); err != nil {
-			return err
-		}
-		known[key] = true
 		queued++
 	}
 
@@ -226,6 +308,13 @@ func advance(project string, verbose bool) (progress, error) {
 		combFile := filepath.Join(adir, "combined.md")
 		embFile := filepath.Join(adir, "embedding.json")
 
+		if updated, retry := resetFailedEmbedJob(*it, jobFailed, eWs); retry {
+			*it = updated
+			if err := writeItems(project, items); err != nil {
+				return pr, err
+			}
+		}
+
 		if it.CapJob != "" && !exists(capFile) {
 			if src, ok := jobOutput(capWs, it.CapJob, "result.txt"); ok {
 				if err := copyFile(src, capFile); err != nil {
@@ -268,7 +357,11 @@ func advance(project string, verbose bool) (progress, error) {
 			if err != nil {
 				return pr, err
 			}
-			it.EmbJob = job
+			if err := persistEmbedJob(items, i, job, func(updated []item) error {
+				return writeItems(project, updated)
+			}); err != nil {
+				return pr, err
+			}
 			nQueued++
 		}
 		if it.EmbJob != "" && !exists(embFile) {
