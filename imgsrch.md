@@ -1,114 +1,58 @@
-# imgsrch: how to run
+# imgsrch
 
-`imgsrch` is a small nrvna-powered demo that turns images/screenshots into searchable local artifacts.
+`imgsrch` is a native local tool for creating searchable image projects.
+It packages a small Go CLI over nrvna and llama.cpp. The user operates one
+command and does not manage the backend.
 
-It assumes the repo is built and the default models already exist under `./models`.
+## Install
 
-## 1. Build nrvna
-
-```bash
-cmake -S . -B build
-cmake --build build -j4
-```
-
-## 2. Check setup
+Download and extract the release archive for your platform. Keep `imgsrch` and
+its bundled `bin/` directory together. The release contains everything except
+models.
 
 ```bash
-scripts/imgsrch doctor
+tar -xzf imgsrch-darwin-arm64.tar.gz
+cd imgsrch-darwin-arm64
+./imgsrch setup
 ```
 
-Expected model defaults:
+`setup` downloads the pinned caption, OCR, and embedding models into
+`~/.imgsrch/models`. The download is about 3.4 GB and happens once.
 
-```text
-models/LFM2.5 VL 1.6B GGUF.gguf
-models/mmproj-LFM2.5-VL-1.6B-Q8_0.gguf
-models/GLM-OCR-Q8_0.gguf
-models/mmproj-GLM-OCR-Q8_0.gguf
-models/nomic-embed-text-v1.5.Q8_0.gguf
-```
-
-## 3. Quick demo
-
-Use the checked-in media-search images:
+## Use
 
 ```bash
-scripts/imgsrch demo data/test-media-search imgsrch-demo
+./imgsrch init my-images
+./imgsrch add my-images ~/Pictures/*.png
+./imgsrch index my-images
 ```
 
-This creates:
+`add` copies supported images into `my-images/images`. Supported formats are
+PNG, JPEG, and GIF. Originals are not modified. The current MVP uses an
+explicit project directory; direct in-place indexing of an arbitrary folder is
+not implemented yet.
 
-```text
-imgsrch-demo/
-├── images/
-├── index.qmd
-├── search-results.md
-└── .imgsrch/
-    ├── items.tsv
-    ├── workspaces/
-    ├── artifacts/
-    └── index/
-```
-
-`demo` queues image work, then collects and runs a sample search as results land, and writes `index.qmd`.
-
-A live demo is the one time someone is watching — that's the case to prepare for. Pre-index the project beforehand so search is instant:
+Indexing returns after queuing work and continues in local background workers.
+Check progress and search:
 
 ```bash
-scripts/imgsrch status my-shots
+./imgsrch status my-images
+./imgsrch search my-images "diagram explaining KV cache"
 ```
 
-or point at an already-indexed project:
+Stop the workers when needed:
 
 ```bash
-scripts/imgsrch search <pre-indexed-project> "query"
+./imgsrch stop my-images
 ```
 
-`scripts/imgsrch demo` is for unattended runs — submit and walk away.
+Run `./imgsrch doctor my-images` when setup or model discovery fails.
 
-## 4. Use your own screenshots
+## Inspect
 
-```bash
-scripts/imgsrch init my-shots
-scripts/imgsrch add my-shots ~/Desktop/*.png
-scripts/imgsrch index my-shots
-```
+The product commands hide the engine terminology, but the state remains plain
+files under `my-images/.imgsrch/`: workspaces, prompts, results, artifacts, and
+the search index. nrvna remains discoverable without becoming setup burden.
 
-`index` is async. It starts local nrvna daemons, queues caption/OCR jobs, and returns.
-
-Come back later:
-
-```bash
-scripts/imgsrch status my-shots
-scripts/imgsrch search my-shots "KV cache diagram"
-scripts/imgsrch render my-shots
-```
-
-## 5. Stop background workers
-
-When done:
-
-```bash
-scripts/imgsrch stop my-shots
-```
-
-## What happens under the hood
-
-For each image:
-
-```text
-image → caption.txt
-image → ocr.txt
-caption + OCR → combined.md
-combined.md → embedding.json
-```
-
-Search runs over the ready artifacts using simple keyword matching + embedding similarity.
-
-You can inspect everything:
-
-```bash
-find my-shots/.imgsrch/artifacts -type f
-cat my-shots/.imgsrch/artifacts/<image-id>/combined.md
-```
-
-The folder is the memory.
+The supported product implementation is `imgsrch-go/`. `scripts/nrvna-lib.sh`
+remains a helper for people using the nrvna primitives directly.
