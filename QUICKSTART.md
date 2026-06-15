@@ -1,6 +1,7 @@
-# Quick Start
+# Primitive Quick Start
 
-nrvna-ai is an async inference primitive. Start a daemon, submit a job, collect the result.
+This guide is for builders using `nrvnad`, `wrk`, and `flw` directly. For the
+packaged image-search product, start with [imgsrch.md](imgsrch.md).
 
 ## Build
 
@@ -48,5 +49,6 @@ With no job ID, `flw` shows workspace counts and recent jobs.
 ## Next Steps
 
 - `README.md`
+- `imgsrch.md`
 - `ARCHITECTURE.md`
 - `ADVANCED.md`

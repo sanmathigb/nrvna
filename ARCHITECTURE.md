@@ -80,7 +80,7 @@ SERVER (main thread)
    d. Route by type:
       - text/vision → Runner::run()       → result.txt
       - embed       → Runner::embed()     → embedding.json
-      - stt (--audio) → Runner::runStt()  → result.txt (transcript)
+      - stt (--audio) → Runner::transcribe() → transcript.txt
       - tts         → TtsRunner::run()    → audio.wav
    e. On success: write output file, RENAME -> output/<job_id>
    f. On failure: write error.txt, RENAME -> failed/<job_id>
@@ -93,9 +93,9 @@ Client calls Flow::status(job_id)
          |
          v
 Check directories in order:
+  - processing/<job_id>  -> Status::Running
   - output/<job_id>      -> Status::Done
   - failed/<job_id>      -> Status::Failed
-  - processing/<job_id>  -> Status::Running
   - input/ready/<job_id> -> Status::Queued
   - none found           -> Status::Missing
 
@@ -177,7 +177,7 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 |------|---------|---------|
 | `nrvnad` | Start daemon | `nrvnad model.gguf workspace` |
 | `wrk` | Submit jobs | `wrk workspace "prompt"` |
-| `flw` | Collect results | `flw workspace job-id` |
+| `flw` | Inspect or wait for results | `flw workspace -w job-id` |
 
 ## Key Design Decisions
 
@@ -197,7 +197,9 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 | `NRVNA_PREDICT` | 2048 | Max tokens to generate |
 | `NRVNA_MAX_CTX` | 8192 | Context window size |
 | `NRVNA_BATCH` | 2048 | Batch size |
+| `NRVNA_UBATCH` | batch size | Physical batch size |
 | `NRVNA_TEMP` | 0.8 | Sampling temperature |
+| `NRVNA_THINKING` | 1 | Preserve model reasoning mode when supported |
 | `NRVNA_VISION_TEMP` | 0.3 | Vision sampling temperature |
 | `NRVNA_TOP_K` | 40 | Top-K sampling |
 | `NRVNA_TOP_P` | 0.9 | Top-P sampling |
@@ -209,12 +211,12 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 | `NRVNA_MAX_IMAGE_SIZE` | 50MB | Max image file size |
 | `NRVNA_MAX_AUDIO_SIZE` | 200MB | Max audio file size (STT) |
 | `NRVNA_MAX_PROMPT_SIZE` | 10MB | Max prompt.txt size read by daemon |
+| `NRVNA_IMAGE_MAX_TOKENS` | 0 | Optional image-token cap; 0 uses model defaults |
 | `NRVNA_CHAT_TEMPLATE_FILE` | (unset) | Override GGUF chat template; unreadable files fail startup |
 | `NRVNA_STT_TEMP` | (base temp) | STT sampling temperature |
 | `NRVNA_STT_PREDICT` | (base predict) | STT max tokens |
 | `NRVNA_WARMUP` | 0 | mtmd context warmup (0/1) |
 | `NRVNA_FLASH_ATTN` | -1 | mtmd flash attention type (-1 = auto) |
-| `NRVNA_QUIET` | (unset) | Suppress mtmd timing logs |
 | `LLAMA_LOG_LEVEL` | error | llama.cpp log verbosity |
 
 ## Thread Model
