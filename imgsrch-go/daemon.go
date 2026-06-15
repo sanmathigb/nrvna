@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -66,6 +67,32 @@ func readPid(ws string) (int, bool) {
 
 func pidAlive(pid int) bool { return syscall.Kill(pid, 0) == nil }
 
+func processIsNrvnad(pid int) bool {
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+	if err != nil {
+		return false
+	}
+	return filepath.Base(strings.TrimSpace(string(out))) == "nrvnad"
+}
+
+func workspaceLockHeld(ws string) bool {
+	f, err := os.OpenFile(filepath.Join(ws, ".nrvnad.lock"), os.O_RDWR|os.O_CREATE, 0o644)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err == nil {
+		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		return false
+	}
+	return errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN)
+}
+
+func daemonOwnsWorkspace(pid int, ws string) bool {
+	return pidAlive(pid) && processIsNrvnad(pid) && workspaceLockHeld(ws)
+}
+
 // daemonRunning reports whether the workspace has a live worker; it clears a
 // stale pidfile as a side effect, same as the bash spec.
 func daemonRunning(ws string) bool {
@@ -73,16 +100,16 @@ func daemonRunning(ws string) bool {
 	if !ok {
 		return false
 	}
-	if pidAlive(pid) {
+	if daemonOwnsWorkspace(pid, ws) {
 		return true
 	}
 	os.Remove(pidFile(ws))
+	os.Remove(metaFile(ws))
 	return false
 }
 
 // runtimeMeta captures everything that requires a worker restart when it
-// changes: model, args, and reload-required env. Sampling env vars are read
-// per job by the engine and deliberately excluded.
+// changes: model, args, and all environment read when the daemon starts.
 func runtimeMeta(model string, args []string, env map[string]string) string {
 	get := func(k, def string) string {
 		if v, ok := env[k]; ok {
@@ -94,7 +121,14 @@ func runtimeMeta(model string, args []string, env map[string]string) string {
 		"args=" + strings.Join(args, "\x1f") + "\n" +
 		"env.NRVNA_WORKERS=" + get("NRVNA_WORKERS", "4") + "\n" +
 		"env.NRVNA_GPU_LAYERS=" + get("NRVNA_GPU_LAYERS", "0") + "\n" +
-		"env.NRVNA_IMAGE_MAX_TOKENS=" + get("NRVNA_IMAGE_MAX_TOKENS", "0") + "\n"
+		"env.NRVNA_MAX_CTX=" + get("NRVNA_MAX_CTX", "8192") + "\n" +
+		"env.NRVNA_BATCH=" + get("NRVNA_BATCH", "2048") + "\n" +
+		"env.NRVNA_UBATCH=" + get("NRVNA_UBATCH", get("NRVNA_BATCH", "2048")) + "\n" +
+		"env.NRVNA_PREDICT=" + get("NRVNA_PREDICT", envOr("NRVNA_N_PREDICT", "2048")) + "\n" +
+		"env.NRVNA_TEMP=" + get("NRVNA_TEMP", "0.8") + "\n" +
+		"env.NRVNA_THINKING=" + get("NRVNA_THINKING", "1") + "\n" +
+		"env.NRVNA_IMAGE_MAX_TOKENS=" + get("NRVNA_IMAGE_MAX_TOKENS", "0") + "\n" +
+		"env.NRVNA_CHAT_TEMPLATE_FILE=" + get("NRVNA_CHAT_TEMPLATE_FILE", "") + "\n"
 }
 
 // startWorker ensures a worker for ws is running with the wanted runtime.
@@ -142,7 +176,7 @@ func startWorker(label, model, ws string, env map[string]string, args ...string)
 	note("starting %s worker (%s)", label, filepath.Base(model))
 	deadline := time.Now().Add(startTimeout())
 	for {
-		if pid, ok := readPid(ws); ok && pidAlive(pid) {
+		if pid, ok := readPid(ws); ok && daemonOwnsWorkspace(pid, ws) {
 			if err := os.WriteFile(metaFile(ws), []byte(wantMeta), 0o644); err != nil {
 				return err
 			}
@@ -168,23 +202,65 @@ func startTimeout() time.Duration {
 	return 120 * time.Second
 }
 
+func stopTimeout() time.Duration {
+	if v := os.Getenv("NRVNA_STOP_TIMEOUT"); v != "" {
+		if s, err := strconv.Atoi(v); err == nil && s > 0 {
+			return time.Duration(s) * time.Second
+		}
+	}
+	return 20 * time.Second
+}
+
+func waitForExit(pid int, timeout time.Duration, alive func(int) bool) bool {
+	deadline := time.Now().Add(timeout)
+	for alive(pid) {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return true
+}
+
+func stopPID(
+	pid int,
+	gracefulTimeout time.Duration,
+	alive func(int) bool,
+	signal func(int, syscall.Signal) error,
+) error {
+	if err := signal(pid, syscall.SIGTERM); err != nil && alive(pid) {
+		return err
+	}
+	if waitForExit(pid, gracefulTimeout, alive) {
+		return nil
+	}
+	if err := signal(pid, syscall.SIGTERM); err != nil && alive(pid) {
+		return err
+	}
+	if waitForExit(pid, 2*time.Second, alive) {
+		return nil
+	}
+	if err := signal(pid, syscall.SIGKILL); err != nil && alive(pid) {
+		return err
+	}
+	if waitForExit(pid, 2*time.Second, alive) {
+		return nil
+	}
+	return fmt.Errorf("process %d did not stop", pid)
+}
+
 func stopWorker(label, ws string) error {
 	pid, ok := readPid(ws)
 	if !ok {
 		return nil
 	}
-	if !pidAlive(pid) {
+	if !daemonOwnsWorkspace(pid, ws) {
 		os.Remove(pidFile(ws))
 		os.Remove(metaFile(ws))
 		return nil
 	}
-	syscall.Kill(pid, syscall.SIGTERM)
-	deadline := time.Now().Add(20 * time.Second)
-	for pidAlive(pid) {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out stopping %s worker (pid %d)", label, pid)
-		}
-		time.Sleep(200 * time.Millisecond)
+	if err := stopPID(pid, stopTimeout(), pidAlive, syscall.Kill); err != nil {
+		return fmt.Errorf("stopping %s worker: %w", label, err)
 	}
 	os.Remove(pidFile(ws))
 	os.Remove(metaFile(ws))

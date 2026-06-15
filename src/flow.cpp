@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/flow.hpp"
+#include "nrvna/scanner.hpp"
 #include "nrvna/logger.hpp"
 #include <fstream>
 #include <algorithm>
@@ -178,14 +179,14 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
 Status Flow::status(const JobId& id) const noexcept {
     try {
         if (!isValidJobId(id)) return Status::Missing;
+        if (std::filesystem::exists(workspace_ / "processing" / id)) {
+            return Status::Running;
+        }
         if (std::filesystem::exists(workspace_ / "output" / id)) {
             return Status::Done;
         }
         if (std::filesystem::exists(workspace_ / "failed" / id)) {
             return Status::Failed;
-        }
-        if (std::filesystem::exists(workspace_ / "processing" / id)) {
-            return Status::Running;
         }
         if (std::filesystem::exists(workspace_ / "input" / "ready" / id)) {
             return Status::Queued;
@@ -295,7 +296,7 @@ static std::size_t countSubdirs(const std::filesystem::path& dir) noexcept {
 
 WorkspaceCounts Flow::counts() const noexcept {
     WorkspaceCounts c;
-    c.queued  = countSubdirs(workspace_ / "input" / "ready");
+    c.queued  = Scanner(workspace_).readyJobCount();
     c.running = countSubdirs(workspace_ / "processing");
     c.done    = countSubdirs(workspace_ / "output");
     c.failed  = countSubdirs(workspace_ / "failed");

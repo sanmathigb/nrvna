@@ -69,6 +69,10 @@ target_link_libraries(wrk nrvna_core)
 add_executable(flw cli/flw.cpp)
 target_link_libraries(flw nrvna_core)
 
+foreach(_cli nrvnad wrk flw)
+    target_compile_definitions(${_cli} PRIVATE NRVNA_VERSION="${PROJECT_VERSION}")
+endforeach()
+
 # Install targets
 install(TARGETS nrvnad wrk flw
     RUNTIME DESTINATION bin

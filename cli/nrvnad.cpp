@@ -27,7 +27,7 @@
 
 using namespace nrvnaai;
 
-constexpr const char * VERSION = "0.1.0";
+constexpr const char * VERSION = NRVNA_VERSION;
 
 static volatile sig_atomic_t g_shutdown_requested = 0;
 static std::filesystem::path g_models_dir;
@@ -278,20 +278,15 @@ void applyModelDefaults(const std::filesystem::path & modelPath, const ModelInfo
 }
 
 void printHelp() {
-    std::cout << "nrvna " << VERSION << "                        async · inference · primitive\n\n";
-    std::cout << "USAGE\n\n";
-    std::cout << "  nrvnad <model.gguf> <workspace> [options]    start daemon\n";
-    std::cout << "  wrk <workspace> \"prompt\"                     submit work\n";
-    std::cout << "  flw <workspace> [job-id]                     collect results\n\n";
-    std::cout << "OPTIONS\n\n";
-    std::cout << "  --mmproj <path>     Multimodal projection model (vision/audio)\n";
-    std::cout << "  --vocoder <path>    TTS vocoder model\n";
-    std::cout << "  -w, --workers <n>   Worker threads (default: 4)\n";
-    std::cout << "  -v, --version       Show version\n";
-    std::cout << "  -h, --help          Show this help\n\n";
-    std::cout << "NOTES\n\n";
-    std::cout << "  Models are .gguf files. Set NRVNA_MODELS_DIR or pass a full path.\n";
-    std::cout << "  MMProj and vocoder are auto-detected from the model directory.\n";
+    std::cout << "Run an nrvna workspace daemon.\n\n";
+    std::cout << "Usage:\n";
+    std::cout << "  nrvnad <model> <workspace> [options]\n\n";
+    std::cout << "Options:\n";
+    std::cout << "      --mmproj <path>    Multimodal projection model\n";
+    std::cout << "      --vocoder <path>   TTS vocoder model\n";
+    std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
+    std::cout << "  -h, --help             Show help\n";
+    std::cout << "  -v, --version          Show version\n";
 }
 
 int main(int argc, char * argv[]) {

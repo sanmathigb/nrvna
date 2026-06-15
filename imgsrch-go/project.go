@@ -124,18 +124,6 @@ func lockProject(project string) (func(), error) {
 	}, nil
 }
 
-// appendItem durably appends one manifest row. index persists per image so an
-// interrupt mid-run never orphans already-submitted jobs (matches the bash spec).
-func appendItem(project string, it item) error {
-	f, err := os.OpenFile(itemsFile(project), os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = fmt.Fprintf(f, "%s\t%s\t%s\t%s\t%s\n", it.Key, it.Path, it.CapJob, it.OcrJob, it.EmbJob)
-	return err
-}
-
 func appendIndexRow(project, key, path string) error {
 	f, err := os.OpenFile(indexFile(project), os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
@@ -212,7 +200,10 @@ func cmdAdd(project string, images []string) error {
 			continue
 		}
 		dst := filepath.Join(imgDir(project), filepath.Base(img))
-		if err := copyFile(img, dst); err != nil {
+		if err := copyFileNoClobber(img, dst); err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%s already exists in the project; rename the new image first", filepath.Base(img))
+			}
 			return fmt.Errorf("copying %s: %w", img, err)
 		}
 		copied++
@@ -231,6 +222,21 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func copyFileNoClobber(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}

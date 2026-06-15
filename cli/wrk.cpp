@@ -15,36 +15,23 @@
 
 using namespace nrvnaai;
 
-constexpr const char* VERSION = "0.1.0";
+constexpr const char* VERSION = NRVNA_VERSION;
 
 void printUsage() {
-    std::cout << "nrvna " << VERSION << "                        async · inference · primitive\n\n";
-    std::cout << "USAGE\n\n";
-    std::cout << "  wrk <workspace> <prompt...> [--image <path> ...]\n";
-    std::cout << "  wrk <workspace> <text> --embed\n";
-    std::cout << "  wrk <workspace> <text> --tts\n";
-    std::cout << "  wrk <workspace> --audio <path> --stt\n";
-    std::cout << "  wrk <workspace> -                 read prompt from stdin\n";
-    std::cout << "  wrk --help | --version\n\n";
-    std::cout << "OPTIONS\n\n";
-    std::cout << "  --image <path>   Attach image (repeatable)\n";
-    std::cout << "  --audio <path>   Attach audio for speech-to-text (repeatable)\n";
-    std::cout << "  --embed          Submit as embedding job (returns vector)\n";
-    std::cout << "  --tts            Submit as text-to-speech job\n";
-    std::cout << "  --stt            Submit as speech-to-text job\n";
-    std::cout << "  --               Treat remaining args as prompt (for prompts containing dashes)\n";
-    std::cout << "  --parent <id>    Optional parent job ID\n";
-    std::cout << "  --tag <tag>      Optional tag (repeatable)\n";
-    std::cout << "  -v, --version    Show version\n";
-    std::cout << "  -h, --help       Show this help\n\n";
-    std::cout << "ENVIRONMENT\n\n";
-    std::cout << "  NRVNA_LOG_LEVEL    Log level (ERROR, WARN, INFO, DEBUG, TRACE)\n\n";
-    std::cout << "EXAMPLES\n\n";
-    std::cout << "  wrk ./workspace \"What is the capital of France?\"\n";
-    std::cout << "  wrk ./workspace Write a hello world program\n";
-    std::cout << "  wrk ./workspace \"Machine learning is...\" --embed\n";
-    std::cout << "  wrk ./workspace --audio note.wav --stt\n";
-    std::cout << "  echo \"Hello\" | wrk ./workspace -\n";
+    std::cout << "Submit work to an nrvna workspace.\n\n";
+    std::cout << "Usage:\n";
+    std::cout << "  wrk <workspace> [prompt...] [options]\n";
+    std::cout << "  wrk <workspace> - [options]\n\n";
+    std::cout << "Options:\n";
+    std::cout << "  -i, --image <path>   Attach an image (repeatable)\n";
+    std::cout << "      --audio <path>   Attach audio (repeatable)\n";
+    std::cout << "      --embed          Create an embedding\n";
+    std::cout << "      --tts            Generate speech\n";
+    std::cout << "      --stt            Transcribe audio\n";
+    std::cout << "      --parent <id>    Set the parent job\n";
+    std::cout << "      --tag <tag>      Add a tag (repeatable)\n";
+    std::cout << "  -h, --help           Show help\n";
+    std::cout << "  -v, --version        Show version\n";
 }
 
 int main(int argc, char* argv[]) {

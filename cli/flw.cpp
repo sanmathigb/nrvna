@@ -16,31 +16,18 @@
 
 using namespace nrvnaai;
 
-constexpr const char* VERSION = "0.1.0";
+constexpr const char* VERSION = NRVNA_VERSION;
 
 void printUsage() {
-    std::cout << "nrvna " << VERSION << "                        async · inference · primitive\n\n";
-    std::cout << "USAGE\n\n";
-    std::cout << "  flw <workspace> [options] [job_id]\n";
-    std::cout << "  flw --help | --version\n\n";
-    std::cout << "OPTIONS\n\n";
-    std::cout << "  -w, --wait        Wait for job to complete before returning\n";
-    std::cout << "  -W, --wait-idle   Wait for workspace to be idle (all jobs done)\n";
-    std::cout << "  --json            Output structured JSON\n";
+    std::cout << "Read results and workspace status.\n\n";
+    std::cout << "Usage:\n";
+    std::cout << "  flw <workspace> [job_id] [options]\n\n";
+    std::cout << "Options:\n";
+    std::cout << "  -w, --wait        Wait for a job\n";
+    std::cout << "  -W, --wait-idle   Wait for the workspace to become idle\n";
+    std::cout << "      --json        Print JSON\n";
+    std::cout << "  -h, --help        Show help\n";
     std::cout << "  -v, --version     Show version\n";
-    std::cout << "  -h, --help        Show this help\n\n";
-    std::cout << "BEHAVIOR\n\n";
-    std::cout << "  - No job_id: show workspace status (counts + recent jobs)\n";
-    std::cout << "  - With job_id: retrieve that job's result\n";
-    std::cout << "  - With -w and job_id: wait for job to complete, then print result\n";
-    std::cout << "  - Piped input: reads job_id from stdin (wrk ... | flw <ws> -w)\n\n";
-    std::cout << "ENVIRONMENT\n\n";
-    std::cout << "  NRVNA_LOG_LEVEL    Log level (ERROR, WARN, INFO, DEBUG, TRACE)\n\n";
-    std::cout << "EXAMPLES\n\n";
-    std::cout << "  flw ./ws                      Show workspace status\n";
-    std::cout << "  flw ./ws --json               Status as JSON\n";
-    std::cout << "  flw ./ws -w <job_id>          Wait and print result\n";
-    std::cout << "  wrk ./ws \"Hello\" | flw ./ws -w   Submit and collect\n";
 }
 
 std::string readFileRaw(const std::filesystem::path& path) {
@@ -115,8 +102,11 @@ int main(int argc, char* argv[]) {
     }
 
     // Check piped input for JobID if not provided
-    if (jobId.empty() && !isatty(fileno(stdin))) {
-        std::cin >> jobId;
+    if (wait && jobId.empty() && !isatty(fileno(stdin))) {
+        if (!(std::cin >> jobId)) {
+            std::cerr << "No job ID received on stdin" << std::endl;
+            return 1;
+        }
     }
 
     // Validate job ID format

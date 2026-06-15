@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <ctime>
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -144,25 +145,23 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             auto ttsResult = ttsRunner->run(prompt);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (ttsResult.ok) {
+                completeJob(getJobPath("processing", jobId), elapsed, {"audio.wav"}, "done");
                 if (finalizeAudio(jobId, ttsResult.audio, ttsResult.sample_rate)) {
-                    completeJob(getJobPath("output", jobId), elapsed, {"audio.wav"}, "done");
                     printJobStatus(jobId, "done", elapsed);
                     LOG_INFO("TTS COMPLETED: " + jobId + " -> " + std::to_string(ttsResult.audio.size()) + " samples");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize TTS job: " + jobId);
+                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
                     if (!finalizeFailure(jobId, "Failed to write audio to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
-                    } else {
-                        completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, ttsResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, ttsResult.error);
                 LOG_WARN("TTS job failed: " + jobId + " - " + ttsResult.error);
                 return ProcessResult::Failed;
             }
@@ -182,25 +181,23 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             auto sttResult = runner->transcribe(prompt, audioPaths);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (sttResult.ok) {
+                completeJob(getJobPath("processing", jobId), elapsed, {"transcript.txt"}, "done");
                 if (finalizeTranscript(jobId, sttResult.output)) {
-                    completeJob(getJobPath("output", jobId), elapsed, {"transcript.txt"}, "done");
                     printJobStatus(jobId, "done", elapsed);
                     LOG_INFO("STT COMPLETED: " + jobId + " -> " + std::to_string(sttResult.output.size()) + " chars");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize STT job: " + jobId);
+                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
                     if (!finalizeFailure(jobId, "Failed to write transcript to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
-                    } else {
-                        completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, sttResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, sttResult.error);
                 LOG_WARN("STT job failed: " + jobId + " - " + sttResult.error);
                 return ProcessResult::Failed;
             }
@@ -212,25 +209,23 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 : runner->embedVision(prompt, imagePaths);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (embedResult.ok) {
+                completeJob(getJobPath("processing", jobId), elapsed, {"embedding.json"}, "done");
                 if (finalizeEmbedding(jobId, embedResult.embedding)) {
-                    completeJob(getJobPath("output", jobId), elapsed, {"embedding.json"}, "done");
                     printJobStatus(jobId, "done", elapsed);
                     LOG_INFO("EMBED COMPLETED: " + jobId + " -> " + std::to_string(embedResult.embedding.size()) + " dims");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize embedding job: " + jobId);
+                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
                     if (!finalizeFailure(jobId, "Failed to write embedding to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
-                    } else {
-                        completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
                 printJobStatus(jobId, "failed", elapsed);
-                if (finalizeFailure(jobId, embedResult.error)) {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-                }
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                (void)finalizeFailure(jobId, embedResult.error);
                 LOG_WARN("Embed job failed: " + jobId + " - " + embedResult.error);
                 return ProcessResult::Failed;
             }
@@ -245,25 +240,23 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
         if (result.ok) {
+            completeJob(getJobPath("processing", jobId), elapsed, {"result.txt"}, "done");
             if (finalizeSuccess(jobId, result.output)) {
-                completeJob(getJobPath("output", jobId), elapsed, {"result.txt"}, "done");
                 printJobStatus(jobId, "done", elapsed);
                 LOG_INFO("JOB COMPLETED: " + jobId + " -> " + std::to_string(result.output.size()) + " chars");
                 return ProcessResult::Success;
             } else {
                 LOG_ERROR("Failed to finalize successful job: " + jobId);
+                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
                 if (!finalizeFailure(jobId, "Failed to write result to output directory")) {
                     LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
-                } else {
-                    completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
                 }
                 return ProcessResult::SystemError;
             }
         } else {
             printJobStatus(jobId, "failed", elapsed);
-            if (finalizeFailure(jobId, result.error)) {
-                completeJob(getJobPath("failed", jobId), elapsed, {"error.txt"}, "failed");
-            }
+            completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+            (void)finalizeFailure(jobId, result.error);
             LOG_WARN("Job failed during inference: " + jobId + " - " + result.error);
             return ProcessResult::Failed;
         }
@@ -340,6 +333,13 @@ bool Processor::finalizeSuccess(const JobId& jobId, const std::string& result) n
 
 bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& embedding) noexcept {
     try {
+        if (!std::all_of(embedding.begin(), embedding.end(), [](float value) {
+                return std::isfinite(value);
+            })) {
+            LOG_ERROR("Refusing to write non-finite embedding for job: " + jobId);
+            return false;
+        }
+
         auto processingPath = getJobPath("processing", jobId);
         auto outputPath = getJobPath("output", jobId);
 
