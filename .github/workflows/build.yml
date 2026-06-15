@@ -61,6 +61,12 @@ jobs:
         with:
           go-version: '1.26'
 
+      - name: Vet and test imgsrch
+        working-directory: imgsrch-go
+        run: |
+          go vet ./...
+          go test -race ./...
+
       - name: Build imgsrch
         working-directory: imgsrch-go
         run: |
