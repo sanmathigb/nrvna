@@ -18,7 +18,8 @@ app:
 	cp Info.plist "$(CONTENTS)/Info.plist"
 
 run: app
-	ASYNC_ENGINE_DIR="$$(cd .. && pwd)/build" "$(MACOS)/$(APP_NAME)"
+	launchctl setenv ASYNC_ENGINE_DIR "$$(cd .. && pwd)/build"
+	open "$(APP_DIR)"
 
 clean:
 	rm -rf "$(BUILD_DIR)"
