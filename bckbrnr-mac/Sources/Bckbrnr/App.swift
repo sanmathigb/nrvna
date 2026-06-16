@@ -108,6 +108,7 @@ struct PopoverView: View {
         .padding(18)
         .frame(width: 310)
         .background(Paper.color(scheme))
+        .onAppear { controller.refresh() }
     }
 
     private var header: some View {

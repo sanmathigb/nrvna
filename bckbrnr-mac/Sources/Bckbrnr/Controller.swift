@@ -53,6 +53,19 @@ final class BckbrnrController: ObservableObject {
         }
     }
 
+    /// Re-check whether a daemon is actually alive and flip the UI to match.
+    /// Called when the popover opens so the prompt box only shows for a live
+    /// daemon — you can never send a prompt into nothing.
+    func refresh() {
+        let alive = daemon?.isRunning == true || workspaceDaemonPid() != nil
+        DispatchQueue.main.async {
+            if self.isRunning != alive {
+                self.isRunning = alive
+                self.statusText = alive ? "Ready" : "Off"
+            }
+        }
+    }
+
     func stop() {
         if daemon?.isRunning == true { daemon?.terminate() }
         else if let pid = workspaceDaemonPid() { kill(pid, SIGTERM) }
@@ -66,7 +79,10 @@ final class BckbrnrController: ObservableObject {
     // MARK: submit
 
     func submit(_ text: String) {
-        guard isRunning, let engine else { return }
+        // Never send into a dead workspace: require a live daemon, not just
+        // that Start was pressed at some point.
+        let alive = daemon?.isRunning == true || workspaceDaemonPid() != nil
+        guard alive, let engine else { refresh(); return }
         setStatus("Working…")
         queue.async { [weak self] in
             guard let self else { return }
