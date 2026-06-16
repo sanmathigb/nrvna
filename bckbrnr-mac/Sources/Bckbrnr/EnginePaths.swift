@@ -9,7 +9,7 @@ struct EnginePaths {
     static func discover() -> EnginePaths? {
         let env = ProcessInfo.processInfo.environment
         let candidates = [
-            env["ASYNC_ENGINE_DIR"],
+            env["BCKBRNR_ENGINE_DIR"],
             env["NRVNA_BUILD_DIR"],
             Bundle.main.resourceURL?.appendingPathComponent("bin").path,
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("build").path

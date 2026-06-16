@@ -14,11 +14,11 @@ app:
 		-Xcc -fmodules-cache-path="$(BUILD_DIR)/ModuleCache" \
 		-framework AppKit -framework SwiftUI \
 		-o "$(MACOS)/$(APP_NAME)" \
-		Sources/Async/*.swift
+		Sources/Bckbrnr/*.swift
 	cp Info.plist "$(CONTENTS)/Info.plist"
 
 run: app
-	launchctl setenv ASYNC_ENGINE_DIR "$$(cd .. && pwd)/build"
+	launchctl setenv BCKBRNR_ENGINE_DIR "$$(cd .. && pwd)/build"
 	open "$(APP_DIR)"
 
 clean:

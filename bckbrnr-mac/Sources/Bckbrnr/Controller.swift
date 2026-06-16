@@ -36,7 +36,7 @@ final class BckbrnrController: ObservableObject {
             try ensureFolders()
             guard let model = resolveModel() else { setStatus("Choose a model to begin"); return }
             guard let engine = EnginePaths.discover() else {
-                setStatus("Engine binaries not found (set ASYNC_ENGINE_DIR)"); return
+                setStatus("Engine binaries not found (set BCKBRNR_ENGINE_DIR)"); return
             }
             self.engine = engine
             if workspaceDaemonPid() != nil {
@@ -113,7 +113,7 @@ final class BckbrnrController: ObservableObject {
 
     private func resolveModel() -> URL? {
         let env = ProcessInfo.processInfo.environment
-        let candidates = [env["ASYNC_TEXT_MODEL"], defaults.string(forKey: "textModelPath")].compactMap { $0 }
+        let candidates = [env["BCKBRNR_TEXT_MODEL"], defaults.string(forKey: "textModelPath")].compactMap { $0 }
         for path in candidates {
             let url = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
             if FileManager.default.fileExists(atPath: url.path) { return url }
