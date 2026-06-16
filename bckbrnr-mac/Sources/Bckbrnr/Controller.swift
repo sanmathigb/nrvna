@@ -3,28 +3,36 @@ import Foundation
 
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
-    @Published var statusText = "Choose a model, then Start"
+    @Published var statusText = restingHint
+    static let restingHint = "start model. submit prompts for async inference."
     @Published var modelName = "No model chosen"
+    @Published var rootDisplay = ""
 
     private let queue = DispatchQueue(label: "ai.nrvna.bckbrnr.jobs")
     private let defaults = UserDefaults.standard
 
-    private let desk: URL
-    private let promptDir: URL
-    private let responseDir: URL
-    private let workspace: URL
+    private var desk: URL
+    private var promptDir: URL
+    private var responseDir: URL
+    private var workspace: URL
 
     private var engine: EnginePaths?
     private var daemon: Process?
 
     init() {
+        // bckbrnr is the umbrella; each utility is a modality-named workspace
+        // beneath it. Text ships now; vision/voice/embed are siblings later.
+        let defaultDesk = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("bckbrnr", isDirectory: true)
+            .appendingPathComponent("text", isDirectory: true)
         let saved = defaults.string(forKey: "deskPath")
         let desk = saved.map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) }
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("bckbrnr", isDirectory: true)
+            ?? defaultDesk
         self.desk = desk
         self.promptDir = desk.appendingPathComponent("prompt", isDirectory: true)
         self.responseDir = desk.appendingPathComponent("response", isDirectory: true)
         self.workspace = desk.appendingPathComponent(".ws", isDirectory: true)
+        self.rootDisplay = Self.collapseTilde(desk.path)
         self.engine = EnginePaths.discover()
         if let model = resolveModel() { modelName = model.lastPathComponent }
     }
@@ -61,7 +69,7 @@ final class BckbrnrController: ObservableObject {
         DispatchQueue.main.async {
             if self.isRunning != alive {
                 self.isRunning = alive
-                self.statusText = alive ? "Ready" : "Off"
+                self.statusText = alive ? "Ready" : Self.restingHint
             }
         }
     }
@@ -72,7 +80,7 @@ final class BckbrnrController: ObservableObject {
         daemon = nil
         DispatchQueue.main.async {
             self.isRunning = false
-            self.statusText = "Off"
+            self.statusText = Self.restingHint
         }
     }
 
@@ -117,6 +125,46 @@ final class BckbrnrController: ObservableObject {
             modelName = url.lastPathComponent
             setStatus(isRunning ? "Restart to use the new model" : "Model selected — press Start")
         }
+    }
+
+    // MARK: root directory
+
+    /// Point the daemon at a different root. Only allowed while stopped — a
+    /// running daemon is bound to the old workspace, so changing under it
+    /// would split the queue. Takes effect on the next Start.
+    func chooseRoot() {
+        guard !isRunning else { setStatus("Stop before changing the root"); return }
+        let panel = NSOpenPanel()
+        panel.title = "Choose a folder for this utility"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url { setRoot(url.path) }
+    }
+
+    func setRoot(_ raw: String) {
+        guard !isRunning else { setStatus("Stop before changing the root"); return }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { rootDisplay = Self.collapseTilde(desk.path); return }
+        let expanded = NSString(string: trimmed).expandingTildeInPath
+        applyDesk(URL(fileURLWithPath: expanded, isDirectory: true))
+        defaults.set(desk.path, forKey: "deskPath")
+        if let model = resolveModel() { modelName = model.lastPathComponent }
+        setStatus("Root set — press Start")
+    }
+
+    private func applyDesk(_ url: URL) {
+        desk = url
+        promptDir = url.appendingPathComponent("prompt", isDirectory: true)
+        responseDir = url.appendingPathComponent("response", isDirectory: true)
+        workspace = url.appendingPathComponent(".ws", isDirectory: true)
+        rootDisplay = Self.collapseTilde(url.path)
+    }
+
+    private static func collapseTilde(_ path: String) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 
     // MARK: helpers (carried over from the original app)

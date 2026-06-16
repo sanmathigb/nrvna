@@ -54,40 +54,14 @@ private struct Paper {
     }
 }
 
-/// On/off + status signal. Breathes a soft green pulse while the engine is
-/// running; sits as a still, dim dot when stopped.
-private struct BreathingOrb: View {
+/// Two states, nothing more: gray when off, ember when the daemon is lit.
+private struct StatusOrb: View {
     let running: Bool
-    @State private var breathe = false
-
     var body: some View {
-        let core = running ? Color(red: 0.30, green: 0.69, blue: 0.42) : Color.secondary
-
-        ZStack {
-            if running {
-                Circle()
-                    .fill(core)
-                    .frame(width: 10, height: 10)
-                    .blur(radius: 4)
-                    .opacity(breathe ? 0.55 : 0.15)
-                    .scaleEffect(breathe ? 1.9 : 1.1)
-            }
-            Circle()
-                .fill(core)
-                .frame(width: 10, height: 10)
-                .opacity(running ? (breathe ? 1.0 : 0.78) : 0.45)
-        }
-        .frame(width: 22, height: 22)
-        .onChange(of: running) { _ in restart() }
-        .onAppear { restart() }
-    }
-
-    private func restart() {
-        breathe = false
-        guard running else { return }
-        withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
-            breathe = true
-        }
+        Circle()
+            .fill(running ? Color(red: 0.91, green: 0.45, blue: 0.23) : Color.secondary)
+            .frame(width: 10, height: 10)
+            .opacity(running ? 1.0 : 0.45)
     }
 }
 
@@ -103,6 +77,7 @@ struct PopoverView: View {
             promptArea
             Divider().opacity(0.4)
             modelRow
+            rootRow
             controls
         }
         .padding(18)
@@ -120,9 +95,9 @@ struct PopoverView: View {
                     .tracking(0.5)
                     .foregroundStyle(Paper.ink(scheme))
                 Spacer()
-                BreathingOrb(running: controller.isRunning)
+                StatusOrb(running: controller.isRunning)
             }
-            Text("prompts & inference")
+            Text("inference as utility")
                 .font(.system(.caption, design: .serif))
                 .italic()
                 .tracking(0.3)
@@ -137,9 +112,6 @@ struct PopoverView: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(submit)
             HStack {
-                Text("Enter to run. Answer lands in response/.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
                 Spacer()
                 Button("Run", action: submit)
                     .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -166,6 +138,26 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseModel)
                 .buttonStyle(.link)
                 .font(.caption)
+        }
+    }
+
+    private var rootRow: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("ROOT")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                Text(controller.rootDisplay)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            Button("Change", action: controller.chooseRoot)
+                .buttonStyle(.link)
+                .font(.caption)
+                .disabled(controller.isRunning)   // bound to a live daemon
         }
     }
 
