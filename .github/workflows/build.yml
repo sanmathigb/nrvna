@@ -62,16 +62,16 @@ jobs:
           go-version: '1.26'
 
       - name: Vet and test imgsrch
-        working-directory: imgsrch-go
+        working-directory: apps/imgsrch
         run: |
           go vet ./...
           go test -race ./...
 
       - name: Build imgsrch
-        working-directory: imgsrch-go
+        working-directory: apps/imgsrch
         run: |
-          mkdir -p ../dist/stage
-          go build -trimpath -ldflags="-s -w" -o ../dist/stage/imgsrch .
+          mkdir -p ../../dist/stage
+          go build -trimpath -ldflags="-s -w" -o ../../dist/stage/imgsrch .
 
       - name: Package
         run: |
