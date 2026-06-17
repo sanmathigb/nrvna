@@ -142,11 +142,15 @@ struct PopoverView: View {
                 Text("WORKSPACE")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
-                Text(controller.rootDisplay)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                Button(action: controller.openResponses) {
+                    Text(controller.rootDisplay)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .buttonStyle(.plain)
+                .help("Open your answers in Finder")
             }
             Spacer()
             Button("Change", action: controller.chooseRoot)

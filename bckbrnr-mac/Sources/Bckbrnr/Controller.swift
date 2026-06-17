@@ -29,7 +29,7 @@ final class BckbrnrController: ObservableObject {
         let desk = saved.map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) }
             ?? defaultDesk
         self.desk = desk
-        self.promptDir = desk.appendingPathComponent("prompt", isDirectory: true)
+        self.promptDir = desk.appendingPathComponent(".prompt", isDirectory: true)
         self.responseDir = desk.appendingPathComponent("response", isDirectory: true)
         self.workspace = desk.appendingPathComponent(".ws", isDirectory: true)
         self.rootDisplay = Self.collapseTilde(desk.path)
@@ -108,6 +108,13 @@ final class BckbrnrController: ObservableObject {
         }
     }
 
+    /// Reveal the answers in Finder. Prompt copies live in a hidden .prompt
+    /// sibling, so the workspace shows only responses.
+    func openResponses() {
+        try? ensureFolders()
+        NSWorkspace.shared.open(responseDir)
+    }
+
     // MARK: submit
 
     func submit(_ text: String) {
@@ -130,8 +137,21 @@ final class BckbrnrController: ObservableObject {
                 self.setStatus("Ready")
                 self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
             } catch {
+                // Failure is durable too: leave a readable artifact beside
+                // where the answer would have been.
+                let errorFile = self.responseDir.appendingPathComponent("\(stem).error.txt")
+                let body = """
+                bckbrnr couldn’t finish this prompt.
+
+                PROMPT:
+                \(text)
+
+                ERROR:
+                \(error.localizedDescription)
+                """
+                try? body.write(to: errorFile, atomically: true, encoding: .utf8)
                 self.setStatus("Ready")
-                self.notify(title: "bckbrnr — couldn’t finish", body: stem, path: nil)
+                self.notify(title: "bckbrnr — couldn’t finish", body: stem, path: errorFile.path)
             }
         }
     }
@@ -139,35 +159,33 @@ final class BckbrnrController: ObservableObject {
     private func recoverCompletedResponses() {
         queue.async { [weak self] in
             guard let self else { return }
-            do {
-                try self.ensureFolders()
-                let outputDir = self.workspace.appendingPathComponent("output", isDirectory: true)
-                let jobs = try FileManager.default.contentsOfDirectory(
-                    at: outputDir,
-                    includingPropertiesForKeys: [.isDirectoryKey],
-                    options: [.skipsHiddenFiles]
-                )
-                for job in jobs {
-                    let values = try? job.resourceValues(forKeys: [.isDirectoryKey])
-                    guard values?.isDirectory == true else { continue }
+            try? self.ensureFolders()
+            // Success and failure are both durable: backfill answers from
+            // completed jobs and error artifacts from failed ones.
+            self.reconcile(subdir: "output", source: "result.txt",
+                           ext: ".txt", title: "bckbrnr — your answer is ready")
+            self.reconcile(subdir: "failed", source: "error.txt",
+                           ext: ".error.txt", title: "bckbrnr — couldn’t finish")
+        }
+    }
 
-                    let promptFile = job.appendingPathComponent("prompt.txt")
-                    let resultFile = job.appendingPathComponent("result.txt")
-                    guard FileManager.default.fileExists(atPath: promptFile.path),
-                          FileManager.default.fileExists(atPath: resultFile.path) else { continue }
-
-                    let prompt = try String(contentsOf: promptFile)
-                    let result = try String(contentsOf: resultFile)
-                    let base = Naming.deriveStem(from: prompt)
-                    let responseFile = self.responseDir.appendingPathComponent("\(base).txt")
-                    guard !FileManager.default.fileExists(atPath: responseFile.path) else { continue }
-
-                    try result.write(to: responseFile, atomically: true, encoding: .utf8)
-                    self.notify(title: "bckbrnr — your answer is ready", body: base, path: responseFile.path)
-                }
-            } catch {
-                self.setStatus("Recovery failed: \(error.localizedDescription)")
-            }
+    /// Mirror a finished nrvna job into the user-facing response folder, once.
+    /// Runs on the work queue.
+    private func reconcile(subdir: String, source: String, ext: String, title: String) {
+        let dir = workspace.appendingPathComponent(subdir, isDirectory: true)
+        guard let jobs = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
+        ) else { return }
+        for job in jobs {
+            guard (try? job.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+                  let prompt = try? String(contentsOf: job.appendingPathComponent("prompt.txt")),
+                  let content = try? String(contentsOf: job.appendingPathComponent(source))
+            else { continue }
+            let base = Naming.deriveStem(from: prompt)
+            let target = responseDir.appendingPathComponent("\(base)\(ext)")
+            guard !FileManager.default.fileExists(atPath: target.path) else { continue }
+            try? content.write(to: target, atomically: true, encoding: .utf8)
+            notify(title: title, body: base, path: target.path)
         }
     }
 
@@ -215,7 +233,7 @@ final class BckbrnrController: ObservableObject {
 
     private func applyDesk(_ url: URL) {
         desk = url
-        promptDir = url.appendingPathComponent("prompt", isDirectory: true)
+        promptDir = url.appendingPathComponent(".prompt", isDirectory: true)
         responseDir = url.appendingPathComponent("response", isDirectory: true)
         workspace = url.appendingPathComponent(".ws", isDirectory: true)
         rootDisplay = Self.collapseTilde(url.path)
