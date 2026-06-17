@@ -4,7 +4,7 @@ import Foundation
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
     @Published var statusText = restingHint
-    static let restingHint = "start model. submit prompts for async inference."
+    static let restingHint = "start model. submit prompts. async inference."
     @Published var modelName = "No model chosen"
     @Published var rootDisplay = ""
 
