@@ -54,5 +54,5 @@ The product commands hide the engine terminology, but the state remains plain
 files under `my-images/.imgsrch/`: workspaces, prompts, results, artifacts, and
 the search index. nrvna remains discoverable without becoming setup burden.
 
-The supported product implementation is `imgsrch-go/`. `scripts/nrvna-lib.sh`
+The supported product implementation is `apps/imgsrch/`. `scripts/nrvna-lib.sh`
 remains a helper for people using the nrvna primitives directly.
