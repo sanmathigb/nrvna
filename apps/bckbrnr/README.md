@@ -41,10 +41,10 @@ make run
 4. Type a prompt and press Enter.
 5. Read the answer from `~/bckbrnr/text/response/`.
 
-The prompt is preserved in:
+The prompt is kept in a hidden sibling folder (you normally only look at `response/`):
 
 ```text
-~/bckbrnr/text/prompt/
+~/bckbrnr/text/.prompt/
 ```
 
 The hidden nrvna workspace remains inspectable at:
@@ -55,12 +55,12 @@ The hidden nrvna workspace remains inspectable at:
 
 ## Durability Contract
 
-The user-facing contract is files in, files out:
+The user-facing contract is: type a prompt, collect a file.
 
-- prompts are written to `prompt/`
-- completed answers are written to `response/`
-- failures are written as artifacts, not only logs
-- completed nrvna outputs are backfilled into `response/` if the app restarts
+- prompt copies are kept in hidden `.prompt/`; you normally only see `response/`
+- completed answers are written to `response/<stem>.txt`
+- failures are written to `response/<stem>.error.txt` — a durable artifact, not just a log
+- on startup (and when the popover opens to a live daemon), completed and failed nrvna outputs are reconciled into `response/`, so an answer surfaces even if bckbrnr wasn't running when the job finished
 
 ## Status
 
