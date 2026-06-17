@@ -192,6 +192,7 @@ final class BckbrnrController: ObservableObject {
     // MARK: model
 
     func chooseModel() {
+        guard !isRunning else { setStatus("Stop before changing the model"); return }
         let panel = NSOpenPanel()
         panel.title = "Choose a GGUF text model"
         panel.allowsMultipleSelection = false
@@ -200,7 +201,7 @@ final class BckbrnrController: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             defaults.set(url.path, forKey: "textModelPath")
             modelName = url.lastPathComponent
-            setStatus(isRunning ? "Restart to use the new model" : "Model selected — press Start")
+            setStatus("Model selected — press Start")
         }
     }
 

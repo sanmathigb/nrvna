@@ -134,6 +134,7 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseModel)
                 .buttonStyle(.link)
                 .font(.caption)
+                .disabled(controller.isRunning)   // bound to a live daemon
         }
     }
 
