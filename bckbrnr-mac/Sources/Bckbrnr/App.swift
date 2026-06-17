@@ -97,7 +97,7 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center) {
                 Text("bckbrnr")
-                    .font(.system(.title2, design: .serif))
+                    .font(.system(.title, design: .serif))
                     .fontWeight(.semibold)
                     .tracking(0.5)
                     .foregroundStyle(Paper.ink(scheme))
@@ -106,6 +106,7 @@ struct PopoverView: View {
             }
             Text("inference as utility")
                 .font(.system(.caption, design: .serif))
+                .fontWeight(.medium)
                 .italic()
                 .tracking(0.3)
                 .foregroundStyle(.secondary)
