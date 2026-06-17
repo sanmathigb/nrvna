@@ -1,7 +1,7 @@
 # Primitive Quick Start
 
 This guide is for builders using `nrvnad`, `wrk`, and `flw` directly. For the
-packaged image-search product, start with [imgsrch.md](imgsrch.md).
+packaged image-search product, start with [apps/imgsrch/README.md](apps/imgsrch/README.md).
 
 ## Build
 
@@ -49,6 +49,6 @@ With no job ID, `flw` shows workspace counts and recent jobs.
 ## Next Steps
 
 - `README.md`
-- `imgsrch.md`
+- `apps/imgsrch/README.md`
 - `ARCHITECTURE.md`
 - `ADVANCED.md`
