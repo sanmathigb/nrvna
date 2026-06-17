@@ -73,8 +73,15 @@ struct PopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            Divider().opacity(0.4)
-            promptArea
+            if controller.isRunning {
+                Divider().opacity(0.4)
+                promptArea
+            } else if !controller.statusText.isEmpty {
+                Divider().opacity(0.4)
+                Text(controller.statusText)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
             Divider().opacity(0.4)
             modelRow
             rootRow
@@ -105,22 +112,10 @@ struct PopoverView: View {
         }
     }
 
-    @ViewBuilder
     private var promptArea: some View {
-        if controller.isRunning {
-            TextField("Type your prompt", text: $prompt)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(submit)
-            HStack {
-                Spacer()
-                Button("Run", action: submit)
-                    .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        } else {
-            Text(controller.statusText)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
+        TextField("type the prompt and hit enter", text: $prompt)
+            .textFieldStyle(.roundedBorder)
+            .onSubmit(submit)
     }
 
     private var modelRow: some View {
@@ -144,7 +139,7 @@ struct PopoverView: View {
     private var rootRow: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("ROOT")
+                Text("WORKSPACE")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                 Text(controller.rootDisplay)

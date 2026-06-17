@@ -6,7 +6,9 @@ MACOS := $(CONTENTS)/MacOS
 RESOURCES := $(CONTENTS)/Resources
 BIN := $(RESOURCES)/bin
 ENGINE_DIR ?= ../build
-DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
+# Use the active toolchain (xcode-select) rather than assuming Xcode's location;
+# fall back to the default install path if xcode-select isn't set up.
+DEVELOPER_DIR ?= $(shell xcode-select -p 2>/dev/null || echo /Applications/Xcode.app/Contents/Developer)
 
 .PHONY: app clean run
 

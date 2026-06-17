@@ -4,7 +4,7 @@ import Foundation
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
     @Published var statusText = restingHint
-    static let restingHint = "start model. submit prompts. async inference."
+    static let restingHint = ""   // nothing when idle; errors still surface
     @Published var modelName = "No model chosen"
     @Published var rootDisplay = ""
 
@@ -35,6 +35,19 @@ final class BckbrnrController: ObservableObject {
         self.rootDisplay = Self.collapseTilde(desk.path)
         self.engine = EnginePaths.discover()
         if let model = resolveModel() { modelName = model.lastPathComponent }
+        if workspaceDaemonPid() != nil {
+            isRunning = true
+            statusText = "Ready"
+            recoverCompletedResponses()
+        }
+        // Don't leave a daemon we launched running headless after the app quits.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.terminateWorkspaceDaemon() }
+    }
+
+    deinit {
+        stop()
     }
 
     // MARK: lifecycle
@@ -56,6 +69,7 @@ final class BckbrnrController: ObservableObject {
                 self.isRunning = true
                 self.statusText = "Ready"
             }
+            recoverCompletedResponses()
         } catch {
             setStatus("Start failed: \(error.localizedDescription)")
         }
@@ -72,6 +86,16 @@ final class BckbrnrController: ObservableObject {
                 self.statusText = alive ? "Ready" : Self.restingHint
             }
         }
+        if alive { recoverCompletedResponses() }
+    }
+
+    /// On app quit, shut down the daemon bound to this utility workspace.
+    /// bckbrnr owns this workspace; leaving it headless is more surprising than
+    /// stopping it.
+    func terminateWorkspaceDaemon() {
+        if daemon?.isRunning == true { daemon?.terminate() }
+        else if let pid = workspaceDaemonPid() { kill(pid, SIGTERM) }
+        daemon = nil
     }
 
     func stop() {
@@ -108,6 +132,41 @@ final class BckbrnrController: ObservableObject {
             } catch {
                 self.setStatus("Ready")
                 self.notify(title: "bckbrnr — couldn’t finish", body: stem, path: nil)
+            }
+        }
+    }
+
+    private func recoverCompletedResponses() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.ensureFolders()
+                let outputDir = self.workspace.appendingPathComponent("output", isDirectory: true)
+                let jobs = try FileManager.default.contentsOfDirectory(
+                    at: outputDir,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+                for job in jobs {
+                    let values = try? job.resourceValues(forKeys: [.isDirectoryKey])
+                    guard values?.isDirectory == true else { continue }
+
+                    let promptFile = job.appendingPathComponent("prompt.txt")
+                    let resultFile = job.appendingPathComponent("result.txt")
+                    guard FileManager.default.fileExists(atPath: promptFile.path),
+                          FileManager.default.fileExists(atPath: resultFile.path) else { continue }
+
+                    let prompt = try String(contentsOf: promptFile)
+                    let result = try String(contentsOf: resultFile)
+                    let base = Naming.deriveStem(from: prompt)
+                    let responseFile = self.responseDir.appendingPathComponent("\(base).txt")
+                    guard !FileManager.default.fileExists(atPath: responseFile.path) else { continue }
+
+                    try result.write(to: responseFile, atomically: true, encoding: .utf8)
+                    self.notify(title: "bckbrnr — your answer is ready", body: base, path: responseFile.path)
+                }
+            } catch {
+                self.setStatus("Recovery failed: \(error.localizedDescription)")
             }
         }
     }
@@ -189,6 +248,11 @@ final class BckbrnrController: ObservableObject {
         let process = Process()
         process.executableURL = engine.nrvnad
         process.arguments = [model.path, workspace.path, "-w", "1"]
+        // Conservative defaults for a non-technical, single-GPU machine:
+        // CPU only (0 GPU layers) avoids the discrete-GPU overflow that yields
+        // gibberish; low temp + thinking-off keep small models terse and on-task;
+        // modest predict/ctx bound latency and VRAM. Any of these can be
+        // overridden by exporting the same NRVNA_* var before launch.
         process.environment = ProcessInfo.processInfo.environment.merging([
             "NRVNA_GPU_LAYERS": "0",
             "NRVNA_TEMP": "0.3",
