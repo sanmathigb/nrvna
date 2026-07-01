@@ -11,12 +11,44 @@ func TestUsageListsPublicCommandsAndFlags(t *testing.T) {
 		"imgsrch <command> [arguments]",
 		"setup",
 		"search",
+		"eval",
+		"--scorer",
 		"--help",
 		"--version",
 	} {
 		if !strings.Contains(usageText, want) {
 			t.Errorf("usageText missing %q", want)
 		}
+	}
+}
+
+func TestParseSearchArgsDefaultsToSimpleScorer(t *testing.T) {
+	got, err := parseSearchArgs([]string{"project", "query text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Project != "project" || got.Query != "query text" || got.TopN != 5 || got.Scorer != scorerSimple {
+		t.Fatalf("parseSearchArgs defaults = %+v", got)
+	}
+}
+
+func TestParseSearchArgsAcceptsRRFScorer(t *testing.T) {
+	got, err := parseSearchArgs([]string{"project", "query text", "10", "--scorer", "rrf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TopN != 10 || got.Scorer != scorerRRF {
+		t.Fatalf("parseSearchArgs = %+v, want top 10 rrf", got)
+	}
+}
+
+func TestParseEvalArgsDefaultsToAllScorers(t *testing.T) {
+	got, err := parseEvalArgs([]string{"project", "hardset.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TopK != 5 || len(got.Scorers) != 2 || got.Scorers[0] != scorerSimple || got.Scorers[1] != scorerRRF {
+		t.Fatalf("parseEvalArgs defaults = %+v", got)
 	}
 }
 

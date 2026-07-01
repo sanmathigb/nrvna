@@ -1,0 +1,19 @@
+{
+  "queries": [
+    {
+      "query": "docker permission denied error",
+      "expected": ["screenshots/docker-permission-denied.png"],
+      "category": "ocr-error"
+    },
+    {
+      "query": "diagram explaining async queues",
+      "expected": ["queue-diagram.png"],
+      "category": "diagram"
+    },
+    {
+      "query": "receipt from coffee shop",
+      "expected": ["coffee-receipt.jpg"],
+      "category": "document"
+    }
+  ]
+}

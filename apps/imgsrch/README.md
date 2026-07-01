@@ -48,6 +48,30 @@ Stop the workers when needed:
 
 Run `./imgsrch doctor my-images` when setup or model discovery fails.
 
+## Evaluate search quality
+
+Create a hard set as JSON. Expected images may be project-relative paths,
+basenames, or content keys:
+
+```json
+{
+  "queries": [
+    { "query": "docker error screen", "expected": ["images/docker.png"] },
+    { "query": "diagram explaining queues", "expected": ["queue-diagram.png"] }
+  ]
+}
+```
+
+Compare the current default scorer against RRF:
+
+```bash
+./imgsrch eval my-images hardset.json --top-k 5
+./imgsrch search my-images "docker error screen" --scorer rrf
+```
+
+`simple` remains the default search scorer until eval data proves another scorer
+wins.
+
 ## Inspect
 
 The product commands hide the engine terminology, but the state remains plain

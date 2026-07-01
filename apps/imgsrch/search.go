@@ -12,11 +12,30 @@ import (
 	"strings"
 )
 
-// Hybrid search: cosine similarity over embeddings fused 50/50 with
-// BM25 over the combined caption+OCR text. Faithful port of the validated
-// scorer (k1=1.5, b=0.75, idf log((N-df+0.5)/(df+0.5)+1), min-max BM25 norm).
+// Hybrid search over the current MVP index: cosine similarity over the
+// combined caption+OCR embedding plus BM25 over the same combined text.
+// The default scorer preserves the original 50/50 score blend. The RRF scorer
+// is flag-gated so it can be evaluated before promotion.
 
 var tokenRe = regexp.MustCompile(`[a-z0-9_+.#/-]+`)
+
+type scorer string
+
+const (
+	scorerSimple scorer = "simple"
+	scorerRRF    scorer = "rrf"
+)
+
+func parseScorer(s string) (scorer, error) {
+	switch scorer(strings.ToLower(s)) {
+	case scorerSimple:
+		return scorerSimple, nil
+	case scorerRRF:
+		return scorerRRF, nil
+	default:
+		return "", fmt.Errorf("unknown scorer %q (want simple or rrf)", s)
+	}
+}
 
 func tokenize(s string) []string { return tokenRe.FindAllString(strings.ToLower(s), -1) }
 
@@ -112,48 +131,35 @@ func parseVector(data []byte) ([]float64, error) {
 }
 
 type hit struct {
-	Key, Path, Text  string
-	Dense, B25, Score float64
+	Key, Path, Text    string
+	Dense, B25, Score  float64
+	DenseRank, B25Rank int
 }
 
-func cmdSearch(project, query string, topN int) error {
-	pr, err := advance(project, false)
-	if err != nil {
-		return err
-	}
-	if pr.Indexed == 0 {
-		return fmt.Errorf("nothing indexed yet; run 'imgsrch status %s' and try again later", project)
-	}
-	c := loadConfig(project)
-	if missing := checkModels(c); len(missing) > 0 {
-		return fmt.Errorf("missing models:\n  %s", strings.Join(missing, "\n  "))
-	}
-	if err := startEmbed(project, c); err != nil {
-		return err
-	}
-
-	// Embed the query through the same model that embedded the documents.
+func embedQuery(project string, c config, query string) ([]float64, error) {
 	job, err := submitStdin(embedWs(project), c.QueryPrefix+query, "-", "--embed")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	flw := binFlw()
 	if flw == "" {
-		return fmt.Errorf("engine result binary not found")
+		return nil, fmt.Errorf("engine result binary not found")
 	}
 	out, err := exec.Command(flw, embedWs(project), "-w", job, "--json").Output()
 	if err != nil {
-		return fmt.Errorf("waiting for query embedding: %w", err)
+		return nil, fmt.Errorf("waiting for query embedding: %w", err)
 	}
 	qvec, err := parseVector(out)
 	if err != nil {
-		return fmt.Errorf("query embedding: %w", err)
+		return nil, fmt.Errorf("query embedding: %w", err)
 	}
+	return qvec, nil
+}
 
-	// Score every indexed document.
+func loadIndexedHits(project string, qvec []float64) ([]hit, error) {
 	idxData, err := os.ReadFile(indexFile(project))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var hits []hit
 	for i, line := range strings.Split(string(idxData), "\n") {
@@ -177,7 +183,34 @@ func cmdSearch(project, query string, topN int) error {
 		}
 		hits = append(hits, hit{Key: key, Path: path, Text: string(text), Dense: cosine(qvec, vec)})
 	}
+	return hits, nil
+}
 
+func scoreHits(hits []hit, query string, sc scorer) []hit {
+	hits = append([]hit(nil), hits...)
+	for i := range hits {
+		hits[i].Score = 0
+		hits[i].DenseRank = 0
+		hits[i].B25Rank = 0
+	}
+	computeBM25(hits, query)
+	assignRanks(hits)
+	switch sc {
+	case scorerRRF:
+		applyRRF(hits)
+	default:
+		applySimpleBlend(hits)
+	}
+	sort.Slice(hits, func(i, j int) bool {
+		if hits[i].Score == hits[j].Score {
+			return hits[i].Path < hits[j].Path
+		}
+		return hits[i].Score > hits[j].Score
+	})
+	return hits
+}
+
+func computeBM25(hits []hit, query string) {
 	df := map[string]int{}
 	totalLen := 0
 	docTokens := make([][]string, len(hits))
@@ -197,9 +230,45 @@ func cmdSearch(project, query string, topN int) error {
 		avgDl = float64(totalLen) / float64(len(hits))
 	}
 	qt := tokenize(query)
-	maxB := 0.0
 	for i := range hits {
 		hits[i].B25 = bm25(qt, docTokens[i], avgDl, df, len(hits))
+	}
+}
+
+func assignRanks(hits []hit) {
+	denseOrder := make([]int, len(hits))
+	bm25Order := make([]int, len(hits))
+	for i := range hits {
+		denseOrder[i] = i
+		bm25Order[i] = i
+	}
+	sort.Slice(denseOrder, func(i, j int) bool {
+		a, b := hits[denseOrder[i]], hits[denseOrder[j]]
+		if a.Dense == b.Dense {
+			return a.Path < b.Path
+		}
+		return a.Dense > b.Dense
+	})
+	sort.Slice(bm25Order, func(i, j int) bool {
+		a, b := hits[bm25Order[i]], hits[bm25Order[j]]
+		if a.B25 == b.B25 {
+			return a.Path < b.Path
+		}
+		return a.B25 > b.B25
+	})
+	for rank, idx := range denseOrder {
+		hits[idx].DenseRank = rank + 1
+	}
+	for rank, idx := range bm25Order {
+		if hits[idx].B25 > 0 {
+			hits[idx].B25Rank = rank + 1
+		}
+	}
+}
+
+func applySimpleBlend(hits []hit) {
+	maxB := 0.0
+	for i := range hits {
 		if hits[i].B25 > maxB {
 			maxB = hits[i].B25
 		}
@@ -211,14 +280,66 @@ func cmdSearch(project, query string, topN int) error {
 		}
 		hits[i].Score = 0.5*hits[i].Dense + 0.5*bNorm
 	}
-	sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+}
+
+func applyRRF(hits []hit) {
+	const rrfK = 60.0
+	const denseWeight = 1.0
+	const bm25Weight = 1.0
+	for i := range hits {
+		hits[i].Score = 0
+		if hits[i].DenseRank > 0 {
+			hits[i].Score += denseWeight / (rrfK + float64(hits[i].DenseRank))
+		}
+		if hits[i].B25Rank > 0 {
+			hits[i].Score += bm25Weight / (rrfK + float64(hits[i].B25Rank))
+		}
+	}
+}
+
+func searchBaseHits(project, query string) ([]hit, error) {
+	pr, err := advance(project, false)
+	if err != nil {
+		return nil, err
+	}
+	if pr.Indexed == 0 {
+		return nil, fmt.Errorf("nothing indexed yet; run 'imgsrch status %s' and try again later", project)
+	}
+	c := loadConfig(project)
+	if missing := checkModels(c); len(missing) > 0 {
+		return nil, fmt.Errorf("missing models:\n  %s", strings.Join(missing, "\n  "))
+	}
+	if err := startEmbed(project, c); err != nil {
+		return nil, err
+	}
+
+	qvec, err := embedQuery(project, c, query)
+	if err != nil {
+		return nil, err
+	}
+	return loadIndexedHits(project, qvec)
+}
+
+func searchProject(project, query string, topN int, sc scorer) ([]hit, error) {
+	hits, err := searchBaseHits(project, query)
+	if err != nil {
+		return nil, err
+	}
+	hits = scoreHits(hits, query, sc)
 	if len(hits) > topN {
 		hits = hits[:topN]
 	}
+	return hits, nil
+}
 
-	// Print to stdout and write search-results.md.
+func cmdSearch(project, query string, topN int, sc scorer) error {
+	hits, err := searchProject(project, query, topN, sc)
+	if err != nil {
+		return err
+	}
+
 	var md strings.Builder
-	fmt.Fprintf(&md, "# Search: %s\n\n", query)
+	fmt.Fprintf(&md, "# Search: %s\n\nScorer: `%s`\n\n", query, sc)
 	for i, h := range hits {
 		snippet := strings.Join(strings.Fields(h.Text), " ")
 		if len(snippet) > 320 {
@@ -228,9 +349,10 @@ func cmdSearch(project, query string, topN int) error {
 			}
 			snippet = cut + "..."
 		}
-		fmt.Printf("[%.3f] %s  (dense=%.3f bm25=%.3f)\n%s\n\n", h.Score, h.Path, h.Dense, h.B25, snippet)
-		fmt.Fprintf(&md, "## %d. %s\n\nScore: `%.3f`  Dense: `%.3f`  BM25: `%.3f`\n\nImage: `%s`\n\n![](%s)\n\n> %s\n\n",
-			i+1, filepath.Base(h.Path), h.Score, h.Dense, h.B25, h.Path, h.Path, snippet)
+		fmt.Printf("[%.3f] %s  (scorer=%s dense=%.3f dense_rank=%d bm25=%.3f bm25_rank=%d)\n%s\n\n",
+			h.Score, h.Path, sc, h.Dense, h.DenseRank, h.B25, h.B25Rank, snippet)
+		fmt.Fprintf(&md, "## %d. %s\n\nScore: `%.3f`  Dense: `%.3f`  Dense rank: `%d`  BM25: `%.3f`  BM25 rank: `%d`\n\nImage: `%s`\n\n![](%s)\n\n> %s\n\n",
+			i+1, filepath.Base(h.Path), h.Score, h.Dense, h.DenseRank, h.B25, h.B25Rank, h.Path, h.Path, snippet)
 	}
 	outMd := filepath.Join(project, "search-results.md")
 	if err := os.WriteFile(outMd, []byte(md.String()), 0o644); err != nil {
