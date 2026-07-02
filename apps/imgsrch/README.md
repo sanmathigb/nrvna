@@ -62,15 +62,15 @@ basenames, or content keys:
 }
 ```
 
-Compare the current default scorer against RRF:
+Compare the default RRF scorer against the original simple blend:
 
 ```bash
 ./imgsrch eval my-images hardset.json --top-k 5
-./imgsrch search my-images "docker error screen" --scorer rrf
+./imgsrch search my-images "docker error screen" --scorer simple
 ```
 
-`simple` remains the default search scorer until eval data proves another scorer
-wins.
+`rrf` is the default search scorer. Use `--scorer simple` to compare against the
+original 50/50 dense + normalized BM25 blend.
 
 ## Inspect
 

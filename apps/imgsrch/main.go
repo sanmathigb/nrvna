@@ -29,8 +29,8 @@ Commands:
   doctor [project]                                Check the installation
 
 Scorers:
-  simple    Original 50/50 dense + normalized BM25 blend (default search scorer)
-  rrf       Reciprocal rank fusion over dense and BM25 rankings
+  rrf       Reciprocal rank fusion over dense and BM25 rankings (default search scorer)
+  simple    Original 50/50 dense + normalized BM25 blend
 
 Options:
   --scorer simple|rrf|all   Select scorer; eval defaults to all
@@ -67,7 +67,7 @@ func parseSearchArgs(rest []string) (searchArgs, error) {
 	if len(rest) < 2 {
 		return searchArgs{}, fmt.Errorf("search requires <project> and <query>")
 	}
-	args := searchArgs{Project: rest[0], Query: rest[1], TopN: 5, Scorer: scorerSimple}
+	args := searchArgs{Project: rest[0], Query: rest[1], TopN: 5, Scorer: scorerRRF}
 	topSet := false
 	for i := 2; i < len(rest); i++ {
 		switch rest[i] {

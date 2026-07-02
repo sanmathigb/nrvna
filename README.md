@@ -31,36 +31,34 @@ JOB=$(./build/wrk /tmp/ws "Explain the CAP theorem in two sentences")
 Submit multiple jobs, inspect workspace progress, and collect results:
 
 ```bash
+# wrk returns a job ID immediately — fire off work and walk away
 JOB1=$(./build/wrk /tmp/ws "Explain Raft in two sentences")
 JOB2=$(./build/wrk /tmp/ws "Summarize the CAP theorem in one sentence")
 
+# check progress any time; the queue is just the filesystem
 ./build/flw /tmp/ws
 ./build/flw /tmp/ws --json
 
+# collect each result whenever you come back
 ./build/flw /tmp/ws -w "$JOB1"
 ./build/flw /tmp/ws -w "$JOB2"
+
+# or submit and block for one result in a single pipe
+./build/wrk /tmp/ws "Quick question" | ./build/flw /tmp/ws -w
 ```
 
-The substrate is the point: durable jobs, inspectable state, and predictable
-retrieval through the same three binaries.
+The substrate is the point: submission and collection are decoupled. Durable
+jobs, inspectable state, predictable retrieval — through the same three binaries.
 
 ## Three Primitives
 
 | Tool | What it does |
 |------|-------------|
 | `nrvnad` | Load a model, watch a workspace, process jobs |
-| `wrk` | Submit work, get back a job ID |
-| `flw` | Inspect a workspace or retrieve a result by job ID |
+| `wrk` | Submit work, get back a job ID immediately |
+| `flw` | Inspect a workspace, or collect a result by job ID |
 
 That's the entire API. Everything else is composition.
-
-```bash
-./build/nrvnad models/Qwen2.5-7B-Instruct-Q4_K_M.gguf ./ws -w 1 &
-while [ ! -f ./ws/.nrvnad.pid ]; do sleep 1; done
-
-JOB=$(./build/wrk ./ws "Explain the CAP theorem in two sentences")
-./build/flw ./ws -w "$JOB"
-```
 
 ## Job Types
 
@@ -68,14 +66,17 @@ JOB=$(./build/wrk ./ws "Explain the CAP theorem in two sentences")
 # Text
 wrk ./ws "Summarize this document"
 
-# Vision: caption, describe, OCR
+# Vision — caption, describe, OCR
 wrk ./ws "What's in this image?" --image photo.jpg
 
-# Embeddings: vectors for search/similarity
-wrk ./ws "sentence to embed" --embed
+# Speech-to-text — transcribe audio
+wrk ./ws --audio recording.wav --stt
 
-# Text-to-speech: audio output
+# Text-to-speech — synthesize audio
 wrk ./ws "Hello, world" --tts
+
+# Embeddings — vectors for search/similarity
+wrk ./ws "sentence to embed" --embed
 ```
 
 Multimodal support depends on the model files you provide: GGUF model,

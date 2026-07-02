@@ -22,12 +22,12 @@ func TestUsageListsPublicCommandsAndFlags(t *testing.T) {
 	}
 }
 
-func TestParseSearchArgsDefaultsToSimpleScorer(t *testing.T) {
+func TestParseSearchArgsDefaultsToRRFScorer(t *testing.T) {
 	got, err := parseSearchArgs([]string{"project", "query text"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Project != "project" || got.Query != "query text" || got.TopN != 5 || got.Scorer != scorerSimple {
+	if got.Project != "project" || got.Query != "query text" || got.TopN != 5 || got.Scorer != scorerRRF {
 		t.Fatalf("parseSearchArgs defaults = %+v", got)
 	}
 }

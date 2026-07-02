@@ -33,17 +33,35 @@ JOB=$(./build/wrk /tmp/ws "What is the capital of France?")
 
 With no job ID, `flw` shows workspace counts and recent jobs.
 
+## Submit, Walk Away, Collect
+
+`wrk` returns a job ID immediately — you never wait at submit time. Submission
+and collection are decoupled; the workspace holds the result until you ask.
+
+```bash
+# queue work, then go do something else (you can even close the terminal)
+JOB=$(./build/wrk /tmp/ws "Summarize this long document")
+# ...later...
+./build/flw /tmp/ws -w "$JOB"     # collect when you're ready
+
+# or submit and block for the result in one pipe
+./build/wrk /tmp/ws "Quick question" | ./build/flw /tmp/ws -w
+```
+
 ## Other Job Types
 
 ```bash
 # Vision
 ./build/wrk /tmp/ws "What's in this image?" --image photo.jpg
 
+# Speech-to-text
+./build/wrk /tmp/ws --audio recording.wav --stt
+
+# Text-to-speech
+./build/wrk /tmp/ws "Hello, world" --tts
+
 # Embeddings
 ./build/wrk /tmp/ws "sentence to embed" --embed
-
-# Text to speech
-./build/wrk /tmp/ws "Hello, world" --tts
 ```
 
 ## Next Steps

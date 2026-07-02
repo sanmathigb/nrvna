@@ -282,11 +282,16 @@ void printHelp() {
     std::cout << "Usage:\n";
     std::cout << "  nrvnad <model> <workspace> [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "      --mmproj <path>    Multimodal projection model\n";
-    std::cout << "      --vocoder <path>   TTS vocoder model\n";
+    std::cout << "      --mmproj <path>    Multimodal projection model for image/audio jobs\n";
+    std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
     std::cout << "  -h, --help             Show help\n";
-    std::cout << "  -v, --version          Show version\n";
+    std::cout << "  -v, --version          Show version\n\n";
+    std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
+    std::cout << "  wrk <workspace> \"prompt\"                 text\n";
+    std::cout << "  wrk <workspace> \"text\" --embed           embeddings\n";
+    std::cout << "  wrk <workspace> \"prompt\" --image img.png vision (needs mmproj)\n";
+    std::cout << "  wrk <workspace> \"text\" --tts             speech (needs vocoder)\n";
 }
 
 int main(int argc, char * argv[]) {

@@ -14,8 +14,8 @@ import (
 
 // Hybrid search over the current MVP index: cosine similarity over the
 // combined caption+OCR embedding plus BM25 over the same combined text.
-// The default scorer preserves the original 50/50 score blend. The RRF scorer
-// is flag-gated so it can be evaluated before promotion.
+// The default scorer is RRF, promoted after the local hard set showed better
+// top-1 and top-3 recall than the original 50/50 blend.
 
 var tokenRe = regexp.MustCompile(`[a-z0-9_+.#/-]+`)
 
