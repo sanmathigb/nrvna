@@ -102,4 +102,38 @@ inline bool isValidJobId(const JobId& id) {
     return true;
 }
 
+// ── The output artifact rule ────────────────────────────────────────────
+// A Done job has exactly one primary artifact; when several exist, this
+// priority order decides. Stated once, here.
+enum class ArtifactKind : uint8_t { Result, Transcript, Audio, Embedding };
+
+struct Artifact {
+    ArtifactKind kind;
+    std::filesystem::path path;
+};
+
+inline const char* toString(ArtifactKind k) {
+    switch (k) {
+        case ArtifactKind::Transcript: return "transcript";
+        case ArtifactKind::Audio:      return "audio";
+        case ArtifactKind::Embedding:  return "embedding";
+        default:                       return "result";
+    }
+}
+
+inline std::optional<Artifact> findOutputArtifact(const std::filesystem::path& jobDir) {
+    const std::pair<ArtifactKind, const char*> priority[] = {
+        {ArtifactKind::Result,     kResultFile},
+        {ArtifactKind::Transcript, kTranscriptFile},
+        {ArtifactKind::Audio,      kAudioFile},
+        {ArtifactKind::Embedding,  kEmbeddingFile},
+    };
+    for (const auto& [kind, name] : priority) {
+        auto p = jobDir / name;
+        std::error_code ec;
+        if (std::filesystem::exists(p, ec) && !ec) return Artifact{kind, p};
+    }
+    return std::nullopt;
+}
+
 } // namespace nrvnaai::contract
