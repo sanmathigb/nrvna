@@ -287,6 +287,7 @@ void printHelp() {
     std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
     std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
+    std::cout << "      --drain            Process everything queued, then exit (no daemon left behind)\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
     std::cout << "Lifecycle:\n";
@@ -363,6 +364,7 @@ int main(int argc, char * argv[]) {
     std::string workspace;
     std::string mmprojPath;
     std::string vocoderPath;
+    bool drainMode = false;
     int workers = 4;
     if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
         try {
@@ -407,6 +409,8 @@ int main(int argc, char * argv[]) {
                 return 1;
             }
             vocoderPath = argv[++i];
+        } else if (arg == "--drain") {
+            drainMode = true;
         } else if (!arg.empty() && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
             return 1;
@@ -439,6 +443,19 @@ int main(int argc, char * argv[]) {
 
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
+
+    if (drainMode) {
+        auto existing = lifecycle::query(std::filesystem::path(workspace));
+        if (existing.state != lifecycle::DaemonState::NotRunning) {
+            // Drain's postcondition is "queue is quiet" — the running daemon
+            // does the work; we just wait for it and report.
+            std::cerr << "nrvnad: workspace already has a running daemon — it will drain the queue\n";
+            Flow flowBefore((std::filesystem::path(workspace)));
+            auto before = flowBefore.counts();
+            auto after = lifecycle::waitForIdle(workspace);
+            return after.failed > before.failed ? 1 : 0;
+        }
+    }
 
     if (!acquireWorkspaceLock(std::filesystem::path(workspace))) {
         return 1;
@@ -552,8 +569,23 @@ int main(int argc, char * argv[]) {
         std::cout << "  Results: ./flw " << workspace << " <job-id>\n\n";
         std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
-        while (!g_shutdown_requested && server->isRunning()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        int drainExit = 0;
+        if (drainMode) {
+            std::cout << "  Draining queue; will exit when idle.\n\n";
+            Flow drainFlow((std::filesystem::path(workspace)));
+            std::size_t failedBaseline = drainFlow.counts().failed;
+            while (!g_shutdown_requested && server->isRunning()) {
+                auto c = drainFlow.counts();
+                if (c.queued == 0 && c.running == 0) {
+                    drainExit = c.failed > failedBaseline ? 1 : 0;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        } else {
+            while (!g_shutdown_requested && server->isRunning()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
         }
 
         if (g_shutdown_requested) {
@@ -567,6 +599,11 @@ int main(int argc, char * argv[]) {
         lifecycle::removeRuntimeFiles(workspace);
         server->shutdown();
         releaseWorkspaceLock();
+
+        if (drainMode) {
+            LOG_DEBUG("nrvna-ai daemon drained and stopped");
+            return drainExit;
+        }
 
     } catch (const std::exception & e) {
         releaseWorkspaceLock();
