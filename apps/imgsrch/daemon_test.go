@@ -1,100 +1,40 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
-	"syscall"
 	"testing"
-	"time"
 )
 
-func TestRuntimeMetaChangesForStartupEnvironment(t *testing.T) {
-	keys := []string{
-		"NRVNA_MAX_CTX",
-		"NRVNA_BATCH",
-		"NRVNA_UBATCH",
-		"NRVNA_PREDICT",
-		"NRVNA_TEMP",
-		"NRVNA_THINKING",
-		"NRVNA_IMAGE_MAX_TOKENS",
-		"NRVNA_CHAT_TEMPLATE_FILE",
+// The engine's documented status --json shape; imgsrch depends on these keys.
+func TestWorkerStatusParsesEngineJSON(t *testing.T) {
+	payload := `{"running":true,"ready":true,"pid":42,"model":"/models/x.gguf","workers":1,"started_at":"t"}`
+	var st workerStatus
+	if err := json.Unmarshal([]byte(payload), &st); err != nil {
+		t.Fatal(err)
 	}
-	base := runtimeMeta("model.gguf", []string{"-w", "1"}, map[string]string{})
+	if !st.Running || !st.Ready || st.Model != "/models/x.gguf" {
+		t.Fatalf("parsed status wrong: %+v", st)
+	}
 
-	for _, key := range keys {
-		t.Run(key, func(t *testing.T) {
-			got := runtimeMeta("model.gguf", []string{"-w", "1"}, map[string]string{key: "changed"})
-			if got == base {
-				t.Fatalf("%s did not change runtime metadata", key)
-			}
-		})
+	var down workerStatus
+	if err := json.Unmarshal([]byte(`{"running":false,"ready":false}`), &down); err != nil {
+		t.Fatal(err)
+	}
+	if down.Running || down.Ready {
+		t.Fatalf("not-running status parsed wrong: %+v", down)
 	}
 }
 
-func TestProcessIsNrvnadRejectsCurrentTestProcess(t *testing.T) {
-	if processIsNrvnad(os.Getpid()) {
-		t.Fatal("test process was mistaken for nrvnad")
-	}
-}
-
-func TestWorkspaceLockHeld(t *testing.T) {
-	ws := t.TempDir()
-	path := filepath.Join(ws, ".nrvnad.lock")
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
-	if err != nil {
+func TestFindBinPrefersEnvVar(t *testing.T) {
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "fakebin")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		t.Fatal(err)
-	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-
-	if !workspaceLockHeld(ws) {
-		t.Fatal("held daemon lock was reported as free")
-	}
-}
-
-func TestDaemonRunningRejectsUnrelatedLivePID(t *testing.T) {
-	ws := t.TempDir()
-	if err := os.WriteFile(pidFile(ws), []byte("1\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(metaFile(ws), []byte("stale"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if daemonRunning(ws) {
-		t.Fatal("unrelated PID was accepted as the workspace daemon")
-	}
-	if _, err := os.Stat(pidFile(ws)); !os.IsNotExist(err) {
-		t.Fatalf("stale pidfile was not removed: %v", err)
-	}
-	if _, err := os.Stat(metaFile(ws)); !os.IsNotExist(err) {
-		t.Fatalf("stale metafile was not removed: %v", err)
-	}
-}
-
-func TestStopPIDEscalatesWithSecondTerm(t *testing.T) {
-	alive := true
-	var signals []syscall.Signal
-	err := stopPID(
-		123,
-		time.Millisecond,
-		func(int) bool { return alive },
-		func(_ int, sig syscall.Signal) error {
-			signals = append(signals, sig)
-			if len(signals) == 2 {
-				alive = false
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []syscall.Signal{syscall.SIGTERM, syscall.SIGTERM}
-	if !reflect.DeepEqual(signals, want) {
-		t.Fatalf("signals = %v, want %v", signals, want)
+	t.Setenv("TEST_BIN_OVERRIDE", fake)
+	if got := findBin("TEST_BIN_OVERRIDE", "does-not-exist-anywhere"); got != fake {
+		t.Fatalf("findBin ignored env override: %q", got)
 	}
 }
