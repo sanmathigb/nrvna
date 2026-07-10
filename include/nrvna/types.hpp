@@ -8,7 +8,7 @@ namespace nrvnaai {
 enum class Status : std::uint8_t { Queued, Running, Done, Failed, Missing };
 
 // Job modality, serialized to/from type.txt (see nrvna/contract.hpp).
-enum class JobType : uint8_t {
+enum class JobType : std::uint8_t {
     Text = 0,
     Embed = 1,
     Vision = 2,
