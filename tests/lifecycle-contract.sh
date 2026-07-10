@@ -33,4 +33,8 @@ case "$json" in
     *) echo "status --json missing running:false: $json" >&2; exit 1 ;;
 esac
 
+# stop when nothing is running: exit 0, quiet success
+mkdir -p "$tmp/ws3"
+"$bin_dir/nrvnad" stop "$tmp/ws3" || { echo "stop with no daemon should exit 0" >&2; exit 1; }
+
 echo "lifecycle-contract: all checks passed"

@@ -335,6 +335,18 @@ int main(int argc, char * argv[]) {
         }
     }
 
+    if (argc >= 3 && std::string(argv[1]) == "stop") {
+        std::filesystem::path ws = argv[2];
+        int timeout = 20;
+        for (int i = 3; i + 1 < argc; ++i) {
+            if (std::string(argv[i]) == "--timeout") timeout = std::atoi(argv[i + 1]);
+        }
+        int rc = lifecycle::stopDaemon(ws, timeout);
+        if (rc == 0) std::cout << "stopped\n";
+        else std::cerr << "Error: daemon still holds " << ws.string() << " after " << timeout << "s\n";
+        return rc;
+    }
+
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
