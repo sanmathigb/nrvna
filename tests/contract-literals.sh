@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-pattern='"(input/ready|input/writing|processing|output|failed|prompt\.txt|type\.txt|result\.txt|error\.txt|embedding\.json|transcript\.txt|audio\.wav|meta\.json|\.nrvnad\.(pid|lock|ready|info|start))"'
+pattern='"(input/ready|input/writing|processing|output|failed|images|audio|prompt\.txt|type\.txt|result\.txt|error\.txt|embedding\.json|transcript\.txt|audio\.wav|meta\.json|\.nrvnad\.(pid|lock|ready|info|start))"'
 violations="$(grep -rnE "$pattern" src cli include \
     --include='*.cpp' --include='*.hpp' \
     | grep -v 'include/nrvna/contract.hpp' | grep -v 'include/nrvna/lifecycle.hpp' || true)"
