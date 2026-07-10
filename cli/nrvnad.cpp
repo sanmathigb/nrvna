@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "nrvna/lifecycle.hpp"
 #include "nrvna/logger.hpp"
+#include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"
 #include "nrvna/server.hpp"
 #include <algorithm>
@@ -287,6 +289,9 @@ void printHelp() {
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
+    std::cout << "Lifecycle:\n";
+    std::cout << "  nrvnad status <workspace> [--json]   Is the daemon running/ready? (exit 0 ready, 2 starting, 1 not running)\n";
+    std::cout << "  nrvnad stop <workspace>              Stop the workspace daemon gracefully\n\n";
     std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
     std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
     std::cout << "you rarely need to pass them explicitly.\n\n";
@@ -302,6 +307,33 @@ void printHelp() {
 
 int main(int argc, char * argv[]) {
     g_models_dir = resolveModelsDir(argv[0]);
+
+    if (argc >= 3 && std::string(argv[1]) == "status") {
+        std::filesystem::path ws = argv[2];
+        bool json = (argc >= 4 && std::string(argv[3]) == "--json");
+        auto info = lifecycle::query(ws);
+        if (json) {
+            std::cout << "{\"running\":" << (info.state != lifecycle::DaemonState::NotRunning ? "true" : "false")
+                      << ",\"ready\":" << (info.state == lifecycle::DaemonState::Ready ? "true" : "false");
+            if (info.pid > 0) std::cout << ",\"pid\":" << info.pid;
+            if (!info.model.empty()) std::cout << ",\"model\":\"" << escapeJson(info.model) << "\"";
+            if (info.workers > 0) std::cout << ",\"workers\":" << info.workers;
+            if (!info.started_at.empty()) std::cout << ",\"started_at\":\"" << escapeJson(info.started_at) << "\"";
+            std::cout << "}\n";
+        }
+        switch (info.state) {
+            case lifecycle::DaemonState::Ready:
+                if (!json) std::cout << "ready (pid " << info.pid << ", model " << info.model
+                                     << ", workers " << info.workers << ")\n";
+                return 0;
+            case lifecycle::DaemonState::Starting:
+                if (!json) std::cout << "starting (pid " << info.pid << ")\n";
+                return 2;
+            default:
+                if (!json) std::cout << "not running\n";
+                return 1;
+        }
+    }
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];

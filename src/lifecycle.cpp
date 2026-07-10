@@ -1,0 +1,159 @@
+/*
+ * nrvna ai - Asynchronous Inference Primitive
+ * Copyright (c) 2025 Sanmathi Bharamgouda
+ * SPDX-License-Identifier: MIT
+ */
+
+#include "nrvna/lifecycle.hpp"
+#include "nrvna/meta.hpp"
+#include <chrono>
+#include <csignal>
+#include <cstdlib>
+#include <fstream>
+#include <thread>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+
+namespace nrvnaai::lifecycle {
+
+namespace {
+
+// True if a daemon currently holds the workspace lock.
+bool lockIsHeld(const std::filesystem::path& ws) {
+    auto lockPath = ws / kLockFile;
+    int fd = ::open(lockPath.c_str(), O_RDWR, 0644);
+    if (fd < 0) return false;                 // no lock file, no daemon
+    bool held = false;
+    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        held = true;                          // someone else holds it
+    } else {
+        (void)::flock(fd, LOCK_UN);
+    }
+    (void)::close(fd);
+    return held;
+}
+
+int readPidFile(const std::filesystem::path& ws) {
+    std::ifstream f(ws / kPidFile);
+    int pid = 0;
+    f >> pid;
+    return pid;
+}
+
+// Minimal extraction from .nrvnad.info; tolerant of missing fields.
+void parseInfo(const std::filesystem::path& ws, DaemonInfo& info) {
+    std::ifstream f(ws / kInfoFile);
+    if (!f) return;
+    std::string s((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    auto field = [&s](const char* key) -> std::string {
+        auto k = "\"" + std::string(key) + "\":\"";
+        auto i = s.find(k);
+        if (i == std::string::npos) return "";
+        i += k.size();
+        auto j = s.find('"', i);
+        return j == std::string::npos ? "" : s.substr(i, j - i);
+    };
+    info.model = field("model");
+    info.mmproj = field("mmproj");
+    info.vocoder = field("vocoder");
+    info.started_at = field("started_at");
+    auto wk = s.find("\"workers\":");
+    if (wk != std::string::npos) info.workers = std::atoi(s.c_str() + wk + 10);
+}
+
+} // namespace
+
+DaemonInfo query(const std::filesystem::path& ws) {
+    DaemonInfo info;
+    std::error_code ec;
+    if (!std::filesystem::exists(ws, ec) || ec) return info;
+
+    if (!lockIsHeld(ws)) {
+        // No daemon: clean up anything stale so the workspace tells the truth.
+        std::filesystem::remove(ws / kPidFile, ec);
+        std::filesystem::remove(ws / kReadyFile, ec);
+        std::filesystem::remove(ws / kInfoFile, ec);
+        return info;
+    }
+
+    info.pid = readPidFile(ws);
+    if (std::filesystem::exists(ws / kReadyFile, ec) && !ec) {
+        info.state = DaemonState::Ready;
+        parseInfo(ws, info);
+    } else {
+        info.state = DaemonState::Starting;
+    }
+    return info;
+}
+
+int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
+    auto info = query(ws);
+    if (info.state == DaemonState::NotRunning) return 0;
+    if (info.pid <= 0) return 1;  // lock held but pid unknown: refuse to guess
+
+    (void)::kill(info.pid, SIGTERM);
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutSeconds);
+    bool escalated = false;
+    while (lockIsHeld(ws)) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            if (!escalated) {
+                // nrvnad treats a second signal as "force exit now"
+                (void)::kill(info.pid, SIGTERM);
+                escalated = true;
+                deadline += std::chrono::seconds(3);
+            } else {
+                (void)::kill(info.pid, SIGKILL);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                break;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    if (lockIsHeld(ws)) return 1;
+    std::error_code ec;
+    std::filesystem::remove(ws / kPidFile, ec);
+    std::filesystem::remove(ws / kReadyFile, ec);
+    std::filesystem::remove(ws / kInfoFile, ec);
+    return 0;
+}
+
+WorkspaceCounts waitForIdle(const std::filesystem::path& ws, int pollMs) {
+    Flow flow(ws);
+    while (true) {
+        auto c = flow.counts();
+        if (c.queued == 0 && c.running == 0) return c;
+        std::this_thread::sleep_for(std::chrono::milliseconds(pollMs));
+    }
+}
+
+bool writeRuntimeFiles(const std::filesystem::path& ws, const DaemonInfo& info) {
+    try {
+        {
+            std::ofstream f(ws / kInfoFile);
+            if (!f) return false;
+            f << "{\"pid\":" << info.pid
+              << ",\"model\":\"" << escapeJson(info.model) << "\""
+              << ",\"mmproj\":\"" << escapeJson(info.mmproj) << "\""
+              << ",\"vocoder\":\"" << escapeJson(info.vocoder) << "\""
+              << ",\"workers\":" << info.workers
+              << ",\"started_at\":\"" << escapeJson(info.started_at) << "\"}\n";
+        }
+        {
+            std::ofstream f(ws / kReadyFile);
+            if (!f) return false;
+            f << info.started_at << "\n";
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void removeRuntimeFiles(const std::filesystem::path& ws) {
+    std::error_code ec;
+    std::filesystem::remove(ws / kReadyFile, ec);
+    std::filesystem::remove(ws / kInfoFile, ec);
+}
+
+} // namespace nrvnaai::lifecycle
