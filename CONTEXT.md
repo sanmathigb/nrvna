@@ -23,6 +23,7 @@ file disagree, one of them has a bug.
   owner: `include/nrvna/contract.hpp`. Non-C++ consumers cross the contract
   via `wrk`/`flw` (`flw --json` carries `artifact_kind`/`artifact_path`),
   never by touching the layout directly.
-- **Lifecycle contract** — the daemon-management files (`.nrvnad.pid`,
-  `.nrvnad.lock`, start meta). Deliberately NOT part of the job contract;
-  ownership to be settled by the lifecycle-helper work.
+- **Lifecycle contract** — the daemon-management files (`.nrvnad.lock`,
+  `.nrvnad.pid`, `.nrvnad.ready`, `.nrvnad.info`). Deliberately NOT part of
+  the job contract. Single owner: nrvnad (`include/nrvna/lifecycle.hpp`);
+  `nrvnad status`/`stop` are the blessed readers, `--drain` the run-to-done mode.

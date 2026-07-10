@@ -116,6 +116,17 @@ Read output/<job_id>/result.txt (or error.txt if failed)
 | DONE | `output/<id>` | Completed successfully |
 | FAILED | `failed/<id>` | Error occurred |
 
+## Daemon Lifecycle
+
+nrvnad owns its lifecycle as files in the workspace (the lifecycle contract,
+`include/nrvna/lifecycle.hpp`): `.nrvnad.lock` (flock = liveness truth),
+`.nrvnad.pid`, `.nrvnad.ready` (written after the model loads), `.nrvnad.info`
+(JSON: pid/model/workers/started_at). `nrvnad status` is the blessed reader
+(exit 0 ready / 2 starting / 1 not running); `nrvnad stop` the blessed stopper.
+`nrvnad <model> <ws> --drain` processes the queue until quiet and exits —
+run-to-done mode; if a daemon already owns the workspace, drain waits for it
+to finish the queue instead (same postcondition).
+
 ## Inference Pipeline
 
 ### Text/Vision (Runner)
@@ -177,6 +188,9 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 | Tool | Purpose | Example |
 |------|---------|---------|
 | `nrvnad` | Start daemon | `nrvnad model.gguf workspace` |
+| `nrvnad status` | Daemon state | `nrvnad status workspace --json` |
+| `nrvnad stop` | Stop a workspace daemon | `nrvnad stop workspace` |
+| `nrvnad --drain` | Process queue to quiet, then exit | `nrvnad model.gguf workspace --drain` |
 | `wrk` | Submit jobs | `wrk workspace "prompt"` |
 | `flw` | Inspect or wait for results | `flw workspace -w job-id` |
 
