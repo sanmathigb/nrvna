@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/server.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/scanner.hpp"
 #include "nrvna/pool.hpp"
 #include "nrvna/processor.hpp"
@@ -154,11 +155,11 @@ void Server::shutdown() noexcept {
 
 bool Server::createWorkspace() noexcept {
     try {
-        std::filesystem::create_directories(workspace_ / "input" / "writing");
-        std::filesystem::create_directories(workspace_ / "input" / "ready");
-        std::filesystem::create_directories(workspace_ / "processing");
-        std::filesystem::create_directories(workspace_ / "output");
-        std::filesystem::create_directories(workspace_ / "failed");
+        std::filesystem::create_directories(workspace_ / contract::kWritingDir);
+        std::filesystem::create_directories(workspace_ / contract::kReadyDir);
+        std::filesystem::create_directories(workspace_ / contract::kProcessingDir);
+        std::filesystem::create_directories(workspace_ / contract::kOutputDir);
+        std::filesystem::create_directories(workspace_ / contract::kFailedDir);
 
         LOG_DEBUG("Workspace created: " + workspace_.string());
         return true;
@@ -170,7 +171,7 @@ bool Server::createWorkspace() noexcept {
 
 bool Server::recoverOrphanedJobs() noexcept {
     try {
-        auto processingDir = workspace_ / "processing";
+        auto processingDir = workspace_ / contract::kProcessingDir;
         if (!std::filesystem::exists(processingDir)) {
             return true;
         }
@@ -182,11 +183,11 @@ bool Server::recoverOrphanedJobs() noexcept {
                 LOG_WARN("Recovering orphaned job: " + jobId);
 
                 std::error_code ec;
-                std::filesystem::rename(entry.path(), workspace_ / "input" / "ready" / jobId, ec);
+                std::filesystem::rename(entry.path(), workspace_ / contract::kReadyDir / jobId, ec);
                 if (ec) {
                     LOG_ERROR("Failed to recover job " + jobId + " (ready failed: " + ec.message() + "). Trying failed dir...");
                     std::error_code ec2;
-                    std::filesystem::rename(entry.path(), workspace_ / "failed" / jobId, ec2);
+                    std::filesystem::rename(entry.path(), workspace_ / contract::kFailedDir / jobId, ec2);
                     if (ec2) {
                         LOG_ERROR("Orphan recovery failed for " + jobId + ": ready=" + ec.message() + ", failed=" + ec2.message());
                     }

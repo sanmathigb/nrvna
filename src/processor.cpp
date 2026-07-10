@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/processor.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"
 #include "nrvna/runner_tts.hpp"
@@ -41,7 +42,7 @@ void writeCompletionMeta(const std::filesystem::path& jobPath,
         meta.submitted_at = nrvnaai::formatTimestamp();
     }
     if (meta.mode.empty()) {
-        meta.mode = "text";
+        meta.mode = nrvnaai::contract::toString(nrvnaai::JobType::Text);
     }
     meta.completed_at = nrvnaai::formatTimestamp();
     meta.duration_s = elapsed_s;
@@ -57,8 +58,8 @@ static const char* kColorFailed   = "\033[31m"; // red
 void printJobStatus(const nrvnaai::JobId& id, const std::string& status, double elapsed = -1.0, const std::string& detail = "") {
     std::lock_guard<std::mutex> lock(g_output_mutex);
     const char* color = kColorRunning;
-    if (status == "done")   color = kColorDone;
-    if (status == "failed") color = kColorFailed;
+    if (status == nrvnaai::contract::toString(nrvnaai::Status::Done))   color = kColorDone;
+    if (status == nrvnaai::contract::toString(nrvnaai::Status::Failed)) color = kColorFailed;
 
     std::cout << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
     if (elapsed >= 0.0) {
@@ -98,37 +99,37 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             return ProcessResult::NotFound;
         }
 
-        printJobStatus(jobId, "running");
+        printJobStatus(jobId, contract::toString(Status::Running));
         auto startTime = std::chrono::steady_clock::now();
 
         // Step 2: Read prompt and route metadata
         PromptReadResult promptRead = readPrompt(jobId);
-        std::string jobType = readJobType(jobId);
+        JobType jobType = readJobType(jobId);
         std::vector<std::filesystem::path> imagePaths = readImages(jobId);
         std::vector<std::filesystem::path> audioPaths = readAudio(jobId);
         if (!promptRead.ok) {
-            completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
-            printJobStatus(jobId, "failed", 0.0, "prompt read error");
+            completeJob(getJobPath(contract::kProcessingDir, jobId), 0.0, {contract::kErrorFile}, contract::toString(Status::Failed));
+            printJobStatus(jobId, contract::toString(Status::Failed), 0.0, "prompt read error");
             (void)finalizeFailure(jobId, promptRead.error);
             return ProcessResult::Failed;
         }
 
         const std::string& prompt = promptRead.content;
         const bool allowEmptyPrompt = prompt.empty() &&
-            ((jobType == "embed" && !imagePaths.empty()) || (jobType == "stt" && !audioPaths.empty()));
+            ((jobType == JobType::Embed && !imagePaths.empty()) || (jobType == JobType::Stt && !audioPaths.empty()));
         if (prompt.empty() && !allowEmptyPrompt) {
-            completeJob(getJobPath("processing", jobId), 0.0, {"error.txt"}, "failed");
-            printJobStatus(jobId, "failed", 0.0, "empty prompt");
+            completeJob(getJobPath(contract::kProcessingDir, jobId), 0.0, {contract::kErrorFile}, contract::toString(Status::Failed));
+            printJobStatus(jobId, contract::toString(Status::Failed), 0.0, "empty prompt");
             (void)finalizeFailure(jobId, "Empty prompt");
             return ProcessResult::Failed;
         }
 
         // TTS dispatches to its own runner — no text Runner needed
-        if (jobType == "tts") {
+        if (jobType == JobType::Tts) {
             if (vocoderPath_.empty()) {
                 auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
-                printJobStatus(jobId, "failed", elapsed);
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
                 (void)finalizeFailure(jobId, "TTS requires --vocoder flag");
                 return ProcessResult::Failed;
             }
@@ -136,8 +137,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             TtsRunner* ttsRunner = getTtsRunnerForWorker(workerId);
             if (!ttsRunner) {
                 auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
-                printJobStatus(jobId, "failed", elapsed, "no TTS runner");
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed, "no TTS runner");
                 (void)finalizeFailure(jobId, "No TTS runner available");
                 return ProcessResult::SystemError;
             }
@@ -145,22 +146,22 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             auto ttsResult = ttsRunner->run(prompt);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (ttsResult.ok) {
-                completeJob(getJobPath("processing", jobId), elapsed, {"audio.wav"}, "done");
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kAudioFile}, contract::toString(Status::Done));
                 if (finalizeAudio(jobId, ttsResult.audio, ttsResult.sample_rate)) {
-                    printJobStatus(jobId, "done", elapsed);
+                    printJobStatus(jobId, contract::toString(Status::Done), elapsed);
                     LOG_INFO("TTS COMPLETED: " + jobId + " -> " + std::to_string(ttsResult.audio.size()) + " samples");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize TTS job: " + jobId);
-                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write audio to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
-                printJobStatus(jobId, "failed", elapsed);
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 (void)finalizeFailure(jobId, ttsResult.error);
                 LOG_WARN("TTS job failed: " + jobId + " - " + ttsResult.error);
                 return ProcessResult::Failed;
@@ -171,60 +172,60 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         Runner* runner = getRunnerForWorker(workerId);
         if (!runner) {
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
-            completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
-            printJobStatus(jobId, "failed", elapsed, "no runner");
+            completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
+            printJobStatus(jobId, contract::toString(Status::Failed), elapsed, "no runner");
             (void)finalizeFailure(jobId, "No runner available");
             return ProcessResult::SystemError;
         }
 
-        if (jobType == "stt") {
+        if (jobType == JobType::Stt) {
             auto sttResult = runner->transcribe(prompt, audioPaths);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (sttResult.ok) {
-                completeJob(getJobPath("processing", jobId), elapsed, {"transcript.txt"}, "done");
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kTranscriptFile}, contract::toString(Status::Done));
                 if (finalizeTranscript(jobId, sttResult.output)) {
-                    printJobStatus(jobId, "done", elapsed);
+                    printJobStatus(jobId, contract::toString(Status::Done), elapsed);
                     LOG_INFO("STT COMPLETED: " + jobId + " -> " + std::to_string(sttResult.output.size()) + " chars");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize STT job: " + jobId);
-                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write transcript to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
-                printJobStatus(jobId, "failed", elapsed);
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 (void)finalizeFailure(jobId, sttResult.error);
                 LOG_WARN("STT job failed: " + jobId + " - " + sttResult.error);
                 return ProcessResult::Failed;
             }
         }
 
-        if (jobType == "embed") {
+        if (jobType == JobType::Embed) {
             auto embedResult = imagePaths.empty()
                 ? runner->embed(prompt)
                 : runner->embedVision(prompt, imagePaths);
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
             if (embedResult.ok) {
-                completeJob(getJobPath("processing", jobId), elapsed, {"embedding.json"}, "done");
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kEmbeddingFile}, contract::toString(Status::Done));
                 if (finalizeEmbedding(jobId, embedResult.embedding)) {
-                    printJobStatus(jobId, "done", elapsed);
+                    printJobStatus(jobId, contract::toString(Status::Done), elapsed);
                     LOG_INFO("EMBED COMPLETED: " + jobId + " -> " + std::to_string(embedResult.embedding.size()) + " dims");
                     return ProcessResult::Success;
                 } else {
                     LOG_ERROR("Failed to finalize embedding job: " + jobId);
-                    completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write embedding to output directory")) {
                         LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
                     }
                     return ProcessResult::SystemError;
                 }
             } else {
-                printJobStatus(jobId, "failed", elapsed);
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 (void)finalizeFailure(jobId, embedResult.error);
                 LOG_WARN("Embed job failed: " + jobId + " - " + embedResult.error);
                 return ProcessResult::Failed;
@@ -240,22 +241,22 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
         if (result.ok) {
-            completeJob(getJobPath("processing", jobId), elapsed, {"result.txt"}, "done");
+            completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kResultFile}, contract::toString(Status::Done));
             if (finalizeSuccess(jobId, result.output)) {
-                printJobStatus(jobId, "done", elapsed);
+                printJobStatus(jobId, contract::toString(Status::Done), elapsed);
                 LOG_INFO("JOB COMPLETED: " + jobId + " -> " + std::to_string(result.output.size()) + " chars");
                 return ProcessResult::Success;
             } else {
                 LOG_ERROR("Failed to finalize successful job: " + jobId);
-                completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 if (!finalizeFailure(jobId, "Failed to write result to output directory")) {
                     LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
                 }
                 return ProcessResult::SystemError;
             }
         } else {
-            printJobStatus(jobId, "failed", elapsed);
-            completeJob(getJobPath("processing", jobId), elapsed, {"error.txt"}, "failed");
+            printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
+            completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
             (void)finalizeFailure(jobId, result.error);
             LOG_WARN("Job failed during inference: " + jobId + " - " + result.error);
             return ProcessResult::Failed;
@@ -274,8 +275,8 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
 bool Processor::moveReadyToProcessing(const JobId& jobId) noexcept {
     try {
-        auto readyPath = getJobPath("input/ready", jobId);
-        auto processingPath = getJobPath("processing", jobId);
+        auto readyPath = getJobPath(contract::kReadyDir, jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
         
         // Use std::error_code to handle race condition gracefully
         std::error_code ec;
@@ -300,11 +301,11 @@ bool Processor::moveReadyToProcessing(const JobId& jobId) noexcept {
 
 bool Processor::finalizeSuccess(const JobId& jobId, const std::string& result) noexcept {
     try {
-        auto processingPath = getJobPath("processing", jobId);
-        auto outputPath = getJobPath("output", jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
+        auto outputPath = getJobPath(contract::kOutputDir, jobId);
         
         // Write result to temporary file first
-        auto tempResultPath = processingPath / "result.txt.tmp";
+        auto tempResultPath = processingPath / (std::string(contract::kResultFile) + ".tmp");
         {
             std::ofstream file(tempResultPath, std::ios::binary);
             if (!file) return false;
@@ -314,7 +315,7 @@ bool Processor::finalizeSuccess(const JobId& jobId, const std::string& result) n
         }
         
         // Rename temp file to final name
-        auto finalResultPath = processingPath / "result.txt";
+        auto finalResultPath = processingPath / contract::kResultFile;
         std::filesystem::rename(tempResultPath, finalResultPath);
         
         // Atomic move entire job to output
@@ -340,11 +341,11 @@ bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& 
             return false;
         }
 
-        auto processingPath = getJobPath("processing", jobId);
-        auto outputPath = getJobPath("output", jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
+        auto outputPath = getJobPath(contract::kOutputDir, jobId);
 
         // Write embedding as JSON
-        auto tempPath = processingPath / "embedding.json.tmp";
+        auto tempPath = processingPath / (std::string(contract::kEmbeddingFile) + ".tmp");
         {
             std::ofstream file(tempPath, std::ios::binary);
             if (!file) return false;
@@ -361,7 +362,7 @@ bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& 
         }
 
         // Rename temp to final
-        auto finalPath = processingPath / "embedding.json";
+        auto finalPath = processingPath / contract::kEmbeddingFile;
         std::filesystem::rename(tempPath, finalPath);
 
         // Atomic move to output
@@ -380,10 +381,10 @@ bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& 
 
 bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transcript) noexcept {
     try {
-        auto processingPath = getJobPath("processing", jobId);
-        auto outputPath = getJobPath("output", jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
+        auto outputPath = getJobPath(contract::kOutputDir, jobId);
 
-        auto tempPath = processingPath / "transcript.txt.tmp";
+        auto tempPath = processingPath / (std::string(contract::kTranscriptFile) + ".tmp");
         {
             std::ofstream file(tempPath, std::ios::binary);
             if (!file) return false;
@@ -395,7 +396,7 @@ bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transc
             if (!file.good()) return false;
         }
 
-        auto finalPath = processingPath / "transcript.txt";
+        auto finalPath = processingPath / contract::kTranscriptFile;
         std::filesystem::rename(tempPath, finalPath);
         std::filesystem::rename(processingPath, outputPath);
 
@@ -412,11 +413,11 @@ bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transc
 
 bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) noexcept {
     try {
-        auto processingPath = getJobPath("processing", jobId);
-        auto failedPath = getJobPath("failed", jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
+        auto failedPath = getJobPath(contract::kFailedDir, jobId);
         
         // Write error to file
-        auto errorPath = processingPath / "error.txt";
+        auto errorPath = processingPath / contract::kErrorFile;
         {
             std::ofstream file(errorPath, std::ios::binary);
             if (file) {
@@ -443,7 +444,7 @@ bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) no
 std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) const noexcept {
     std::vector<std::filesystem::path> imagePaths;
     try {
-        auto imagesDir = getJobPath("processing", jobId) / "images";
+        auto imagesDir = getJobPath(contract::kProcessingDir, jobId) / contract::kImagesDir;
         if (!std::filesystem::exists(imagesDir) || !std::filesystem::is_directory(imagesDir)) {
             return imagePaths;
         }
@@ -465,7 +466,7 @@ std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) con
 std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) const noexcept {
     std::vector<std::filesystem::path> audioPaths;
     try {
-        auto audioDir = getJobPath("processing", jobId) / "audio";
+        auto audioDir = getJobPath(contract::kProcessingDir, jobId) / contract::kAudioInputDir;
         if (!std::filesystem::exists(audioDir) || !std::filesystem::is_directory(audioDir)) {
             return audioPaths;
         }
@@ -483,30 +484,30 @@ std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) cons
     return audioPaths;
 }
 
-std::string Processor::readJobType(const JobId& jobId) const noexcept {
+JobType Processor::readJobType(const JobId& jobId) const noexcept {
     try {
-        auto typePath = getJobPath("processing", jobId) / "type.txt";
+        auto typePath = getJobPath(contract::kProcessingDir, jobId) / contract::kTypeFile;
 
         if (!std::filesystem::exists(typePath)) {
-            return "text";  // Default to text if no type.txt
+            return JobType::Text;  // No type.txt means text
         }
 
         std::ifstream file(typePath, std::ios::binary);
         if (!file) {
-            return "text";
+            return JobType::Text;
         }
 
         std::string type;
         std::getline(file, type);
-        return type.empty() ? "text" : type;
+        return contract::parseJobType(type);
     } catch (...) {
-        return "text";
+        return JobType::Text;
     }
 }
 
 PromptReadResult Processor::readPrompt(const JobId& jobId) const noexcept {
     try {
-        auto promptPath = getJobPath("processing", jobId) / "prompt.txt";
+        auto promptPath = getJobPath(contract::kProcessingDir, jobId) / contract::kPromptFile;
         
         std::error_code ec;
         auto st = std::filesystem::symlink_status(promptPath, ec);
@@ -632,11 +633,11 @@ TtsRunner* Processor::getTtsRunnerForWorker(int workerId) {
 
 bool Processor::finalizeAudio(const JobId& jobId, const std::vector<float>& audio, int sampleRate) noexcept {
     try {
-        auto processingPath = getJobPath("processing", jobId);
-        auto outputPath = getJobPath("output", jobId);
+        auto processingPath = getJobPath(contract::kProcessingDir, jobId);
+        auto outputPath = getJobPath(contract::kOutputDir, jobId);
 
         // Write WAV to temp file first
-        auto tempPath = processingPath / "audio.wav.tmp";
+        auto tempPath = processingPath / (std::string(contract::kAudioFile) + ".tmp");
         {
             std::ofstream file(tempPath, std::ios::binary);
             if (!file) return false;
@@ -675,7 +676,7 @@ bool Processor::finalizeAudio(const JobId& jobId, const std::vector<float>& audi
         }
 
         // Rename temp to final
-        auto finalPath = processingPath / "audio.wav";
+        auto finalPath = processingPath / contract::kAudioFile;
         std::filesystem::rename(tempPath, finalPath);
 
         // Atomic move to output

@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/scanner.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/flow.hpp"
 #include "nrvna/logger.hpp"
 #include "llama_util.hpp"
@@ -14,7 +15,7 @@
 namespace nrvnaai {
 
 Scanner::Scanner(const std::filesystem::path& workspace) noexcept 
-    : workspace_(workspace), readyPath_(workspace / "input" / "ready") {
+    : workspace_(workspace), readyPath_(workspace / contract::kReadyDir) {
 }
 
 std::vector<JobId> Scanner::scan() const noexcept {
@@ -103,7 +104,7 @@ bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexce
 
         // Must contain a bounded regular prompt.txt. The queue is disk-backed,
         // so reject symlinks/FIFOs/huge files before a worker opens them.
-        auto promptFile = dir / "prompt.txt";
+        auto promptFile = dir / contract::kPromptFile;
         std::error_code ec;
         auto st = std::filesystem::symlink_status(promptFile, ec);
         if (ec || !std::filesystem::exists(st) || std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
@@ -124,17 +125,18 @@ bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexce
         // Prompt file must not be empty, except for media-backed jobs that have
         // a useful default prompt at execution time.
         if (promptBytes == 0) {
-            auto typeFile = dir / "type.txt";
-            auto imagesDir = dir / "images";
-            auto audioDir = dir / "audio";
+            auto typeFile = dir / contract::kTypeFile;
+            auto imagesDir = dir / contract::kImagesDir;
+            auto audioDir = dir / contract::kAudioInputDir;
             std::string type;
             if (std::filesystem::exists(typeFile) && std::filesystem::is_regular_file(typeFile)) {
                 std::ifstream in(typeFile);
                 std::getline(in, type);
             }
+            const JobType jobType = contract::parseJobType(type);
             const bool allowEmptyPrompt =
-                (type == "embed" && std::filesystem::exists(imagesDir) && std::filesystem::is_directory(imagesDir)) ||
-                (type == "stt" && std::filesystem::exists(audioDir) && std::filesystem::is_directory(audioDir) && !std::filesystem::is_empty(audioDir));
+                (jobType == JobType::Embed && std::filesystem::exists(imagesDir) && std::filesystem::is_directory(imagesDir)) ||
+                (jobType == JobType::Stt && std::filesystem::exists(audioDir) && std::filesystem::is_directory(audioDir) && !std::filesystem::is_empty(audioDir));
             if (!allowEmptyPrompt) {
                 LOG_DEBUG("Invalid job directory (empty prompt.txt): " + dir.string());
                 return false;
