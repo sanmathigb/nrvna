@@ -236,6 +236,21 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // Scoped wait: block until no queued/running job matches the selection;
+        // fail if the set contains failures. Bare -W keeps global-idle semantics.
+        if (waitIdle && (!selectTag.empty() || !selectParent.empty())) {
+            while (true) {
+                auto set = selectSet(wsPath, selectTag, selectParent);
+                bool pending = false, failed = false;
+                for (const auto& m : set) {
+                    if (m.status == Status::Queued || m.status == Status::Running) pending = true;
+                    if (m.status == Status::Failed) failed = true;
+                }
+                if (!pending) return failed ? 1 : 0;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        }
+
         // Wait for workspace idle
         if (waitIdle) {
             while (true) {

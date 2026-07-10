@@ -76,4 +76,10 @@ case "$nd" in *'"artifact_kind":"result"'*'"result":"alpha'*) ;; *) echo "ndjson
 kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)"
 case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "children selection broken: $kids" >&2; exit 1 ;; esac
 
+# scoped -W on an already-finished set returns immediately; failed child = exit 1
+if "$bin_dir/flw" "$tmp" -W --children "$tag_a"; then
+    echo "-W --children with a failed child should exit 1" >&2; exit 1
+fi
+"$bin_dir/flw" "$tmp" -W --tag night || { echo "-W --tag with all-done set should exit 0" >&2; exit 1; }
+
 echo "primitive-contract: all checks passed"
