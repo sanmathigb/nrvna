@@ -32,6 +32,14 @@ void printUsage() {
     std::cout << "      --tag <tag>      Add a tag (repeatable)\n";
     std::cout << "  -h, --help           Show help\n";
     std::cout << "  -v, --version        Show version\n";
+    std::cout << "\n";
+    std::cout << "Examples:\n";
+    std::cout << "  cat report.txt | wrk ./ws -\n";
+    std::cout << "  { echo \"Summarize:\"; cat notes.md; } | wrk ./ws -\n";
+    std::cout << "  wrk ./ws \"What is this screenshot about?\" --image shot.png\n";
+    std::cout << "\n";
+    std::cout << "The workspace is created if missing. Prints the job ID on stdout;\n";
+    std::cout << "collect the result later with: flw <workspace> -w <job-id>\n";
 }
 
 int main(int argc, char* argv[]) {

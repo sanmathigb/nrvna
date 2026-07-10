@@ -28,13 +28,13 @@ done
 
 ## Fan-Out / Fan-In (Map-Reduce)
 
-Break a task into parallel subtasks, synthesize:
+Break a document into parallel subtasks, synthesize:
 
 ```bash
-# Fan-out: submit subtasks
-job1=$(wrk ./workspace "Research: PostgreSQL scalability")
-job2=$(wrk ./workspace "Research: PostgreSQL ecosystem")
-job3=$(wrk ./workspace "Research: PostgreSQL vs MongoDB")
+# Fan-out: summarize each chapter independently
+job1=$({ echo "Summarize the key claims:"; cat report/ch1.txt; } | wrk ./workspace -)
+job2=$({ echo "Summarize the key claims:"; cat report/ch2.txt; } | wrk ./workspace -)
+job3=$({ echo "Summarize the key claims:"; cat report/ch3.txt; } | wrk ./workspace -)
 
 # Wait for all
 result1=$(flw ./workspace -w $job1)
@@ -42,11 +42,15 @@ result2=$(flw ./workspace -w $job2)
 result3=$(flw ./workspace -w $job3)
 
 # Fan-in: synthesize
-wrk ./workspace "Synthesize these findings into a recommendation:
+wrk ./workspace "Merge these chapter summaries into one digest.
+Preserve exact terms and numbers. Do not add new facts.
 $result1
 $result2
 $result3"
 ```
+
+The document never fit in one context window. It didn't need to — the window
+is the step size, not the ceiling.
 
 ---
 
@@ -144,10 +148,11 @@ Generate audio from text:
 ```bash
 nrvnad outetts.gguf ./ws-tts    # vocoder auto-detected
 
-job=$(wrk ./ws-tts "Welcome to nrvna ai" --tts)
+job=$(cat article-intro.txt | wrk ./ws-tts - --tts)
 flw ./ws-tts -w $job
 
 # Result is a WAV file at workspace/output/<job-id>/audio.wav
+# Keep each job to a few sentences; chunk longer text into multiple jobs
 ```
 
 ---
@@ -163,8 +168,9 @@ fswatch -0 ./workspace/output | while read -d '' path; do
 done
 
 # Terminal 2: Submit jobs
-wrk ./workspace "Question 1"
-wrk ./workspace "Question 2"
+for f in inbox/*.txt; do
+  { echo "Summarize:"; cat "$f"; } | wrk ./workspace -
+done
 ```
 
 ---
@@ -180,10 +186,10 @@ flw ./workspace $job2 >> memory.txt
 flw ./workspace $job3 >> memory.txt
 
 # Use memory as context
-wrk ./workspace "Given this context:
+wrk ./workspace "Given these earlier findings:
 $(cat memory.txt)
 
-Answer: What's the best approach for a startup?"
+What themes appear in all of them? List contradictions separately."
 ```
 
 ---

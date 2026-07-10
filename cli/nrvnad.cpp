@@ -282,11 +282,22 @@ void printHelp() {
     std::cout << "Usage:\n";
     std::cout << "  nrvnad <model> <workspace> [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "      --mmproj <path>    Multimodal projection model\n";
-    std::cout << "      --vocoder <path>   TTS vocoder model\n";
+    std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
+    std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
     std::cout << "  -h, --help             Show help\n";
-    std::cout << "  -v, --version          Show version\n";
+    std::cout << "  -v, --version          Show version\n\n";
+    std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
+    std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
+    std::cout << "you rarely need to pass them explicitly.\n\n";
+    std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
+    std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list: ADVANCED.md\n\n";
+    std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
+    std::cout << "  cat doc.txt | wrk <workspace> -           text\n";
+    std::cout << "  wrk <workspace> \"text\" --embed            embeddings\n";
+    std::cout << "  wrk <workspace> \"prompt\" --image img.png  vision (needs mmproj)\n";
+    std::cout << "  wrk <workspace> --audio memo.mp3 --stt    transcription (needs mmproj)\n";
+    std::cout << "  wrk <workspace> \"text\" --tts              speech (needs vocoder)\n";
 }
 
 int main(int argc, char * argv[]) {
@@ -395,6 +406,7 @@ int main(int argc, char * argv[]) {
 
     if (!std::filesystem::exists(std::filesystem::path(modelPath))) {
         std::cerr << "Error: Model not found: " << modelPath << "\n";
+        std::cerr << "Place a .gguf under ./models or set NRVNA_MODELS_DIR.\n";
         releaseWorkspaceLock();
         return 1;
     }

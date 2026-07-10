@@ -22,7 +22,7 @@ func engineEnvVar(name string) string {
 // It is the one place engine internals are named — that's its job.
 func cmdDoctor(project string) error {
 	if project != "" {
-		if err := ensureProject(project); err != nil {
+		if err := requireProject(project); err != nil {
 			return err
 		}
 	}

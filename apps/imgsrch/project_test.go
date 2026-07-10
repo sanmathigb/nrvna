@@ -3,12 +3,66 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
 
+func TestAddRefusesUninitializedProject(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "typo")
+	img := filepath.Join(t.TempDir(), "a.png")
+	if err := os.WriteFile(img, []byte("img"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := cmdAdd(project, []string{img})
+	if err == nil {
+		t.Fatal("expected add to refuse an uninitialized project")
+	}
+	if !strings.Contains(err.Error(), "imgsrch init") {
+		t.Fatalf("error should point at init, got: %v", err)
+	}
+	if _, statErr := os.Stat(project); !os.IsNotExist(statErr) {
+		t.Fatal("refusing add must not create the project directory")
+	}
+}
+
+func TestIndexStagesImagesBeforeStartingWorkers(t *testing.T) {
+	// Force engine-binary resolution to fail so the test stops after staging.
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("NRVNA_BUILD_DIR", "")
+	t.Setenv("NRVNA_DAEMON_BIN", "")
+	models := t.TempDir()
+	for _, v := range []string{"CAPTION_MODEL", "CAPTION_MMPROJ", "OCR_MODEL", "OCR_MMPROJ", "EMBED_MODEL"} {
+		p := filepath.Join(models, v+".gguf")
+		if err := os.WriteFile(p, []byte("stub"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv(v, p)
+	}
+
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	img := filepath.Join(t.TempDir(), "shot.png")
+	if err := os.WriteFile(img, []byte("img"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := cmdIndex(project, []string{img})
+	if err == nil {
+		t.Fatal("expected index to fail without engine binaries")
+	}
+	if _, statErr := os.Stat(filepath.Join(imgDir(project), "shot.png")); statErr != nil {
+		t.Fatalf("image should be staged even though the engine is unavailable: %v", statErr)
+	}
+}
+
 func TestCmdAddRejectsExistingBasename(t *testing.T) {
 	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
 	firstDir := filepath.Join(t.TempDir(), "first")
 	secondDir := filepath.Join(t.TempDir(), "second")
 	if err := os.MkdirAll(firstDir, 0o755); err != nil {

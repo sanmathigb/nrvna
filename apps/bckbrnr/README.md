@@ -20,10 +20,10 @@ Then build and launch the app:
 
 ```bash
 cd apps/bckbrnr
-make run
+make run          # builds the .app and opens it (use `make app` to build only)
 ```
 
-`make app` creates:
+The build bundles the primitives inside the app:
 
 ```text
 .build/bckbrnr.app/

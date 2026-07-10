@@ -49,6 +49,7 @@ coverage/
 *.tmp
 *.log
 .cache/
+.gocache/
 *.cast
 output.wav
 
