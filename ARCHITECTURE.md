@@ -29,6 +29,7 @@ WORKSPACE/
 | **Runner** | `runner.hpp/cpp` | Wraps llama.cpp for text, vision, embedding, and speech-to-text (STT) inference |
 | **TtsRunner** | `runner_tts.hpp/cpp` | Text-to-speech inference with OuteTTS + vocoder |
 | **Logger** | `logger.hpp/cpp` | Thread-safe logging to stderr |
+| **Contract** | `contract.hpp` | Single owner of the on-disk job contract: state dirs, artifact filenames, artifact rule, job-ID grammar, type.txt spellings |
 
 ## Workflow: Job Submission (Client Side)
 

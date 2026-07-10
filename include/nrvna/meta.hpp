@@ -24,7 +24,7 @@ struct JobMeta {
     std::string completed_at;
     double duration_s = -1.0;   // negative = not yet completed
     std::vector<std::string> artifacts;
-    std::string status;         // "done" or "failed"
+    std::string status;         // contract::toString(Status::Done|Failed)
 };
 
 bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta);
