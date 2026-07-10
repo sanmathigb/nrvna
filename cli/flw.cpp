@@ -28,6 +28,14 @@ void printUsage() {
     std::cout << "      --json        Print JSON\n";
     std::cout << "  -h, --help        Show help\n";
     std::cout << "  -v, --version     Show version\n";
+    std::cout << "\n";
+    std::cout << "Examples:\n";
+    std::cout << "  flw ./ws                          workspace status\n";
+    std::cout << "  flw ./ws <job-id>                 print a job's result\n";
+    std::cout << "  wrk ./ws \"prompt\" | flw ./ws -w   submit and wait in one pipe\n";
+    std::cout << "  flw ./ws -W                       block until all jobs finish\n";
+    std::cout << "\n";
+    std::cout << "Exit codes: 0 done, 1 failed, 2 not ready\n";
 }
 
 std::string readFileRaw(const std::filesystem::path& path) {
@@ -153,6 +161,11 @@ int main(int argc, char* argv[]) {
                       << "running:    " << c.running << "\n"
                       << "done:       " << c.done << "\n"
                       << "failed:     " << c.failed << "\n";
+
+            if (c.queued + c.running + c.done + c.failed == 0) {
+                std::cout << "\nno jobs yet — submit one:  wrk " << workspace << " \"your prompt\"\n";
+                return 0;
+            }
 
             // Show recent jobs with duration from meta.json
             auto recentJobs = flow.list(5);
