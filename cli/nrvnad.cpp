@@ -56,7 +56,7 @@ bool acquireWorkspaceLock(const std::filesystem::path& workspace) {
         return false;
     }
 
-    auto lockPath = workspace / ".nrvnad.lock";
+    auto lockPath = workspace / lifecycle::kLockFile;
     int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, 0644);
     if (fd < 0) {
         std::cerr << "Error: cannot open workspace lock: " << lockPath << "\n";
@@ -516,12 +516,23 @@ int main(int argc, char * argv[]) {
             return 1;
         }
 
-        std::filesystem::path pidPath = std::filesystem::path(workspace) / ".nrvnad.pid";
+        std::filesystem::path pidPath = std::filesystem::path(workspace) / lifecycle::kPidFile;
         {
             std::ofstream pf(pidPath);
             if (pf) {
                 pf << getpid();
             }
+        }
+
+        lifecycle::DaemonInfo dinfo;
+        dinfo.pid = getpid();
+        dinfo.model = modelPath;
+        dinfo.mmproj = mmprojPath;
+        dinfo.vocoder = vocoderPath;
+        dinfo.workers = workers;
+        dinfo.started_at = formatTimestamp();
+        if (!lifecycle::writeRuntimeFiles(workspace, dinfo)) {
+            LOG_WARN("Failed to write lifecycle runtime files (status will report starting)");
         }
 
         std::cout << "\n";
@@ -553,6 +564,7 @@ int main(int argc, char * argv[]) {
             std::error_code ec;
             std::filesystem::remove(pidPath, ec);
         }
+        lifecycle::removeRuntimeFiles(workspace);
         server->shutdown();
         releaseWorkspaceLock();
 
