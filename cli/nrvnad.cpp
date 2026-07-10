@@ -282,7 +282,7 @@ void printHelp() {
     std::cout << "Usage:\n";
     std::cout << "  nrvnad <model> <workspace> [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "      --mmproj <path>    Multimodal projection model for image/vision jobs\n";
+    std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
     std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
     std::cout << "  -h, --help             Show help\n";
