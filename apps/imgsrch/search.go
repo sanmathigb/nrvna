@@ -132,6 +132,7 @@ func parseVector(data []byte) ([]float64, error) {
 
 type hit struct {
 	Key, Path, Text    string
+	Vec                []float64
 	Dense, B25, Score  float64
 	DenseRank, B25Rank int
 }
@@ -156,7 +157,9 @@ func embedQuery(project string, c config, query string) ([]float64, error) {
 	return qvec, nil
 }
 
-func loadIndexedHits(project string, qvec []float64) ([]hit, error) {
+// loadCorpus reads the index and every hit's text and embedding once.
+// Query-independent; eval reuses one corpus across all its queries.
+func loadCorpus(project string) ([]hit, error) {
 	idxData, err := os.ReadFile(indexFile(project))
 	if err != nil {
 		return nil, err
@@ -181,9 +184,17 @@ func loadIndexedHits(project string, qvec []float64) ([]hit, error) {
 		if err != nil {
 			continue
 		}
-		hits = append(hits, hit{Key: key, Path: path, Text: string(text), Dense: cosine(qvec, vec)})
+		hits = append(hits, hit{Key: key, Path: path, Text: string(text), Vec: vec})
 	}
 	return hits, nil
+}
+
+func denseHits(corpus []hit, qvec []float64) []hit {
+	hits := append([]hit(nil), corpus...)
+	for i := range hits {
+		hits[i].Dense = cosine(qvec, hits[i].Vec)
+	}
+	return hits
 }
 
 func scoreHits(hits []hit, query string, sc scorer) []hit {
@@ -297,27 +308,40 @@ func applyRRF(hits []hit) {
 	}
 }
 
-func searchBaseHits(project, query string) ([]hit, error) {
+// ensureSearchReady does the query-independent setup: index progress,
+// config, model presence, embed daemon. Called once per search or eval run.
+func ensureSearchReady(project string) (config, error) {
 	pr, err := advance(project, false)
 	if err != nil {
-		return nil, err
+		return config{}, err
 	}
 	if pr.Indexed == 0 {
-		return nil, fmt.Errorf("nothing indexed yet; run 'imgsrch status %s' and try again later", project)
+		return config{}, fmt.Errorf("nothing indexed yet; run 'imgsrch status %s' and try again later", project)
 	}
 	c := loadConfig(project)
 	if missing := checkModels(c); len(missing) > 0 {
-		return nil, fmt.Errorf("missing models:\n  %s", strings.Join(missing, "\n  "))
+		return config{}, fmt.Errorf("missing models:\n  %s", strings.Join(missing, "\n  "))
 	}
 	if err := startEmbed(project, c); err != nil {
+		return config{}, err
+	}
+	return c, nil
+}
+
+func searchBaseHits(project, query string) ([]hit, error) {
+	c, err := ensureSearchReady(project)
+	if err != nil {
 		return nil, err
 	}
-
 	qvec, err := embedQuery(project, c, query)
 	if err != nil {
 		return nil, err
 	}
-	return loadIndexedHits(project, qvec)
+	corpus, err := loadCorpus(project)
+	if err != nil {
+		return nil, err
+	}
+	return denseHits(corpus, qvec), nil
 }
 
 func searchProject(project, query string, topN int, sc scorer) ([]hit, error) {

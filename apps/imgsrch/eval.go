@@ -187,15 +187,25 @@ func cmdEval(project, setPath string, topK int, scorers []scorer) error {
 	fmt.Printf("queries: %d\n", len(cases))
 	fmt.Printf("top_k:   %d\n\n", topK)
 
+	c, err := ensureSearchReady(project)
+	if err != nil {
+		return err
+	}
+	corpus, err := loadCorpus(project)
+	if err != nil {
+		return err
+	}
+
 	resultsByScorer := map[scorer][][]hit{}
 	for _, sc := range scorers {
 		resultsByScorer[sc] = make([][]hit, 0, len(cases))
 	}
 	for _, tc := range cases {
-		baseHits, err := searchBaseHits(project, tc.Query)
+		qvec, err := embedQuery(project, c, tc.Query)
 		if err != nil {
 			return fmt.Errorf("query %q: %w", tc.Query, err)
 		}
+		baseHits := denseHits(corpus, qvec)
 		for _, sc := range scorers {
 			hits := scoreHits(baseHits, tc.Query, sc)
 			if len(hits) > topK {
