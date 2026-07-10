@@ -8,11 +8,13 @@
 #include "nrvna/contract.hpp"
 #include "nrvna/meta.hpp"
 #include "nrvna/logger.hpp"
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <thread>
 #include <chrono>
+#include <vector>
 #include <unistd.h>
 
 using namespace nrvnaai;
@@ -60,6 +62,98 @@ const char* statusToJsonString(Status status) {
     return contract::toString(status);
 }
 
+// A job selected by --tag or --children, wherever it currently lives.
+struct SetMatch {
+    JobId id;
+    Status status;
+};
+
+std::vector<SetMatch> selectSet(const std::filesystem::path& ws,
+                                const std::string& tag, const std::string& parent) {
+    std::vector<SetMatch> matches;
+    for (Status s : {Status::Done, Status::Failed, Status::Running, Status::Queued}) {
+        auto dir = contract::stateDir(ws, s);
+        std::error_code ec;
+        if (!std::filesystem::exists(dir, ec) || ec) continue;
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            if (!entry.is_directory()) continue;
+            auto id = entry.path().filename().string();
+            if (!contract::isValidJobId(id)) continue;
+            auto meta = readMetaJson(entry.path());
+            if (!meta) continue;
+            bool hit = false;
+            if (!tag.empty())
+                hit = std::find(meta->tags.begin(), meta->tags.end(), tag) != meta->tags.end();
+            if (!parent.empty())
+                hit = hit || meta->parent == parent;
+            if (hit) matches.push_back({id, s});
+        }
+    }
+    std::sort(matches.begin(), matches.end(),
+              [](const SetMatch& a, const SetMatch& b) { return a.id < b.id; });
+    return matches;
+}
+
+// One JSON object for one job — the single-job --json shape, reused per
+// NDJSON line for sets. Returns the exit code the single-job path uses.
+int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job) {
+    auto meta = flow.meta(job.id);
+    auto outputDir = contract::jobDir(wsPath, Status::Done, job.id);
+    std::ostringstream out;
+    out << "{";
+    out << "\"id\":\"" << escapeJson(job.id) << "\"";
+    out << ",\"status\":\"" << escapeJson(std::string(statusToJsonString(job.status))) << "\"";
+    if (meta) {
+        if (!meta->mode.empty()) out << ",\"mode\":\"" << escapeJson(meta->mode) << "\"";
+        if (!meta->submitted_at.empty()) out << ",\"submitted_at\":\"" << escapeJson(meta->submitted_at) << "\"";
+        if (!meta->completed_at.empty()) out << ",\"completed_at\":\"" << escapeJson(meta->completed_at) << "\"";
+        if (meta->duration_s >= 0.0) out << ",\"duration_s\":" << meta->duration_s;
+        if (!meta->parent.empty()) out << ",\"parent\":\"" << escapeJson(meta->parent) << "\"";
+        if (!meta->tags.empty()) {
+            out << ",\"tags\":[";
+            for (size_t i = 0; i < meta->tags.size(); ++i) {
+                if (i > 0) out << ",";
+                out << "\"" << escapeJson(meta->tags[i]) << "\"";
+            }
+            out << "]";
+        }
+        if (!meta->artifacts.empty()) {
+            out << ",\"artifacts\":[";
+            for (size_t i = 0; i < meta->artifacts.size(); ++i) {
+                if (i > 0) out << ",";
+                out << "\"" << escapeJson(meta->artifacts[i]) << "\"";
+            }
+            out << "]";
+        }
+    }
+
+    if (job.status == Status::Done) {
+        if (auto artifact = contract::findOutputArtifact(outputDir)) {
+            out << ",\"artifact_kind\":\"" << contract::toString(artifact->kind) << "\"";
+            out << ",\"artifact_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
+            switch (artifact->kind) {
+                case contract::ArtifactKind::Result:
+                    out << ",\"result\":\"" << escapeJson(job.content) << "\"";
+                    break;
+                case contract::ArtifactKind::Transcript:
+                    out << ",\"transcript\":\"" << escapeJson(job.content) << "\"";
+                    break;
+                case contract::ArtifactKind::Audio:
+                    out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
+                    break;
+                case contract::ArtifactKind::Embedding:
+                    out << ",\"embedding\":" << readFileRaw(artifact->path);
+                    break;
+            }
+        }
+    } else if (job.status == Status::Failed) {
+        out << ",\"error\":\"" << escapeJson(job.content) << "\"";
+    }
+    out << "}\n";
+    std::cout << out.str();
+    return job.status == Status::Failed ? 1 : 0;
+}
+
 int main(int argc, char* argv[]) {
     // Default to WARN for clean output; NRVNA_LOG_LEVEL overrides
     if (!std::getenv("NRVNA_LOG_LEVEL"))
@@ -85,10 +179,11 @@ int main(int argc, char* argv[]) {
 
     std::string workspace = argv[1];
     std::string jobId = "";
+    std::string selectTag, selectParent;
     bool wait = false;
     bool waitIdle = false;
     bool json = false;
-    
+
     // Parse args
     for (int i = 2; i < argc; i++) {
         std::string arg = argv[i];
@@ -98,6 +193,12 @@ int main(int argc, char* argv[]) {
             waitIdle = true;
         } else if (arg == "--json") {
             json = true;
+        } else if (arg == "--tag") {
+            if (i + 1 >= argc) { std::cerr << "Error: --tag requires a value\n"; return 1; }
+            selectTag = argv[++i];
+        } else if (arg == "--children") {
+            if (i + 1 >= argc) { std::cerr << "Error: --children requires a job ID\n"; return 1; }
+            selectParent = argv[++i];
         } else {
             jobId = arg;
         }
@@ -119,6 +220,21 @@ int main(int argc, char* argv[]) {
 
     try {
         Flow flow(workspace);
+        std::filesystem::path wsPath(workspace);
+
+        // Set output: all jobs matching --tag / --children
+        if ((!selectTag.empty() || !selectParent.empty()) && !waitIdle) {
+            auto matches = selectSet(wsPath, selectTag, selectParent);
+            for (const auto& m : matches) {
+                if (json) {
+                    auto job = flow.get(m.id);
+                    if (job) (void)printJobJson(flow, wsPath, *job);
+                } else {
+                    std::cout << m.id << "\n";
+                }
+            }
+            return 0;
+        }
 
         // Wait for workspace idle
         if (waitIdle) {
@@ -209,61 +325,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (json) {
-                auto meta = flow.meta(jobId);
-                auto outputDir = contract::jobDir(std::filesystem::path(workspace), Status::Done, jobId);
-                std::ostringstream out;
-                out << "{";
-                out << "\"id\":\"" << escapeJson(jobId) << "\"";
-                out << ",\"status\":\"" << escapeJson(std::string(statusToJsonString(job->status))) << "\"";
-                if (meta) {
-                    if (!meta->mode.empty()) out << ",\"mode\":\"" << escapeJson(meta->mode) << "\"";
-                    if (!meta->submitted_at.empty()) out << ",\"submitted_at\":\"" << escapeJson(meta->submitted_at) << "\"";
-                    if (!meta->completed_at.empty()) out << ",\"completed_at\":\"" << escapeJson(meta->completed_at) << "\"";
-                    if (meta->duration_s >= 0.0) out << ",\"duration_s\":" << meta->duration_s;
-                    if (!meta->parent.empty()) out << ",\"parent\":\"" << escapeJson(meta->parent) << "\"";
-                    if (!meta->tags.empty()) {
-                        out << ",\"tags\":[";
-                        for (size_t i = 0; i < meta->tags.size(); ++i) {
-                            if (i > 0) out << ",";
-                            out << "\"" << escapeJson(meta->tags[i]) << "\"";
-                        }
-                        out << "]";
-                    }
-                    if (!meta->artifacts.empty()) {
-                        out << ",\"artifacts\":[";
-                        for (size_t i = 0; i < meta->artifacts.size(); ++i) {
-                            if (i > 0) out << ",";
-                            out << "\"" << escapeJson(meta->artifacts[i]) << "\"";
-                        }
-                        out << "]";
-                    }
-                }
-
-                if (job->status == Status::Done) {
-                    if (auto artifact = contract::findOutputArtifact(outputDir)) {
-                        out << ",\"artifact_kind\":\"" << contract::toString(artifact->kind) << "\"";
-                        out << ",\"artifact_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
-                        switch (artifact->kind) {
-                            case contract::ArtifactKind::Result:
-                                out << ",\"result\":\"" << escapeJson(job->content) << "\"";
-                                break;
-                            case contract::ArtifactKind::Transcript:
-                                out << ",\"transcript\":\"" << escapeJson(job->content) << "\"";
-                                break;
-                            case contract::ArtifactKind::Audio:
-                                out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
-                                break;
-                            case contract::ArtifactKind::Embedding:
-                                out << ",\"embedding\":" << readFileRaw(artifact->path);
-                                break;
-                        }
-                    }
-                } else if (job->status == Status::Failed) {
-                    out << ",\"error\":\"" << escapeJson(job->content) << "\"";
-                }
-                out << "}\n";
-                std::cout << out.str();
-                return job->status == Status::Failed ? 1 : 0;
+                return printJobJson(flow, wsPath, *job);
             }
 
             if (job->status == Status::Done) {

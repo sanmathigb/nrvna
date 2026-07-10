@@ -50,4 +50,30 @@ case "$json" in
     *) echo "artifact priority broken: $json" >&2; exit 1 ;;
 esac
 
+# ── flw sets: --tag selection, NDJSON, --children ────────────────────────
+tag_a="00001781482179019400_4090_000004"
+tag_b="00001781482179019401_4090_000005"
+child="00001781482179019402_4090_000006"
+mkdir -p "$tmp/output/$tag_a" "$tmp/output/$tag_b" "$tmp/failed/$child"
+printf 'alpha\n' > "$tmp/output/$tag_a/result.txt"
+printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night"]\n}\n' > "$tmp/output/$tag_a/meta.json"
+printf 'beta\n' > "$tmp/output/$tag_b/result.txt"
+printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night", "extra"]\n}\n' > "$tmp/output/$tag_b/meta.json"
+printf 'boom\n' > "$tmp/failed/$child/error.txt"
+printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "parent": "%s"\n}\n' "$tag_a" > "$tmp/failed/$child/meta.json"
+
+# plain mode: ids one per line, both tagged jobs, nothing else
+ids="$("$bin_dir/flw" "$tmp" --tag night)"
+[ "$(printf '%s\n' "$ids" | wc -l | tr -d ' ')" = "2" ] || { echo "tag selection wrong count: $ids" >&2; exit 1; }
+case "$ids" in *"$tag_a"*"$tag_b"*) ;; *) echo "tag ids wrong/order: $ids" >&2; exit 1 ;; esac
+
+# NDJSON: one object per line, artifact fields present
+nd="$("$bin_dir/flw" "$tmp" --tag night --json)"
+[ "$(printf '%s\n' "$nd" | wc -l | tr -d ' ')" = "2" ] || { echo "ndjson wrong line count" >&2; exit 1; }
+case "$nd" in *'"artifact_kind":"result"'*'"result":"alpha'*) ;; *) echo "ndjson missing artifact/result: $nd" >&2; exit 1 ;; esac
+
+# children selection finds the failed child with its error
+kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)"
+case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "children selection broken: $kids" >&2; exit 1 ;; esac
+
 echo "primitive-contract: all checks passed"
