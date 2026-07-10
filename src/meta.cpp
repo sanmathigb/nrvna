@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/meta.hpp"
+#include "nrvna/contract.hpp"
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -162,17 +163,6 @@ std::string formatTimestamp() {
     return result;
 }
 
-std::string jobTypeToString(JobType type) {
-    switch (type) {
-        case JobType::Text: return "text";
-        case JobType::Embed: return "embed";
-        case JobType::Vision: return "vision";
-        case JobType::Tts: return "tts";
-        case JobType::Stt: return "stt";
-        default: return "text";
-    }
-}
-
 bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
     try {
         std::ostringstream json;
@@ -207,8 +197,8 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
 
         json << "\n}\n";
 
-        auto tmpPath = dir / "meta.json.tmp";
-        auto finalPath = dir / "meta.json";
+        auto tmpPath = dir / (std::string(contract::kMetaFile) + ".tmp");
+        auto finalPath = dir / contract::kMetaFile;
 
         {
             std::ofstream file(tmpPath, std::ios::binary);
@@ -227,7 +217,7 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
 
 std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
     try {
-        auto metaPath = dir / "meta.json";
+        auto metaPath = dir / contract::kMetaFile;
         if (!std::filesystem::exists(metaPath)) return std::nullopt;
 
         std::ifstream file(metaPath, std::ios::binary);

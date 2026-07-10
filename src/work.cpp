@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/work.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/meta.hpp"
 #include "nrvna/logger.hpp"
 #include <filesystem>
@@ -274,11 +275,11 @@ bool Work::createWorkspace(bool createIfMissing) noexcept {
             std::filesystem::create_directories(workspace_);
         }
 
-        std::filesystem::create_directories(workspace_ / "input" / "writing");
-        std::filesystem::create_directories(workspace_ / "input" / "ready");
-        std::filesystem::create_directories(workspace_ / "processing");
-        std::filesystem::create_directories(workspace_ / "output");
-        std::filesystem::create_directories(workspace_ / "failed");
+        std::filesystem::create_directories(workspace_ / contract::kWritingDir);
+        std::filesystem::create_directories(workspace_ / contract::kReadyDir);
+        std::filesystem::create_directories(workspace_ / contract::kProcessingDir);
+        std::filesystem::create_directories(workspace_ / contract::kOutputDir);
+        std::filesystem::create_directories(workspace_ / contract::kFailedDir);
 
         return true;
     } catch (const std::exception& e) {
@@ -310,7 +311,7 @@ bool Work::isValidPrompt(const std::string& prompt) const noexcept {
 
 bool Work::createJobDirectory(const JobId& jobId) const noexcept {
     try {
-        auto jobPath = workspace_ / "input" / "writing" / jobId;
+        auto jobPath = workspace_ / contract::kWritingDir / jobId;
         std::filesystem::create_directories(jobPath);
         return std::filesystem::exists(jobPath) && std::filesystem::is_directory(jobPath);
     } catch (...) {
@@ -320,7 +321,7 @@ bool Work::createJobDirectory(const JobId& jobId) const noexcept {
 
 bool Work::writePromptFile(const JobId& jobId, const std::string& prompt) const noexcept {
     try {
-        auto promptPath = workspace_ / "input" / "writing" / jobId / "prompt.txt";
+        auto promptPath = workspace_ / contract::kWritingDir / jobId / contract::kPromptFile;
         std::ofstream file(promptPath, std::ios::binary);
         if (!file) return false;
 
@@ -334,8 +335,8 @@ bool Work::writePromptFile(const JobId& jobId, const std::string& prompt) const 
 
 bool Work::writeImageFiles(const JobId& jobId, const std::vector<std::filesystem::path>& imagePaths) const noexcept {
     try {
-        auto jobPath = workspace_ / "input" / "writing" / jobId;
-        auto imagesDir = jobPath / "images";
+        auto jobPath = workspace_ / contract::kWritingDir / jobId;
+        auto imagesDir = jobPath / contract::kImagesDir;
         std::filesystem::create_directories(imagesDir);
 
         int idx = 0;
@@ -368,8 +369,8 @@ bool Work::writeImageFiles(const JobId& jobId, const std::vector<std::filesystem
 
 bool Work::writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem::path>& audioPaths) const noexcept {
     try {
-        auto jobPath = workspace_ / "input" / "writing" / jobId;
-        auto audioDir = jobPath / "audio";
+        auto jobPath = workspace_ / contract::kWritingDir / jobId;
+        auto audioDir = jobPath / contract::kAudioInputDir;
         std::filesystem::create_directories(audioDir);
 
         int idx = 0;
@@ -400,27 +401,11 @@ bool Work::writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem
 
 bool Work::writeTypeFile(const JobId& jobId, JobType type) const noexcept {
     try {
-        auto typePath = workspace_ / "input" / "writing" / jobId / "type.txt";
+        auto typePath = workspace_ / contract::kWritingDir / jobId / contract::kTypeFile;
         std::ofstream file(typePath, std::ios::binary);
         if (!file) return false;
 
-        switch (type) {
-            case JobType::Embed:
-                file << "embed";
-                break;
-            case JobType::Vision:
-                file << "vision";
-                break;
-            case JobType::Tts:
-                file << "tts";
-                break;
-            case JobType::Stt:
-                file << "stt";
-                break;
-            default:
-                file << "text";
-                break;
-        }
+        file << contract::toString(type);
         file.flush();
         return file.good();
     } catch (...) {
@@ -432,7 +417,7 @@ bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& 
     try {
         JobMeta meta;
         meta.submitted_at = formatTimestamp();
-        meta.mode = jobTypeToString(type);
+        meta.mode = contract::toString(type);
         meta.parent = opts.parent;
         for (const auto& tag : opts.tags) {
             if (isValidTag(tag)) {
@@ -441,7 +426,7 @@ bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& 
                 LOG_WARN("Ignoring invalid tag for job " + jobId + ": " + tag);
             }
         }
-        return writeMetaJson(workspace_ / "input" / "writing" / jobId, meta);
+        return writeMetaJson(workspace_ / contract::kWritingDir / jobId, meta);
     } catch (...) {
         return false;
     }
@@ -449,8 +434,8 @@ bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& 
 
 bool Work::atomicPublish(const JobId& jobId) const noexcept {
     try {
-        auto writingPath = workspace_ / "input" / "writing" / jobId;
-        auto readyPath = workspace_ / "input" / "ready" / jobId;
+        auto writingPath = workspace_ / contract::kWritingDir / jobId;
+        auto readyPath = workspace_ / contract::kReadyDir / jobId;
 
         std::filesystem::rename(writingPath, readyPath);
         return true;
@@ -461,7 +446,7 @@ bool Work::atomicPublish(const JobId& jobId) const noexcept {
 
 void Work::cleanupFailedJob(const JobId& jobId) const noexcept {
     std::error_code ec;
-    std::filesystem::remove_all(workspace_ / "input" / "writing" / jobId, ec);
+    std::filesystem::remove_all(workspace_ / contract::kWritingDir / jobId, ec);
 }
 
 }
