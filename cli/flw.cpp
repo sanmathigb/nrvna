@@ -29,6 +29,8 @@ void printUsage() {
     std::cout << "  -w, --wait        Wait for a job\n";
     std::cout << "  -W, --wait-idle   Wait for the workspace to become idle\n";
     std::cout << "      --json        Print JSON\n";
+    std::cout << "      --tag <t>       Select all jobs with tag (ids; with --json, NDJSON)\n";
+    std::cout << "      --children <id> Select all jobs with parent <id>\n";
     std::cout << "  -h, --help        Show help\n";
     std::cout << "  -v, --version     Show version\n";
     std::cout << "\n";
@@ -37,6 +39,8 @@ void printUsage() {
     std::cout << "  flw ./ws <job-id>                 print a job's result\n";
     std::cout << "  wrk ./ws \"prompt\" | flw ./ws -w   submit and wait in one pipe\n";
     std::cout << "  flw ./ws -W                       block until all jobs finish\n";
+    std::cout << "  flw ./ws --tag nightly --json | jq .   collect a whole batch\n";
+    std::cout << "  flw ./ws -W --tag nightly         wait for YOUR jobs, not the world's\n";
     std::cout << "\n";
     std::cout << "Exit codes: 0 done, 1 failed, 2 not ready\n";
 }
