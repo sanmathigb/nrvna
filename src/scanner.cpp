@@ -129,7 +129,8 @@ bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexce
             auto imagesDir = dir / contract::kImagesDir;
             auto audioDir = dir / contract::kAudioInputDir;
             std::string type;
-            if (std::filesystem::exists(typeFile) && std::filesystem::is_regular_file(typeFile)) {
+            auto typeSt = std::filesystem::symlink_status(typeFile, ec);
+            if (!ec && std::filesystem::exists(typeSt) && !std::filesystem::is_symlink(typeSt) && std::filesystem::is_regular_file(typeSt)) {
                 std::ifstream in(typeFile);
                 std::getline(in, type);
             }
