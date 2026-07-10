@@ -24,3 +24,30 @@ case "$counts" in
         exit 1
         ;;
 esac
+
+# ── Output artifact rule through flw --json ──────────────────────────────
+embed_id="00001781482179019398_4090_000002"
+mkdir -p "$tmp/output/$embed_id"
+printf '{"dim":1,"vector":[0.5]}\n' > "$tmp/output/$embed_id/embedding.json"
+json="$("$bin_dir/flw" "$tmp" "$embed_id" --json)"
+case "$json" in
+    *'"artifact_kind":"embedding"'*) ;;
+    *) echo "embedding artifact_kind missing: $json" >&2; exit 1 ;;
+esac
+case "$json" in
+    *'"artifact_path":"'*embedding.json'"'*) ;;
+    *) echo "embedding artifact_path missing: $json" >&2; exit 1 ;;
+esac
+
+# Priority: result.txt beats transcript.txt in the same job dir
+both_id="00001781482179019399_4090_000003"
+mkdir -p "$tmp/output/$both_id"
+printf 'the result\n' > "$tmp/output/$both_id/result.txt"
+printf 'the transcript\n' > "$tmp/output/$both_id/transcript.txt"
+json="$("$bin_dir/flw" "$tmp" "$both_id" --json)"
+case "$json" in
+    *'"artifact_kind":"result"'*) ;;
+    *) echo "artifact priority broken: $json" >&2; exit 1 ;;
+esac
+
+echo "primitive-contract: all checks passed"
