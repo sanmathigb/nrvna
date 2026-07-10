@@ -23,14 +23,15 @@ cd imgsrch-darwin-arm64
 
 ```bash
 ./imgsrch init my-images
-./imgsrch add my-images ~/Pictures/*.png
-./imgsrch index my-images
+./imgsrch index my-images ~/Pictures/*.png
 ```
 
-`add` copies supported images into `my-images/images`. Supported formats are
-PNG, JPEG, and GIF. Originals are not modified. The current MVP uses an
-explicit project directory; direct in-place indexing of an arbitrary folder is
-not implemented yet.
+`index` copies the images into `my-images/images` and queues the work.
+Supported formats are PNG, JPEG, and GIF. Originals are not modified. Use
+`add` to stage images without indexing. Commands refuse a project that does
+not exist — `init` creates it; a typo never silently becomes a new project.
+The current MVP uses an explicit project directory; direct in-place indexing
+of an arbitrary folder is not implemented yet.
 
 Indexing returns after queuing work and continues in local background workers.
 Check progress and search:
@@ -47,6 +48,40 @@ Stop the workers when needed:
 ```
 
 Run `./imgsrch doctor my-images` when setup or model discovery fails.
+
+## How search works
+
+Indexing writes plain-text artifacts per image; search fuses two rankings
+over them.
+
+```text
+index:  image ──► caption model ──► caption.txt ─┐
+              └─► OCR model ─────► ocr.txt ──────┴─► combined.md ─► embedding.json
+
+search: query ──► embedding ──► cosine against every image ──► dense ranks ─┐
+        query ──► BM25 over combined.md ─────────────────────► keyword ranks┴─► RRF
+```
+
+RRF (reciprocal rank fusion) scores each image by summing `1/(60 + rank)`
+across both lists. It fuses ranks, not raw scores — neither signal can drown
+the other, and an image that is good in both lists beats one that is perfect
+in one and missing from the other.
+
+The choices, and why:
+
+- **RRF is the default because it measured better** — higher top-1 and top-3
+  recall than the original 50/50 dense + normalized-BM25 blend on the local
+  hard set. The old blend is kept as `--scorer simple` so the claim stays
+  checkable.
+- **Captions are capped at 900 characters** in `combined.md` — verbose
+  captions dilute the embedding. Proven by A/B, not taste.
+- **Embedding prefixes matter** — documents embed as `search_document: …`,
+  queries as `search_query: …` (nomic-embed's contract). The wrong prefix
+  quietly degrades everything.
+- **Ties break on path**, so results are stable across runs.
+
+Change a weight, swap a model, add a signal — then run `eval` below and see
+whether it actually got better.
 
 ## Evaluate search quality
 

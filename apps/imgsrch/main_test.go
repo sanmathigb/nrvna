@@ -32,13 +32,19 @@ func TestParseSearchArgsDefaultsToRRFScorer(t *testing.T) {
 	}
 }
 
-func TestParseSearchArgsAcceptsRRFScorer(t *testing.T) {
-	got, err := parseSearchArgs([]string{"project", "query text", "10", "--scorer", "rrf"})
+func TestParseSearchArgsAcceptsTopKAndScorer(t *testing.T) {
+	got, err := parseSearchArgs([]string{"project", "query text", "--top-k", "10", "--scorer", "rrf"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.TopN != 10 || got.Scorer != scorerRRF {
 		t.Fatalf("parseSearchArgs = %+v, want top 10 rrf", got)
+	}
+}
+
+func TestParseSearchArgsRejectsPositionalTopN(t *testing.T) {
+	if _, err := parseSearchArgs([]string{"project", "query text", "10"}); err == nil {
+		t.Fatal("bare positional top_n should be rejected; use --top-k")
 	}
 }
 

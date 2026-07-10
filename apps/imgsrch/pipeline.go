@@ -161,13 +161,18 @@ func jobFailed(ws, job string) bool {
 	return failed
 }
 
-func cmdIndex(project string) error {
-	if err := ensureProject(project); err != nil {
+func cmdIndex(project string, newImages []string) error {
+	if err := requireProject(project); err != nil {
 		return err
 	}
 	c := loadConfig(project)
 	if missing := checkModels(c); len(missing) > 0 {
 		return fmt.Errorf("missing models:\n  %s\nrun 'imgsrch doctor' for details", strings.Join(missing, "\n  "))
+	}
+	if len(newImages) > 0 {
+		if err := addImages(project, newImages); err != nil {
+			return err
+		}
 	}
 	if err := startCaption(project, c); err != nil {
 		return err
@@ -272,6 +277,9 @@ type progress struct {
 // between runs. It is called implicitly by status and search.
 func advance(project string, verbose bool) (progress, error) {
 	var pr progress
+	if err := requireProject(project); err != nil {
+		return pr, err
+	}
 	if err := ensureProject(project); err != nil {
 		return pr, err
 	}

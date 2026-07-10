@@ -18,23 +18,25 @@ Usage:
   imgsrch <command> [arguments]
 
 Commands:
-  setup                                           Download the default models
-  init <project>                                  Create a project
-  add <project> <image...>                        Add images to a project
-  index <project>                                 Index project images
-  status <project>                                Show indexing status
-  search <project> <query> [top_n] [--scorer s]   Search a project
-  eval <project> <hardset.json> [--top-k n]       Evaluate scorers on a hard set
-  stop <project>                                  Stop background indexing
-  doctor [project]                                Check the installation
+  setup                                                Download the default models
+  init <project>                                       Create a project
+  index <project> [image...]                           Add images (optional) and index
+  search <project> <query> [--top-k n] [--scorer s]    Search a project
+  status <project>                                     Show indexing status
+  stop <project>                                       Stop background indexing
+
+  add <project> <image...>                             Stage images without indexing
+  eval <project> <hardset.json> [--top-k n]            Evaluate scorers on a hard set
+  doctor [project]                                     Check the installation
 
 Scorers:
   rrf       Reciprocal rank fusion over dense and BM25 rankings (default search scorer)
   simple    Original 50/50 dense + normalized BM25 blend
 
 Options:
-  --scorer simple|rrf|all   Select scorer; eval defaults to all
-  --top-k n                 Eval cutoff; default 5
+  --top-k n                 Results to return (search) or eval cutoff; default 5
+  --scorer simple|rrf       Select search scorer
+  --scorer all              Eval only; compare all scorers
   -h, --help                Show help
   -v, --version             Show version
 `
@@ -51,7 +53,7 @@ func fail(format string, a ...any) {
 func parseTopN(s string) (int, error) {
 	n, err := strconv.Atoi(s)
 	if err != nil || n < 1 {
-		return 0, fmt.Errorf("top_n must be a positive integer")
+		return 0, fmt.Errorf("--top-k must be a positive integer")
 	}
 	return n, nil
 }
@@ -68,7 +70,6 @@ func parseSearchArgs(rest []string) (searchArgs, error) {
 		return searchArgs{}, fmt.Errorf("search requires <project> and <query>")
 	}
 	args := searchArgs{Project: rest[0], Query: rest[1], TopN: 5, Scorer: scorerRRF}
-	topSet := false
 	for i := 2; i < len(rest); i++ {
 		switch rest[i] {
 		case "--scorer":
@@ -81,16 +82,18 @@ func parseSearchArgs(rest []string) (searchArgs, error) {
 			}
 			args.Scorer = sc
 			i++
-		default:
-			if topSet {
-				return args, fmt.Errorf("unexpected search argument %q", rest[i])
+		case "--top-k":
+			if i+1 >= len(rest) {
+				return args, fmt.Errorf("--top-k requires a positive integer")
 			}
-			topN, err := parseTopN(rest[i])
+			topN, err := parseTopN(rest[i+1])
 			if err != nil {
 				return args, err
 			}
 			args.TopN = topN
-			topSet = true
+			i++
+		default:
+			return args, fmt.Errorf("unexpected search argument %q", rest[i])
 		}
 	}
 	return args, nil
@@ -174,11 +177,11 @@ func main() {
 		}
 		err = cmdAdd(rest[0], rest[1:])
 	case "index":
-		if len(rest) != 1 {
+		if len(rest) < 1 {
 			usage()
 			os.Exit(1)
 		}
-		err = cmdIndex(rest[0])
+		err = cmdIndex(rest[0], rest[1:])
 	case "status":
 		if len(rest) != 1 {
 			usage()

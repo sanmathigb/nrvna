@@ -31,6 +31,15 @@ type item struct {
 	Key, Path, CapJob, OcrJob, EmbJob string
 }
 
+// requireProject refuses to operate on a directory that was never initialized —
+// a typo in the project name must not silently create a new project.
+func requireProject(project string) error {
+	if st, err := os.Stat(rootDir(project)); err == nil && st.IsDir() {
+		return nil
+	}
+	return fmt.Errorf("no project at %s — create it first: imgsrch init %s", project, project)
+}
+
 func ensureProject(project string) error {
 	for _, d := range []string{
 		imgDir(project), artifactsDir(project),
@@ -184,6 +193,14 @@ func cmdInit(project string) error {
 }
 
 func cmdAdd(project string, images []string) error {
+	if err := requireProject(project); err != nil {
+		return err
+	}
+	return addImages(project, images)
+}
+
+// addImages copies images into the project; shared by add and index.
+func addImages(project string, images []string) error {
 	if err := ensureProject(project); err != nil {
 		return err
 	}

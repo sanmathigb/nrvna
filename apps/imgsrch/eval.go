@@ -29,7 +29,7 @@ func loadEvalCases(path string) ([]evalCase, error) {
 	var obj struct {
 		Queries []rawEvalCase `json:"queries"`
 	}
-	if err := json.Unmarshal(data, &obj); err == nil && len(obj.Queries) > 0 {
+	if err := json.Unmarshal(data, &obj); err == nil && obj.Queries != nil {
 		return normalizeEvalCases(obj.Queries)
 	}
 	var arr []rawEvalCase

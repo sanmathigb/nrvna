@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestLoadEvalCasesAcceptsObjectHardset(t *testing.T) {
 	cases, err := loadEvalCases("testdata/hardset.example.json")
@@ -15,6 +18,20 @@ func TestLoadEvalCasesAcceptsObjectHardset(t *testing.T) {
 	}
 	if cases[0].Expected[0] != "screenshots/docker-permission-denied.png" {
 		t.Fatalf("first expected = %v", cases[0].Expected)
+	}
+}
+
+func TestLoadEvalCasesAcceptsEmptyObjectHardset(t *testing.T) {
+	path := t.TempDir() + "/empty.json"
+	if err := os.WriteFile(path, []byte(`{"queries":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cases, err := loadEvalCases(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cases) != 0 {
+		t.Fatalf("len(cases) = %d, want 0", len(cases))
 	}
 }
 

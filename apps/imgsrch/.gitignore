@@ -1,3 +1,4 @@
 imgsrch
 .imgsrch/
 */.imgsrch/
+**/.imgsrch/
