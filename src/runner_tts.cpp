@@ -601,6 +601,7 @@ TtsResult TtsRunner::run(const std::string& text) {
                 "TTS prompt too long (" + std::to_string(n_prompt) + " tokens, context limit " +
                 std::to_string(max_ctx) + "). Try shorter text."};
         }
+        n_predict = std::min(n_predict, n_ctx - n_prompt);
 
         llama_context_params ctx_params = llama_context_default_params();
         ctx_params.n_ctx = n_ctx;

@@ -161,6 +161,17 @@ static std::string extractAsrText(const std::string& text) {
     return trimWhitespace(result);
 }
 
+static std::optional<std::string> tokenPiece(const llama_vocab* vocab, llama_token token) {
+    char stack[128];
+    int n = llama_token_to_piece(vocab, token, stack, sizeof(stack), 0, true);
+    if (n >= 0) return std::string(stack, static_cast<size_t>(n));
+
+    std::vector<char> buffer(static_cast<size_t>(-n));
+    n = llama_token_to_piece(vocab, token, buffer.data(), buffer.size(), 0, true);
+    if (n < 0) return std::nullopt;
+    return std::string(buffer.data(), static_cast<size_t>(n));
+}
+
 // Read GGUF metadata helpers
 static std::string readModelStrMeta(const llama_model* model, const char* key) {
     char buf[256] = {};
@@ -756,14 +767,12 @@ RunResult Runner::runText(const std::string& prompt) {
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
                 LOG_ERROR("Failed to convert token to piece");
                 return {false, "", "Failed to convert generated token to text"};
             }
-
-            output.append(buf, n);
+            output += *piece;
 
             llama_batch gen_batch = llama_batch_get_one(&new_token_id, 1);
             if (llama_decode(ctx.get(), gen_batch)) {
@@ -887,13 +896,12 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
                 generationError = "Failed to convert generated vision token to text";
                 break;
             }
-            output.append(buf, n);
+            output += *piece;
 
             // Decode next token with explicit position (like reference)
             batch.n_tokens = 1;
@@ -1022,13 +1030,12 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
                 generationError = "Failed to convert generated STT token to text";
                 break;
             }
-            output.append(buf, n);
+            output += *piece;
 
             batch.n_tokens = 1;
             batch.token[0] = new_token_id;
