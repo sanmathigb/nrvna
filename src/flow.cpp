@@ -168,6 +168,12 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
 Status Flow::status(const JobId& id) const noexcept {
     try {
         if (!isValidJobId(id)) return Status::Missing;
+        // Check upstream states first: jobs move queued → running → done/failed,
+        // so a mid-check rename is re-observed downstream instead of reading as
+        // Missing (which callers like `flw -w` treat as terminal).
+        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Queued, id))) {
+            return Status::Queued;
+        }
         if (std::filesystem::exists(contract::jobDir(workspace_, Status::Running, id))) {
             return Status::Running;
         }
@@ -176,9 +182,6 @@ Status Flow::status(const JobId& id) const noexcept {
         }
         if (std::filesystem::exists(contract::jobDir(workspace_, Status::Failed, id))) {
             return Status::Failed;
-        }
-        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Queued, id))) {
-            return Status::Queued;
         }
 
         return Status::Missing;

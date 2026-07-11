@@ -53,7 +53,7 @@ Bring a worker to the queue, then collect the result:
 
 ```text
 - Jobs are directories that move through input/ready, processing, and output
-  via atomic renames, so state is always visible and crash-safe.
+  via atomic renames, so state is always visible and survives process crashes.
 - A scanner thread finds ready jobs and a worker pool runs inference...
 ```
 
