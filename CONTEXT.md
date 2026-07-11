@@ -22,8 +22,8 @@ file disagree, one of them has a bug.
   filenames, the artifact rule, job-ID grammar, `type.txt` spellings. Single
   owner: `include/nrvna/contract.hpp`. Non-C++ consumers cross the contract
   via `wrk`/`flw` (`flw --json` carries `artifact_kind`/`artifact_path`),
-  never by touching the layout directly. (imgsrch's collect path and
-  bckbrnr predate this rule; their migrations are queued.)
+  never by touching the layout directly. bckbrnr follows this rule; imgsrch's
+  collection path still reads engine artifacts internally.
 - **Language policy** — below the CLI seam: C++17 only (the engine never gains
   a second language). Above it: each surface uses its native language (Go for
   portable CLI apps, Swift for macOS GUI, bash for glue), and every language
