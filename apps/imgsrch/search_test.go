@@ -40,3 +40,10 @@ func TestParseScorer(t *testing.T) {
 		}
 	}
 }
+
+func TestDenseHitsRejectsMixedEmbeddingDimensions(t *testing.T) {
+	corpus := []hit{{Path: "images/old.png", Vec: []float64{1, 2}}}
+	if _, err := denseHits(corpus, []float64{1, 2, 3}); err == nil {
+		t.Fatal("dimension mismatch should require a reindex")
+	}
+}

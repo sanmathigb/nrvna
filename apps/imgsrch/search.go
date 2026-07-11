@@ -189,12 +189,15 @@ func loadCorpus(project string) ([]hit, error) {
 	return hits, nil
 }
 
-func denseHits(corpus []hit, qvec []float64) []hit {
+func denseHits(corpus []hit, qvec []float64) ([]hit, error) {
 	hits := append([]hit(nil), corpus...)
 	for i := range hits {
+		if len(hits[i].Vec) != len(qvec) {
+			return nil, fmt.Errorf("embedding dimension changed (%d query vs %d index for %s); reindex the project", len(qvec), len(hits[i].Vec), hits[i].Path)
+		}
 		hits[i].Dense = cosine(qvec, hits[i].Vec)
 	}
-	return hits
+	return hits, nil
 }
 
 func scoreHits(hits []hit, query string, sc scorer) []hit {
@@ -341,7 +344,7 @@ func searchBaseHits(project, query string) ([]hit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return denseHits(corpus, qvec), nil
+	return denseHits(corpus, qvec)
 }
 
 func searchProject(project, query string, topN int, sc scorer) ([]hit, error) {

@@ -305,6 +305,7 @@ func advance(project string, verbose bool) (progress, error) {
 	embedStarted := false
 	var nCap, nOcr, nComb, nEmb, nQueued, nIdx int
 
+	var newIndexRows []string
 	for i := range items {
 		it := &items[i]
 		adir := filepath.Join(artifactsDir(project), it.Key)
@@ -383,14 +384,16 @@ func advance(project string, verbose bool) (progress, error) {
 			}
 		}
 		if exists(embFile) && !indexed[it.Key] {
-			if err := appendIndexRow(project, it.Key, it.Path); err != nil {
-				return pr, err
-			}
+			newIndexRows = append(newIndexRows, fmt.Sprintf("%s\t%s\t%s\n",
+				it.Key, it.Path, ".imgsrch/artifacts/"+it.Key+"/embedding.json"))
 			indexed[it.Key] = true
 			nIdx++
 		}
 	}
 
+	if err := appendIndexRows(project, newIndexRows); err != nil {
+		return pr, err
+	}
 	if err := writeItems(project, items); err != nil {
 		return pr, err
 	}
@@ -447,7 +450,7 @@ func writeCombined(capFile, ocrFile, outFile string) error {
 	if ocr != "" {
 		text += "\n\nVisible text:\n" + ocr
 	}
-	return os.WriteFile(outFile, []byte(strings.TrimSpace(text)+"\n"), 0o644)
+	return atomicWriteFile(outFile, []byte(strings.TrimSpace(text)+"\n"), 0o644)
 }
 
 func cmdStatus(project string) error {

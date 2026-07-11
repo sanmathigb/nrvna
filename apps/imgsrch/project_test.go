@@ -137,3 +137,62 @@ func TestCopyFileNoClobberIsAtomic(t *testing.T) {
 		t.Fatalf("successes=%d exists=%d; want one of each", successes, exists)
 	}
 }
+
+func TestAtomicWriteFileReplacesWholeFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.tsv")
+	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWriteFile(path, []byte("new state\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new state\n" {
+		t.Fatalf("atomicWriteFile wrote %q", got)
+	}
+}
+
+func TestCopyFileUsesReadableArtifactMode(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+	if err := os.WriteFile(src, []byte("artifact"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFile(src, dst); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Fatalf("copy mode = %o, want 644", got)
+	}
+}
+
+func TestAppendIndexRowsPreservesExistingData(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(indexFile(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := []string{"key-a\ta.png\ta.json\n", "key-b\tb.png\tb.json\n"}
+	if err := appendIndexRows(project, rows); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(indexFile(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := string(before) + strings.Join(rows, "")
+	if string(after) != want {
+		t.Fatalf("index = %q, want %q", after, want)
+	}
+}

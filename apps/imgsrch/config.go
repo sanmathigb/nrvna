@@ -53,6 +53,9 @@ func loadConfig(project string) config {
 					fileVals[strings.TrimSpace(k)] = strings.TrimSpace(v)
 				}
 			}
+			if err := sc.Err(); err != nil {
+				note("warning: could not read all of project config: %v", err)
+			}
 			f.Close()
 		}
 	}
