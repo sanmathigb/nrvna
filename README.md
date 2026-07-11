@@ -80,6 +80,30 @@ cat /tmp/ws/output/*/result.txt      # every answer, as plain files
 Submission and collection are decoupled. Durable jobs, inspectable state,
 predictable retrieval — through the same three binaries.
 
+## From Scripts and Agents
+
+The whole batch idiom is three lines — no daemon to manage:
+
+```bash
+for f in notes/*.md; do cat "$f" | wrk ./ws - --tag batch1; done
+nrvnad model.gguf ./ws --drain          # process everything queued, then exit
+flw ./ws --tag batch1 --json            # NDJSON: one job per line, results inline
+```
+
+`--drain` exits 0 when the queue is quiet (1 if any job failed this run) and
+leaves nothing running that it started. If a daemon already owns the
+workspace, drain waits for it to finish the queue instead — same
+postcondition, and your daemon stays up. For long-lived daemons:
+
+```bash
+nrvnad status ./ws      # exit 0 ready, 2 starting, 1 not running (--json for details)
+nrvnad stop ./ws        # graceful shutdown
+flw ./ws -W --tag mine  # block until YOUR jobs finish, not the whole workspace
+```
+
+Exit codes, JSON, and files — nothing else to learn. Anything with a shell,
+including a coding agent, can drive all of it.
+
 ## Three Primitives
 
 | Tool | What it does |
@@ -161,7 +185,7 @@ whole framework.
 - [QUICKSTART.md](QUICKSTART.md) — the guided path for builders
 - [ADVANCED.md](ADVANCED.md) — batch, fan-out, chaining, multi-model patterns
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together
-- [docs/how-it-works.md](docs/how-it-works.md) — the philosophy
+- [CONTEXT.md](CONTEXT.md) — the domain language and contracts
 
 ## Platform
 

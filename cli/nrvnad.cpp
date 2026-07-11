@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "nrvna/lifecycle.hpp"
 #include "nrvna/logger.hpp"
+#include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"
 #include "nrvna/server.hpp"
 #include <algorithm>
@@ -54,13 +56,19 @@ bool acquireWorkspaceLock(const std::filesystem::path& workspace) {
         return false;
     }
 
-    auto lockPath = workspace / ".nrvnad.lock";
+    auto lockPath = workspace / lifecycle::kLockFile;
     int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, 0644);
     if (fd < 0) {
         std::cerr << "Error: cannot open workspace lock: " << lockPath << "\n";
         return false;
     }
-    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+    // Retry briefly: a `nrvnad status` probe holds this lock for microseconds
+    // while checking liveness; don't let that blip abort a daemon start.
+    int lockAttempts = 0;
+    while (::flock(fd, LOCK_EX | LOCK_NB) != 0 && ++lockAttempts < 10) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    if (lockAttempts >= 10) {
         std::cerr << "Error: workspace already has a running nrvnad: " << workspace << "\n";
         ::close(fd);
         return false;
@@ -285,8 +293,12 @@ void printHelp() {
     std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
     std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
+    std::cout << "      --drain            Process everything queued, then exit; starts no lasting daemon\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
+    std::cout << "Lifecycle:\n";
+    std::cout << "  nrvnad status <workspace> [--json]   Is the daemon running/ready? (exit 0 ready, 2 starting, 1 not running)\n";
+    std::cout << "  nrvnad stop <workspace>              Stop the workspace daemon gracefully\n\n";
     std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
     std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
     std::cout << "you rarely need to pass them explicitly.\n\n";
@@ -302,6 +314,53 @@ void printHelp() {
 
 int main(int argc, char * argv[]) {
     g_models_dir = resolveModelsDir(argv[0]);
+
+    if (argc >= 3 && std::string(argv[1]) == "status") {
+        std::filesystem::path ws = argv[2];
+        bool json = (argc >= 4 && std::string(argv[3]) == "--json");
+        auto info = lifecycle::query(ws);
+        if (json) {
+            std::cout << "{\"running\":" << (info.state != lifecycle::DaemonState::NotRunning ? "true" : "false")
+                      << ",\"ready\":" << (info.state == lifecycle::DaemonState::Ready ? "true" : "false");
+            if (info.pid > 0) std::cout << ",\"pid\":" << info.pid;
+            if (!info.model.empty()) std::cout << ",\"model\":\"" << escapeJson(info.model) << "\"";
+            if (info.workers > 0) std::cout << ",\"workers\":" << info.workers;
+            if (!info.started_at.empty()) std::cout << ",\"started_at\":\"" << escapeJson(info.started_at) << "\"";
+            std::cout << "}\n";
+        }
+        switch (info.state) {
+            case lifecycle::DaemonState::Ready:
+                if (!json) std::cout << "ready (pid " << info.pid << ", model " << info.model
+                                     << ", workers " << info.workers << ")\n";
+                return 0;
+            case lifecycle::DaemonState::Starting:
+                if (!json) std::cout << "starting (pid " << info.pid << ")\n";
+                return 2;
+            default:
+                if (!json) std::cout << "not running\n";
+                return 1;
+        }
+    }
+
+    if (argc >= 3 && std::string(argv[1]) == "stop") {
+        std::filesystem::path ws = argv[2];
+        int timeout = 20;
+        for (int i = 3; i + 1 < argc; ++i) {
+            if (std::string(argv[i]) == "--timeout") {
+                char* end = nullptr;
+                long v = std::strtol(argv[i + 1], &end, 10);
+                if (end == argv[i + 1] || *end != '\0' || v <= 0 || v > 3600) {
+                    std::cerr << "Error: --timeout requires seconds in 1-3600\n";
+                    return 1;
+                }
+                timeout = static_cast<int>(v);
+            }
+        }
+        int rc = lifecycle::stopDaemon(ws, timeout);
+        if (rc == 0) std::cout << "stopped\n";
+        else std::cerr << "Error: daemon still holds " << ws.string() << " after " << timeout << "s\n";
+        return rc;
+    }
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -319,6 +378,7 @@ int main(int argc, char * argv[]) {
     std::string workspace;
     std::string mmprojPath;
     std::string vocoderPath;
+    bool drainMode = false;
     int workers = 4;
     if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
         try {
@@ -363,6 +423,8 @@ int main(int argc, char * argv[]) {
                 return 1;
             }
             vocoderPath = argv[++i];
+        } else if (arg == "--drain") {
+            drainMode = true;
         } else if (!arg.empty() && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
             return 1;
@@ -396,8 +458,42 @@ int main(int argc, char * argv[]) {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
+    if (drainMode && lifecycle::daemonPresent(std::filesystem::path(workspace))) {
+        // Drain's postcondition is "queue is quiet" — the running daemon does
+        // the work; we watch. If it dies with work still queued, take over.
+        std::cerr << "nrvnad: workspace already has a running daemon — it will drain the queue\n";
+        Flow watchFlow((std::filesystem::path(workspace)));
+        auto before = watchFlow.counts();
+        bool delegated = true;
+        while (delegated) {
+            auto c = watchFlow.counts();
+            if (c.queued == 0 && c.running == 0) {
+                return c.failed > before.failed ? 1 : 0;
+            }
+            if (!lifecycle::daemonPresent(std::filesystem::path(workspace))) {
+                std::cerr << "nrvnad: daemon exited with work still queued — taking over the drain\n";
+                delegated = false;  // fall through to normal startup + drain
+            } else {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        }
+    }
+
     if (!acquireWorkspaceLock(std::filesystem::path(workspace))) {
         return 1;
+    }
+
+    // We own the workspace now: clear any runtime files a previous unclean
+    // exit left behind (a stale .nrvnad.ready would make `status` report a
+    // loading daemon as Ready), and publish our pid immediately so Starting
+    // shows the real pid.
+    lifecycle::removeRuntimeFiles(std::filesystem::path(workspace));
+    std::filesystem::path pidPath = std::filesystem::path(workspace) / lifecycle::kPidFile;
+    {
+        std::ofstream pf(pidPath);
+        if (pf) {
+            pf << getpid();
+        }
     }
 
     if (auto resolved = resolveModelPath(modelPath)) {
@@ -464,6 +560,11 @@ int main(int argc, char * argv[]) {
     std::cout << "  Loading " << modelName << "\n" << std::flush;
 
     try {
+        // Baseline before workers can touch anything: failures that predate
+        // this run must not count against this run's drain verdict.
+        Flow drainFlow((std::filesystem::path(workspace)));
+        const std::size_t failedBaseline = drainMode ? drainFlow.counts().failed : 0;
+
         auto server = std::make_unique<Server>(modelPath, workspace, workers, mmprojPath, vocoderPath);
 
         if (!server->start()) {
@@ -472,12 +573,15 @@ int main(int argc, char * argv[]) {
             return 1;
         }
 
-        std::filesystem::path pidPath = std::filesystem::path(workspace) / ".nrvnad.pid";
-        {
-            std::ofstream pf(pidPath);
-            if (pf) {
-                pf << getpid();
-            }
+        lifecycle::DaemonInfo dinfo;
+        dinfo.pid = getpid();
+        dinfo.model = modelPath;
+        dinfo.mmproj = mmprojPath;
+        dinfo.vocoder = vocoderPath;
+        dinfo.workers = workers;
+        dinfo.started_at = formatTimestamp();
+        if (!lifecycle::writeRuntimeFiles(workspace, dinfo)) {
+            LOG_WARN("Failed to write lifecycle runtime files (status will report starting)");
         }
 
         std::cout << "\n";
@@ -497,8 +601,23 @@ int main(int argc, char * argv[]) {
         std::cout << "  Results: ./flw " << workspace << " <job-id>\n\n";
         std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
-        while (!g_shutdown_requested && server->isRunning()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // Pessimistic: only an observed-idle queue earns drain success. An
+        // interrupted drain (signal, server death) must not report 0.
+        int drainExit = drainMode ? 1 : 0;
+        if (drainMode) {
+            std::cout << "  Draining queue; will exit when idle.\n\n";
+            while (!g_shutdown_requested && server->isRunning()) {
+                auto c = drainFlow.counts();
+                if (c.queued == 0 && c.running == 0) {
+                    drainExit = c.failed > failedBaseline ? 1 : 0;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        } else {
+            while (!g_shutdown_requested && server->isRunning()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
         }
 
         if (g_shutdown_requested) {
@@ -509,8 +628,14 @@ int main(int argc, char * argv[]) {
             std::error_code ec;
             std::filesystem::remove(pidPath, ec);
         }
+        lifecycle::removeRuntimeFiles(workspace);
         server->shutdown();
         releaseWorkspaceLock();
+
+        if (drainMode) {
+            LOG_DEBUG("nrvna-ai daemon drained and stopped");
+            return drainExit;
+        }
 
     } catch (const std::exception & e) {
         releaseWorkspaceLock();

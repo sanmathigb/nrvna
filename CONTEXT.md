@@ -22,7 +22,15 @@ file disagree, one of them has a bug.
   filenames, the artifact rule, job-ID grammar, `type.txt` spellings. Single
   owner: `include/nrvna/contract.hpp`. Non-C++ consumers cross the contract
   via `wrk`/`flw` (`flw --json` carries `artifact_kind`/`artifact_path`),
-  never by touching the layout directly.
-- **Lifecycle contract** — the daemon-management files (`.nrvnad.pid`,
-  `.nrvnad.lock`, start meta). Deliberately NOT part of the job contract;
-  ownership to be settled by the lifecycle-helper work.
+  never by touching the layout directly. (imgsrch's collect path and
+  bckbrnr predate this rule; their migrations are queued.)
+- **Language policy** — below the CLI seam: C++17 only (the engine never gains
+  a second language). Above it: each surface uses its native language (Go for
+  portable CLI apps, Swift for macOS GUI, bash for glue), and every language
+  crosses into nrvna ONLY via the three binaries and the documented contracts —
+  no FFI, no bindings, no workspace-layout reading. Python is never a runtime
+  dependency of anything tracked.
+- **Lifecycle contract** — the daemon-management files (`.nrvnad.lock`,
+  `.nrvnad.pid`, `.nrvnad.ready`, `.nrvnad.info`). Deliberately NOT part of
+  the job contract. Single owner: nrvnad (`include/nrvna/lifecycle.hpp`);
+  `nrvnad status`/`stop` are the blessed readers, `--drain` the run-to-done mode.

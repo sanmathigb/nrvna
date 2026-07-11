@@ -52,10 +52,14 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_CURL=OFF \
             -DLLAMA_OPENSSL=OFF
-          cmake --build build -j4 --target nrvnad wrk flw
+          cmake --build build -j4 --target nrvnad wrk flw contract_test
 
-      - name: Test primitive CLI contracts
-        run: bash tests/primitive-contract.sh build
+      - name: Test contracts
+        run: |
+          ./build/contract_test
+          bash tests/primitive-contract.sh build
+          bash tests/lifecycle-contract.sh build
+          bash tests/contract-literals.sh
 
       - uses: actions/setup-go@v5
         with:
