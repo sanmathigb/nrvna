@@ -81,6 +81,12 @@ bool pidLooksLikeNrvnad(int pid) {
 #endif
 }
 
+// A signal is safe only while the same nrvnad still owns this workspace.
+bool workspaceOwnedByNrvnad(const std::filesystem::path& ws, int pid) {
+    return pid > 0 && readLockHolderPid(ws) == pid &&
+           lockIsHeld(ws) && pidLooksLikeNrvnad(pid);
+}
+
 // Minimal extraction from .nrvnad.info; tolerant of missing fields.
 void parseInfo(const std::filesystem::path& ws, DaemonInfo& info) {
     std::ifstream f(ws / kInfoFile);
@@ -147,7 +153,7 @@ int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     if (info.pid <= 0) return 1;  // lock held but pid unknown: refuse to guess
     // Never signal a process we can't identify: if the pid doesn't look like
     // an nrvnad, someone else holds the lock (or the file is garbage) — refuse.
-    if (!pidLooksLikeNrvnad(info.pid)) return 1;
+    if (!workspaceOwnedByNrvnad(ws, info.pid)) return 1;
 
     (void)::kill(info.pid, SIGTERM);
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutSeconds);
@@ -157,7 +163,7 @@ int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
             // Revalidate identity before every escalation signal. The flock
             // being held implies the holder is alive, but the pid we signal
             // must still be an nrvnad at the moment we signal it.
-            if (!pidLooksLikeNrvnad(info.pid)) return 1;
+            if (!workspaceOwnedByNrvnad(ws, info.pid)) return 1;
             if (!escalated) {
                 // nrvnad treats a second signal as "force exit now"
                 (void)::kill(info.pid, SIGTERM);

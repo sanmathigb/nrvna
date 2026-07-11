@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(nrvna_ai VERSION 0.1.0 LANGUAGES CXX C)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -77,6 +79,17 @@ endforeach()
 # Contract unit test — header-only include, deliberately no llama linkage
 add_executable(contract_test tests/contract_test.cpp)
 target_include_directories(contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(meta_test tests/meta_test.cpp src/meta.cpp)
+target_include_directories(meta_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+if(BUILD_TESTING)
+    add_test(NAME contract COMMAND contract_test)
+    add_test(NAME metadata COMMAND meta_test)
+    add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
+    add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
+    add_test(NAME contract_literals COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/contract-literals.sh)
+endif()
 
 # Install targets
 install(TARGETS nrvnad wrk flw

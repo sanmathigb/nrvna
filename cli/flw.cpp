@@ -214,9 +214,25 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--children") {
             if (i + 1 >= argc) { std::cerr << "Error: --children requires a job ID\n"; return 1; }
             selectParent = argv[++i];
+        } else if (!arg.empty() && arg[0] == '-') {
+            std::cerr << "Error: unknown option: " << arg << "\n";
+            return 1;
         } else {
+            if (!jobId.empty()) {
+                std::cerr << "Error: only one job ID may be provided\n";
+                return 1;
+            }
             jobId = arg;
         }
+    }
+
+    if (!jobId.empty() && (!selectTag.empty() || !selectParent.empty())) {
+        std::cerr << "Error: job ID cannot be combined with --tag or --children\n";
+        return 1;
+    }
+    if (wait && (!selectTag.empty() || !selectParent.empty())) {
+        std::cerr << "Error: use -W, not -w, when waiting for a selected set\n";
+        return 1;
     }
 
     // Check piped input for JobID if not provided

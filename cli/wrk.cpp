@@ -72,6 +72,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> promptParts;
     bool useEmbed = false;
     std::string mode;
+    bool sawTts = false, sawStt = false;
     SubmitOptions submitOptions;
 
     // Detect stdin input: `wrk ws` with piped stdin, or `wrk ws - ...`
@@ -123,8 +124,10 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--embed") {
             useEmbed = true;
         } else if (arg == "--tts") {
+            sawTts = true;
             mode = "tts";
         } else if (arg == "--stt") {
+            sawStt = true;
             mode = "stt";
         } else if (arg.size() > 1 && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
@@ -148,8 +151,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!mode.empty() && mode != "tts" && mode != "stt") {
-        std::cerr << "Error: Unknown mode '" << mode << "'. Supported: tts, stt\n";
+    if (sawTts && sawStt) {
+        std::cerr << "Error: --tts and --stt are mutually exclusive\n";
         return 1;
     }
 

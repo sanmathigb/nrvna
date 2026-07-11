@@ -236,6 +236,10 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
         meta.artifacts = extractStringArray(content, "artifacts");
         meta.status = extractString(content, "status");
 
+        // Submission metadata always has these fields. Treat malformed JSON as
+        // absent instead of fabricating a valid-looking empty JobMeta.
+        if (meta.submitted_at.empty() || meta.mode.empty()) return std::nullopt;
+
         return meta;
     } catch (...) {
         return std::nullopt;

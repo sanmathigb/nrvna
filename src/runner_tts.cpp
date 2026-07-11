@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <memory>
 #include <regex>
 #include <thread>
 
@@ -32,6 +33,22 @@ std::string TtsRunner::v3_audio_text_;
 std::string TtsRunner::v3_audio_data_;
 
 namespace {
+
+struct ContextDeleter {
+    void operator()(llama_context* ctx) const noexcept { if (ctx) llama_free(ctx); }
+};
+using ContextPtr = std::unique_ptr<llama_context, ContextDeleter>;
+
+struct SamplerDeleter {
+    void operator()(llama_sampler* sampler) const noexcept { if (sampler) llama_sampler_free(sampler); }
+};
+using SamplerPtr = std::unique_ptr<llama_sampler, SamplerDeleter>;
+
+struct BatchOwner {
+    llama_batch value;
+    explicit BatchOwner(int nTokens) : value(llama_batch_init(nTokens, 0, 1)) {}
+    ~BatchOwner() { llama_batch_free(value); }
+};
 
 void restrictModelToCpu(llama_model_params& params) {
     ggml_backend_dev_t cpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU);
@@ -573,7 +590,7 @@ TtsResult TtsRunner::run(const std::string& text) {
         LOG_INFO("TTS prompt: " + std::to_string(prompt_tokens.size()) + " tokens");
 
         // Create context for text-to-codes generation
-        int n_predict = env_int("NRVNA_PREDICT", 4096);
+        int n_predict = env_positive_int("NRVNA_PREDICT", 4096);
         int n_ctx_train = llama_model_n_ctx_train(shared_tts_model_.get());
         int max_ctx = std::min(n_ctx_train, env_positive_int("NRVNA_MAX_CTX", 8192));
         int n_prompt = static_cast<int>(prompt_tokens.size());
@@ -593,7 +610,7 @@ TtsResult TtsRunner::run(const std::string& text) {
         ctx_params.offload_kqv = false;
         ctx_params.op_offload = false;
 
-        llama_context* ctx_ttc = llama_init_from_model(shared_tts_model_.get(), ctx_params);
+        ContextPtr ctx_ttc(llama_init_from_model(shared_tts_model_.get(), ctx_params));
         if (!ctx_ttc) {
             return {false, {}, 24000, "Failed to create TTS context"};
         }
@@ -602,31 +619,30 @@ TtsResult TtsRunner::run(const std::string& text) {
         // Optional repetition penalty for narration stability
         auto sparams = llama_sampler_chain_default_params();
         sparams.no_perf = false;
-        llama_sampler* smpl = llama_sampler_chain_init(sparams);
+        SamplerPtr smpl(llama_sampler_chain_init(sparams));
 
         float tts_repeat = env_float("NRVNA_TTS_REPEAT_PENALTY", 0.0f);
         if (tts_repeat > 0.0f) {
             int tts_repeat_n = env_int("NRVNA_TTS_REPEAT_LAST_N", 128);
-            llama_sampler_chain_add(smpl, llama_sampler_init_penalties(tts_repeat_n, tts_repeat, 0.0f, 0.0f));
+            llama_sampler_chain_add(smpl.get(), llama_sampler_init_penalties(tts_repeat_n, tts_repeat, 0.0f, 0.0f));
         }
 
-        llama_sampler_chain_add(smpl, llama_sampler_init_top_k(4));
-        llama_sampler_chain_add(smpl, llama_sampler_init_dist(env_int("NRVNA_SEED", 0)));
+        llama_sampler_chain_add(smpl.get(), llama_sampler_init_top_k(4));
+        llama_sampler_chain_add(smpl.get(), llama_sampler_init_dist(env_int("NRVNA_SEED", 0)));
 
         // Eval prompt
         llama_batch batch = llama_batch_get_one(prompt_tokens.data(), prompt_tokens.size());
-        if (llama_decode(ctx_ttc, batch) != 0) {
-            llama_sampler_free(smpl);
-            llama_free(ctx_ttc);
+        if (llama_decode(ctx_ttc.get(), batch) != 0) {
             return {false, {}, 24000, "Failed to decode TTS prompt"};
         }
 
         // Generate code tokens
         std::vector<llama_token> codes;
+        bool decodeFailed = false;
 
         for (int i = 0; i < n_predict; ++i) {
-            llama_token new_token = llama_sampler_sample(smpl, ctx_ttc, -1);
-            llama_sampler_accept(smpl, new_token);
+            llama_token new_token = llama_sampler_sample(smpl.get(), ctx_ttc.get(), -1);
+            llama_sampler_accept(smpl.get(), new_token);
 
             if (llama_vocab_is_eog(vocab, new_token)) {
                 break;
@@ -635,14 +651,19 @@ TtsResult TtsRunner::run(const std::string& text) {
             codes.push_back(new_token);
 
             batch = llama_batch_get_one(&new_token, 1);
-            if (llama_decode(ctx_ttc, batch) != 0) {
+            if (llama_decode(ctx_ttc.get(), batch) != 0) {
                 LOG_WARN("TTS decode failed at token " + std::to_string(i));
+                decodeFailed = true;
                 break;
             }
         }
 
-        llama_sampler_free(smpl);
-        llama_free(ctx_ttc);
+        smpl.reset();
+        ctx_ttc.reset();
+
+        if (decodeFailed) {
+            return {false, {}, 24000, "Failed to decode generated TTS token"};
+        }
 
         LOG_INFO("TTS generated " + std::to_string(codes.size()) + " code tokens");
 
@@ -691,12 +712,13 @@ TtsResult TtsRunner::run(const std::string& text) {
         voc_params.offload_kqv = false;
         voc_params.op_offload = false;
 
-        llama_context* ctx_voc = llama_init_from_model(shared_vocoder_.get(), voc_params);
+        ContextPtr ctx_voc(llama_init_from_model(shared_vocoder_.get(), voc_params));
         if (!ctx_voc) {
             return {false, {}, 24000, "Failed to create vocoder context"};
         }
 
-        llama_batch voc_batch = llama_batch_init(n_codes, 0, 1);
+        BatchOwner vocBatchOwner(n_codes);
+        llama_batch& voc_batch = vocBatchOwner.value;
         for (int i = 0; i < n_codes; ++i) {
             voc_batch.token[i] = codes[i];
             voc_batch.pos[i] = i;
@@ -706,26 +728,21 @@ TtsResult TtsRunner::run(const std::string& text) {
         }
         voc_batch.n_tokens = n_codes;
 
-        if (llama_encode(ctx_voc, voc_batch) != 0) {
-            llama_batch_free(voc_batch);
-            llama_free(ctx_voc);
+        if (llama_encode(ctx_voc.get(), voc_batch) != 0) {
             return {false, {}, 24000, "Vocoder encode failed"};
         }
 
-        llama_batch_free(voc_batch);
-
         // Get embeddings and convert to audio
         int n_embd = llama_model_n_embd_out(shared_vocoder_.get());
-        const float* embd = llama_get_embeddings(ctx_voc);
+        const float* embd = llama_get_embeddings(ctx_voc.get());
         if (!embd) {
-            llama_free(ctx_voc);
             return {false, {}, 24000, "Failed to get vocoder embeddings"};
         }
 
         int n_threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
         auto audio = embd_to_audio(embd, n_codes, n_embd, n_threads);
 
-        llama_free(ctx_voc);
+        ctx_voc.reset();
 
         // Mute start of audio to suppress onset artifacts (from tts.cpp)
         // NRVNA_TTS_MUTE_MS=0 disables for narration (avoids clipping chunk starts)

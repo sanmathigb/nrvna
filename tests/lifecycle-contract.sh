@@ -37,4 +37,18 @@ esac
 mkdir -p "$tmp/ws3"
 "$bin_dir/nrvnad" stop "$tmp/ws3" || { echo "stop with no daemon should exit 0" >&2; exit 1; }
 
+# Lifecycle verbs reject unknown, incomplete, and misplaced options.
+if "$bin_dir/nrvnad" stop "$tmp/ws3" --timeout >/dev/null 2>&1; then
+    echo "stop accepted a missing timeout value" >&2; exit 1
+fi
+if "$bin_dir/nrvnad" stop "$tmp/ws3" --bogus 5 >/dev/null 2>&1; then
+    echo "stop accepted an unknown option" >&2; exit 1
+fi
+if "$bin_dir/nrvnad" status "$tmp/ws3" --bogus >/dev/null 2>&1; then
+    echo "status accepted an unknown option" >&2; exit 1
+fi
+if "$bin_dir/nrvnad" "$tmp/model.gguf" "$tmp/ws3" --workers 2oops >/dev/null 2>&1; then
+    echo "daemon accepted a partially numeric worker count" >&2; exit 1
+fi
+
 echo "lifecycle-contract: all checks passed"

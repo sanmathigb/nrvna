@@ -83,6 +83,21 @@ inline JobType parseJobType(const std::string& s) {
     return JobType::Text;
 }
 
+// Unlike parseJobType(), this distinguishes an absent type.txt (handled by the
+// caller as text) from a present-but-corrupt spelling.
+inline std::optional<JobType> tryParseJobType(const std::string& s) {
+    auto first = s.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return std::nullopt;
+    auto last = s.find_last_not_of(" \t\r\n");
+    auto type = s.substr(first, last - first + 1);
+    if (type == "text")   return JobType::Text;
+    if (type == "embed")  return JobType::Embed;
+    if (type == "vision") return JobType::Vision;
+    if (type == "tts")    return JobType::Tts;
+    if (type == "stt")    return JobType::Stt;
+    return std::nullopt;
+}
+
 // ── Job ID grammar ──────────────────────────────────────────────────────
 // Digits and single underscores; no leading/trailing/doubled underscore;
 // max 128 chars. (Timestamp_pid_counter, see Work::generateId.)

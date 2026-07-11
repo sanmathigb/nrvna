@@ -35,6 +35,11 @@ int main() {
     }
     CHECK(contract::parseJobType("") == JobType::Text);        // absent type.txt
     CHECK(contract::parseJobType("garbage") == JobType::Text); // unknown = text (today's behavior)
+    CHECK(contract::tryParseJobType("text") == JobType::Text);
+    CHECK(contract::tryParseJobType("embed") == JobType::Embed);
+    CHECK(contract::tryParseJobType("text\r") == JobType::Text);
+    CHECK(contract::tryParseJobType("  embed\n") == JobType::Embed);
+    CHECK(!contract::tryParseJobType("garbage").has_value());
 
     // Job ID grammar (moved from Flow::isValidJobId)
     CHECK(contract::isValidJobId("00001781482179019396_4090_000000"));
