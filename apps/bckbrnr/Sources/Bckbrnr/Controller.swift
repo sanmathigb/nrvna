@@ -62,8 +62,9 @@ final class BckbrnrController: ObservableObject {
                 setStatus("Engine binaries not found (set BCKBRNR_ENGINE_DIR)"); return
             }
             self.engine = engine
-            if engineStatusCode() != 1 {
-                daemon = nil                       // adopt an already-running daemon
+            let code = engineStatusCode()
+            if code == 0 || code == 2 {            // ready or starting: live states only
+                daemon = nil                       // adopt the already-running daemon
             } else if daemon?.isRunning != true {
                 try startDaemon(model: model, engine: engine)
             }
@@ -112,10 +113,10 @@ final class BckbrnrController: ObservableObject {
         let code = engineStatusCode()
         let alive = code == 0 || code == 2
         DispatchQueue.main.async {
-            if self.isRunning != alive {
-                self.isRunning = alive
-                self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
-            }
+            self.isRunning = alive
+            // Always refresh the label: starting → ready flips the text even
+            // when the running boolean hasn't changed.
+            self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
         }
         if alive { recoverCompletedResponses() }
     }
@@ -150,8 +151,10 @@ final class BckbrnrController: ObservableObject {
     func submit(_ text: String) {
         // Never send into a dead workspace: require a live daemon, not just
         // that Start was pressed at some point. (Starting counts — the queue
-        // holds the prompt until the model finishes loading.)
-        let alive = engineStatusCode() != 1
+        // holds the prompt until the model finishes loading.) Only 0 and 2
+        // are live states; any other exit code is not a daemon.
+        let code = engineStatusCode()
+        let alive = code == 0 || code == 2
         guard alive, let engine else { refresh(); return }
         setStatus("Working…")
         queue.async { [weak self] in
