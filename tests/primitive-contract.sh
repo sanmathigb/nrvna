@@ -72,9 +72,12 @@ nd="$("$bin_dir/flw" "$tmp" --tag night --json)"
 [ "$(printf '%s\n' "$nd" | wc -l | tr -d ' ')" = "2" ] || { echo "ndjson wrong line count" >&2; exit 1; }
 case "$nd" in *'"artifact_kind":"result"'*'"result":"alpha'*) ;; *) echo "ndjson missing artifact/result: $nd" >&2; exit 1 ;; esac
 
-# children selection finds the failed child with its error
-kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)"
+# children selection finds the failed child with its error, and the JSON
+# collect exit code reports the set's failure (exit 1)
+kids_rc=0
+kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)" || kids_rc=$?
 case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "children selection broken: $kids" >&2; exit 1 ;; esac
+[ "$kids_rc" -eq 1 ] || { echo "json collect of failed set should exit 1, got $kids_rc" >&2; exit 1; }
 
 # scoped -W on an already-finished set returns immediately; failed child = exit 1
 if "$bin_dir/flw" "$tmp" -W --children "$tag_a"; then

@@ -36,6 +36,9 @@ struct DaemonInfo {
 // Cleans up stale pid/ready/info files when no daemon holds the lock.
 [[nodiscard]] DaemonInfo query(const std::filesystem::path& ws);
 
+// Client side: is any daemon holding the workspace lock right now?
+[[nodiscard]] bool daemonPresent(const std::filesystem::path& ws);
+
 // Client side: SIGTERM the daemon, wait for the lock to release, escalate
 // (second TERM forces nrvnad's fast exit path), verify. 0 = stopped or was
 // not running; 1 = still holding the workspace after timeout.

@@ -7,9 +7,11 @@
 #include "nrvna/flow.hpp"
 #include "nrvna/contract.hpp"
 #include "nrvna/meta.hpp"
+#include "nrvna/work.hpp"
 #include "nrvna/logger.hpp"
 #include <algorithm>
 #include <fstream>
+#include <map>
 #include <iostream>
 #include <sstream>
 #include <thread>
@@ -74,8 +76,11 @@ struct SetMatch {
 
 std::vector<SetMatch> selectSet(const std::filesystem::path& ws,
                                 const std::string& tag, const std::string& parent) {
-    std::vector<SetMatch> matches;
-    for (Status s : {Status::Done, Status::Failed, Status::Running, Status::Queued}) {
+    // Scan upstream states first (queued → running → done → failed): jobs
+    // move downstream between scans, so a mid-scan transition is re-observed
+    // in a later directory instead of slipping through. Later sightings win.
+    std::map<JobId, Status> found;
+    for (Status s : {Status::Queued, Status::Running, Status::Done, Status::Failed}) {
         auto dir = contract::stateDir(ws, s);
         std::error_code ec;
         if (!std::filesystem::exists(dir, ec) || ec) continue;
@@ -90,12 +95,13 @@ std::vector<SetMatch> selectSet(const std::filesystem::path& ws,
                 hit = std::find(meta->tags.begin(), meta->tags.end(), tag) != meta->tags.end();
             if (!parent.empty())
                 hit = hit || meta->parent == parent;
-            if (hit) matches.push_back({id, s});
+            if (hit) found[id] = s;
         }
     }
-    std::sort(matches.begin(), matches.end(),
-              [](const SetMatch& a, const SetMatch& b) { return a.id < b.id; });
-    return matches;
+    std::vector<SetMatch> matches;
+    matches.reserve(found.size());
+    for (const auto& [id, s] : found) matches.push_back({id, s});
+    return matches;  // std::map iterates id-sorted
 }
 
 // One JSON object for one job — the single-job --json shape, reused per
@@ -145,9 +151,14 @@ int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job
                 case contract::ArtifactKind::Audio:
                     out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
                     break;
-                case contract::ArtifactKind::Embedding:
-                    out << ",\"embedding\":" << readFileRaw(artifact->path);
+                case contract::ArtifactKind::Embedding: {
+                    // Compact: embedding.json is pretty-printed on disk, but
+                    // NDJSON requires one object per line.
+                    auto raw = readFileRaw(artifact->path);
+                    raw.erase(std::remove(raw.begin(), raw.end(), '\n'), raw.end());
+                    out << ",\"embedding\":" << raw;
                     break;
+                }
             }
         }
     } else if (job.status == Status::Failed) {
@@ -221,23 +232,34 @@ int main(int argc, char* argv[]) {
         std::cerr << "Invalid job ID: " << jobId << std::endl;
         return 1;
     }
+    if (!selectParent.empty() && !Flow::isValidJobId(selectParent)) {
+        std::cerr << "Invalid parent job ID: " << selectParent << std::endl;
+        return 1;
+    }
+    if (!selectTag.empty() && !Work::isValidTag(selectTag)) {
+        std::cerr << "Invalid tag: " << selectTag << std::endl;
+        return 1;
+    }
 
     try {
         Flow flow(workspace);
         std::filesystem::path wsPath(workspace);
 
-        // Set output: all jobs matching --tag / --children
+        // Set output: all jobs matching --tag / --children. JSON collection
+        // aggregates failure: exit 1 if any job in the set failed or could
+        // not be retrieved, so batch scripts can trust the exit code.
         if ((!selectTag.empty() || !selectParent.empty()) && !waitIdle) {
             auto matches = selectSet(wsPath, selectTag, selectParent);
+            int rc = 0;
             for (const auto& m : matches) {
                 if (json) {
                     auto job = flow.get(m.id);
-                    if (job) (void)printJobJson(flow, wsPath, *job);
+                    if (!job || printJobJson(flow, wsPath, *job) != 0) rc = 1;
                 } else {
                     std::cout << m.id << "\n";
                 }
             }
-            return 0;
+            return json ? rc : 0;
         }
 
         // Scoped wait: block until no queued/running job matches the selection;

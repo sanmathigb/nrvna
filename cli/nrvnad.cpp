@@ -340,7 +340,15 @@ int main(int argc, char * argv[]) {
         std::filesystem::path ws = argv[2];
         int timeout = 20;
         for (int i = 3; i + 1 < argc; ++i) {
-            if (std::string(argv[i]) == "--timeout") timeout = std::atoi(argv[i + 1]);
+            if (std::string(argv[i]) == "--timeout") {
+                char* end = nullptr;
+                long v = std::strtol(argv[i + 1], &end, 10);
+                if (end == argv[i + 1] || *end != '\0' || v <= 0 || v > 3600) {
+                    std::cerr << "Error: --timeout requires seconds in 1-3600\n";
+                    return 1;
+                }
+                timeout = static_cast<int>(v);
+            }
         }
         int rc = lifecycle::stopDaemon(ws, timeout);
         if (rc == 0) std::cout << "stopped\n";
@@ -444,21 +452,42 @@ int main(int argc, char * argv[]) {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    if (drainMode) {
-        auto existing = lifecycle::query(std::filesystem::path(workspace));
-        if (existing.state != lifecycle::DaemonState::NotRunning) {
-            // Drain's postcondition is "queue is quiet" — the running daemon
-            // does the work; we just wait for it and report.
-            std::cerr << "nrvnad: workspace already has a running daemon — it will drain the queue\n";
-            Flow flowBefore((std::filesystem::path(workspace)));
-            auto before = flowBefore.counts();
-            auto after = lifecycle::waitForIdle(workspace);
-            return after.failed > before.failed ? 1 : 0;
+    if (drainMode && lifecycle::daemonPresent(std::filesystem::path(workspace))) {
+        // Drain's postcondition is "queue is quiet" — the running daemon does
+        // the work; we watch. If it dies with work still queued, take over.
+        std::cerr << "nrvnad: workspace already has a running daemon — it will drain the queue\n";
+        Flow watchFlow((std::filesystem::path(workspace)));
+        auto before = watchFlow.counts();
+        bool delegated = true;
+        while (delegated) {
+            auto c = watchFlow.counts();
+            if (c.queued == 0 && c.running == 0) {
+                return c.failed > before.failed ? 1 : 0;
+            }
+            if (!lifecycle::daemonPresent(std::filesystem::path(workspace))) {
+                std::cerr << "nrvnad: daemon exited with work still queued — taking over the drain\n";
+                delegated = false;  // fall through to normal startup + drain
+            } else {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
         }
     }
 
     if (!acquireWorkspaceLock(std::filesystem::path(workspace))) {
         return 1;
+    }
+
+    // We own the workspace now: clear any runtime files a previous unclean
+    // exit left behind (a stale .nrvnad.ready would make `status` report a
+    // loading daemon as Ready), and publish our pid immediately so Starting
+    // shows the real pid.
+    lifecycle::removeRuntimeFiles(std::filesystem::path(workspace));
+    std::filesystem::path pidPath = std::filesystem::path(workspace) / lifecycle::kPidFile;
+    {
+        std::ofstream pf(pidPath);
+        if (pf) {
+            pf << getpid();
+        }
     }
 
     if (auto resolved = resolveModelPath(modelPath)) {
@@ -525,20 +554,17 @@ int main(int argc, char * argv[]) {
     std::cout << "  Loading " << modelName << "\n" << std::flush;
 
     try {
+        // Baseline before workers can touch anything: failures that predate
+        // this run must not count against this run's drain verdict.
+        Flow drainFlow((std::filesystem::path(workspace)));
+        const std::size_t failedBaseline = drainMode ? drainFlow.counts().failed : 0;
+
         auto server = std::make_unique<Server>(modelPath, workspace, workers, mmprojPath, vocoderPath);
 
         if (!server->start()) {
             std::cout << "  \033[31mFailed to start\033[0m\n";
             releaseWorkspaceLock();
             return 1;
-        }
-
-        std::filesystem::path pidPath = std::filesystem::path(workspace) / lifecycle::kPidFile;
-        {
-            std::ofstream pf(pidPath);
-            if (pf) {
-                pf << getpid();
-            }
         }
 
         lifecycle::DaemonInfo dinfo;
@@ -569,11 +595,11 @@ int main(int argc, char * argv[]) {
         std::cout << "  Results: ./flw " << workspace << " <job-id>\n\n";
         std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
-        int drainExit = 0;
+        // Pessimistic: only an observed-idle queue earns drain success. An
+        // interrupted drain (signal, server death) must not report 0.
+        int drainExit = drainMode ? 1 : 0;
         if (drainMode) {
             std::cout << "  Draining queue; will exit when idle.\n\n";
-            Flow drainFlow((std::filesystem::path(workspace)));
-            std::size_t failedBaseline = drainFlow.counts().failed;
             while (!g_shutdown_requested && server->isRunning()) {
                 auto c = drainFlow.counts();
                 if (c.queued == 0 && c.running == 0) {

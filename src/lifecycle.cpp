@@ -19,23 +19,44 @@ namespace nrvnaai::lifecycle {
 
 namespace {
 
+// Try to acquire the workspace lock. Returns the held fd (caller must
+// unlock+close), or -1. daemonHoldsIt distinguishes "a daemon owns it"
+// from "no lock file exists".
+int tryAcquireLock(const std::filesystem::path& ws, bool& daemonHoldsIt) {
+    daemonHoldsIt = false;
+    auto lockPath = ws / kLockFile;
+    int fd = ::open(lockPath.c_str(), O_RDWR | O_CREAT, 0644);
+    if (fd < 0) return -1;                    // workspace unwritable/missing
+    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        daemonHoldsIt = true;                 // someone else holds it
+        (void)::close(fd);
+        return -1;
+    }
+    return fd;                                // we hold it now
+}
+
 // True if a daemon currently holds the workspace lock.
 bool lockIsHeld(const std::filesystem::path& ws) {
-    auto lockPath = ws / kLockFile;
-    int fd = ::open(lockPath.c_str(), O_RDWR, 0644);
-    if (fd < 0) return false;                 // no lock file, no daemon
     bool held = false;
-    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        held = true;                          // someone else holds it
-    } else {
+    int fd = tryAcquireLock(ws, held);
+    if (fd >= 0) {
         (void)::flock(fd, LOCK_UN);
+        (void)::close(fd);
     }
-    (void)::close(fd);
     return held;
 }
 
 int readPidFile(const std::filesystem::path& ws) {
     std::ifstream f(ws / kPidFile);
+    int pid = 0;
+    f >> pid;
+    return pid;
+}
+
+// The lock file's content is written by the current holder while holding
+// the flock — the authoritative pid, immune to a lagging .nrvnad.pid.
+int readLockHolderPid(const std::filesystem::path& ws) {
+    std::ifstream f(ws / kLockFile);
     int pid = 0;
     f >> pid;
     return pid;
@@ -64,16 +85,27 @@ void parseInfo(const std::filesystem::path& ws, DaemonInfo& info) {
 
 } // namespace
 
+bool daemonPresent(const std::filesystem::path& ws) {
+    return lockIsHeld(ws);
+}
+
 DaemonInfo query(const std::filesystem::path& ws) {
     DaemonInfo info;
     std::error_code ec;
     if (!std::filesystem::exists(ws, ec) || ec) return info;
 
-    if (!lockIsHeld(ws)) {
-        // No daemon: clean up anything stale so the workspace tells the truth.
-        std::filesystem::remove(ws / kPidFile, ec);
-        std::filesystem::remove(ws / kReadyFile, ec);
-        std::filesystem::remove(ws / kInfoFile, ec);
+    bool daemonHoldsIt = false;
+    int fd = tryAcquireLock(ws, daemonHoldsIt);
+    if (!daemonHoldsIt) {
+        // No daemon. Clean stale files WHILE holding the lock, so a daemon
+        // starting concurrently can't have its fresh files deleted.
+        if (fd >= 0) {
+            std::filesystem::remove(ws / kPidFile, ec);
+            std::filesystem::remove(ws / kReadyFile, ec);
+            std::filesystem::remove(ws / kInfoFile, ec);
+            (void)::flock(fd, LOCK_UN);
+            (void)::close(fd);
+        }
         return info;
     }
 
@@ -90,6 +122,9 @@ DaemonInfo query(const std::filesystem::path& ws) {
 int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     auto info = query(ws);
     if (info.state == DaemonState::NotRunning) return 0;
+    // The lock file's pid is written by the holder under the flock —
+    // prefer it over the separately-written (and possibly lagging) pidfile.
+    if (int lockPid = readLockHolderPid(ws); lockPid > 0) info.pid = lockPid;
     if (info.pid <= 0) return 1;  // lock held but pid unknown: refuse to guess
 
     (void)::kill(info.pid, SIGTERM);
