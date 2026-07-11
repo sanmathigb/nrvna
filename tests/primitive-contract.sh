@@ -14,6 +14,20 @@ if printf '' | "$bin_dir/flw" "$tmp" -w >/dev/null 2>&1; then
     exit 1
 fi
 
+# A validly-shaped but absent ID is missing, not merely "not ready".
+missing_id="00001781482179019395_4090_999999"
+missing_rc=0
+"$bin_dir/flw" "$tmp" "$missing_id" >/dev/null 2>&1 || missing_rc=$?
+[ "$missing_rc" -eq 1 ] || { echo "missing job should exit 1, got $missing_rc" >&2; exit 1; }
+
+if "$bin_dir/flw" "$tmp" "$done_id" "$missing_id" >/dev/null 2>&1; then
+    echo "flw accepted multiple job IDs" >&2; exit 1
+fi
+
+if "$bin_dir/wrk" "$tmp" "audio" --tts --stt >/dev/null 2>&1; then
+    echo "wrk accepted contradictory TTS and STT modes" >&2; exit 1
+fi
+
 bad_id="00001781482179019397_4090_000001"
 mkdir -p "$tmp/input/ready/$bad_id"
 counts="$("$bin_dir/flw" "$tmp" --json)"

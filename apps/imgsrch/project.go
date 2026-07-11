@@ -90,11 +90,7 @@ func writeItems(project string, items []item) error {
 	for _, it := range items {
 		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\t%s\n", it.Key, it.Path, it.CapJob, it.OcrJob, it.EmbJob)
 	}
-	tmp := itemsFile(project) + ".tmp"
-	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, itemsFile(project))
+	return atomicWriteFile(itemsFile(project), []byte(b.String()), 0o644)
 }
 
 func readIndexKeys(project string) (map[string]bool, error) {
@@ -133,14 +129,19 @@ func lockProject(project string) (func(), error) {
 	}, nil
 }
 
-func appendIndexRow(project, key, path string) error {
-	f, err := os.OpenFile(indexFile(project), os.O_APPEND|os.O_WRONLY, 0o644)
+func appendIndexRows(project string, rows []string) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	data, err := os.ReadFile(indexFile(project))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = fmt.Fprintf(f, "%s\t%s\t%s\n", key, path, ".imgsrch/artifacts/"+key+"/embedding.json")
-	return err
+	var added strings.Builder
+	for _, row := range rows {
+		added.WriteString(row)
+	}
+	return atomicWriteFile(indexFile(project), append(data, []byte(added.String())...), 0o644)
 }
 
 // contentKey is the first 16 hex chars of the file's SHA-256 — identical to
@@ -238,13 +239,24 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := os.CreateTemp(filepath.Dir(dst), ".imgsrch-copy-*")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
+	tmp := out.Name()
+	defer os.Remove(tmp)
+	if err := out.Chmod(0o644); err != nil {
+		out.Close()
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, dst)
 }
 
 func copyFileNoClobber(src, dst string) error {
@@ -257,7 +269,40 @@ func copyFileNoClobber(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
+	ok := false
+	defer func() {
+		out.Close()
+		if !ok {
+			os.Remove(dst)
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return err
+	}
+	if err = out.Close(); err != nil {
+		return err
+	}
+	ok = true
+	return nil
+}
+
+func atomicWriteFile(dst string, data []byte, mode os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".imgsrch-write-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if err := tmp.Chmod(mode); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, dst)
 }

@@ -37,7 +37,11 @@ void writeCompletionMeta(const std::filesystem::path& jobPath,
                          double elapsed_s,
                          const std::vector<std::string>& artifacts,
                          const std::string& status) {
-    auto meta = nrvnaai::readMetaJson(jobPath).value_or(nrvnaai::JobMeta{});
+    auto parsed = nrvnaai::readMetaJson(jobPath);
+    if (!parsed) {
+        LOG_WARN("Missing or invalid job metadata at completion: " + jobPath.string());
+    }
+    auto meta = parsed.value_or(nrvnaai::JobMeta{});
     if (meta.submitted_at.empty()) {
         meta.submitted_at = nrvnaai::formatTimestamp();
     }
@@ -48,7 +52,9 @@ void writeCompletionMeta(const std::filesystem::path& jobPath,
     meta.duration_s = elapsed_s;
     meta.artifacts = artifacts;
     meta.status = status;
-    (void)nrvnaai::writeMetaJson(jobPath, meta);
+    if (!nrvnaai::writeMetaJson(jobPath, meta)) {
+        LOG_ERROR("Failed to write completion metadata: " + jobPath.string());
+    }
 }
 
 static const char* kColorRunning  = "\033[33m"; // yellow
@@ -104,7 +110,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         // Step 2: Read prompt and route metadata
         PromptReadResult promptRead = readPrompt(jobId);
-        JobType jobType = readJobType(jobId);
+        auto jobTypeRead = readJobType(jobId);
         std::vector<std::filesystem::path> imagePaths = readImages(jobId);
         std::vector<std::filesystem::path> audioPaths = readAudio(jobId);
         if (!promptRead.ok) {
@@ -113,6 +119,15 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             (void)finalizeFailure(jobId, promptRead.error);
             return ProcessResult::Failed;
         }
+
+        if (!jobTypeRead) {
+            completeJob(getJobPath(contract::kProcessingDir, jobId), 0.0, {contract::kErrorFile}, contract::toString(Status::Failed));
+            printJobStatus(jobId, contract::toString(Status::Failed), 0.0, "invalid type.txt");
+            (void)finalizeFailure(jobId, "Invalid job type in type.txt");
+            return ProcessResult::Failed;
+        }
+
+        const JobType jobType = *jobTypeRead;
 
         const std::string& prompt = promptRead.content;
         const bool allowEmptyPrompt = prompt.empty() &&
@@ -420,11 +435,16 @@ bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) no
         auto errorPath = processingPath / contract::kErrorFile;
         {
             std::ofstream file(errorPath, std::ios::binary);
-            if (file) {
-                file << error;
-                file.flush();
+            if (!file) {
+                LOG_ERROR("Cannot publish failed job without error artifact: " + jobId);
+                return false;
             }
-            // Continue even if error file write fails
+            file << error;
+            file.flush();
+            if (!file.good()) {
+                LOG_ERROR("Error artifact write failed; job remains in processing: " + jobId);
+                return false;
+            }
         }
         
         // Atomic move to failed directory
@@ -485,7 +505,7 @@ std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) cons
     return audioPaths;
 }
 
-JobType Processor::readJobType(const JobId& jobId) const noexcept {
+std::optional<JobType> Processor::readJobType(const JobId& jobId) const noexcept {
     try {
         auto typePath = getJobPath(contract::kProcessingDir, jobId) / contract::kTypeFile;
 
@@ -497,19 +517,19 @@ JobType Processor::readJobType(const JobId& jobId) const noexcept {
             return JobType::Text;  // No type.txt means text
         }
         if (std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
-            return JobType::Text;
+            return std::nullopt;
         }
 
         std::ifstream file(typePath, std::ios::binary);
         if (!file) {
-            return JobType::Text;
+            return std::nullopt;
         }
 
         std::string type;
         std::getline(file, type);
-        return contract::parseJobType(type);
+        return contract::tryParseJobType(type);
     } catch (...) {
-        return JobType::Text;
+        return std::nullopt;
     }
 }
 

@@ -116,10 +116,12 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
             auto sctp = toSystemTime(timestamp);
             return Job{id, Status::Failed, errorContent, sctp};
 
-        } else {
+        } else if (jobStatus == Status::Queued || jobStatus == Status::Running) {
             auto sctp = std::chrono::system_clock::now();
             return Job{id, jobStatus, "", sctp};
         }
+
+        return std::nullopt;
 
     } catch (const std::exception& e) {
         LOG_ERROR("Error retrieving job " + id + ": " + e.what());

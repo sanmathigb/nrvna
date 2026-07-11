@@ -19,7 +19,7 @@ cmake -S . -B build
 cmake --build build -j4 --target nrvnad wrk flw
 ```
 
-Grab a small model (~1 GB, Apache-2.0) — or use any GGUF you already have:
+Grab a supported llama.cpp-compatible instruct GGUF (~1 GB, Apache-2.0):
 
 ```bash
 mkdir -p models

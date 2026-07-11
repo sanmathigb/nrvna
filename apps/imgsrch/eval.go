@@ -205,7 +205,10 @@ func cmdEval(project, setPath string, topK int, scorers []scorer) error {
 		if err != nil {
 			return fmt.Errorf("query %q: %w", tc.Query, err)
 		}
-		baseHits := denseHits(corpus, qvec)
+		baseHits, err := denseHits(corpus, qvec)
+		if err != nil {
+			return fmt.Errorf("query %q: %w", tc.Query, err)
+		}
 		for _, sc := range scorers {
 			hits := scoreHits(baseHits, tc.Query, sc)
 			if len(hits) > topK {

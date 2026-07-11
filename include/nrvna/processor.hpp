@@ -6,6 +6,7 @@
 #pragma once
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "nrvna/types.hpp"
@@ -67,7 +68,7 @@ private:
     [[nodiscard]] bool finalizeFailure(const JobId& jobId, const std::string& error) noexcept;
     
     [[nodiscard]] PromptReadResult readPrompt(const JobId& jobId) const noexcept;
-    [[nodiscard]] JobType readJobType(const JobId& jobId) const noexcept;
+    [[nodiscard]] std::optional<JobType> readJobType(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readImages(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readAudio(const JobId& jobId) const noexcept;
     [[nodiscard]] std::filesystem::path getJobPath(const char* phase, const JobId& jobId) const noexcept;

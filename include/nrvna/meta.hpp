@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 #pragma once
-#include "nrvna/work.hpp"
 #include "nrvna/types.hpp"
 #include <filesystem>
 #include <optional>

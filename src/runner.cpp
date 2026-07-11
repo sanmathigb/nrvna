@@ -54,6 +54,30 @@ struct LlamaSamplerDeleter {
 };
 using LlamaSamplerPtr = std::unique_ptr<llama_sampler, LlamaSamplerDeleter>;
 
+struct MtmdChunksDeleter {
+    void operator()(mtmd_input_chunks* chunks) const noexcept {
+        if (chunks) mtmd_input_chunks_free(chunks);
+    }
+};
+using MtmdChunksPtr = std::unique_ptr<mtmd_input_chunks, MtmdChunksDeleter>;
+
+struct BitmapList {
+    std::vector<mtmd_bitmap*> values;
+    ~BitmapList() {
+        for (auto* bitmap : values) mtmd_bitmap_free(bitmap);
+    }
+    void clear() {
+        for (auto* bitmap : values) mtmd_bitmap_free(bitmap);
+        values.clear();
+    }
+};
+
+struct LlamaBatchOwner {
+    llama_batch value;
+    explicit LlamaBatchOwner(int nTokens) : value(llama_batch_init(nTokens, 0, 1)) {}
+    ~LlamaBatchOwner() { llama_batch_free(value); }
+};
+
 // Strip <think>...</think> blocks from reasoning models (DeepSeek-R1, QwQ, Qwen3, etc.)
 // Handles both closed (<think>...</think>) and unclosed (<think>... to end) blocks —
 // unclosed blocks occur when the model exhausts n_predict tokens while still reasoning.
@@ -135,6 +159,17 @@ static std::string extractAsrText(const std::string& text) {
         }
     }
     return trimWhitespace(result);
+}
+
+static std::optional<std::string> tokenPiece(const llama_vocab* vocab, llama_token token) {
+    char stack[128];
+    int n = llama_token_to_piece(vocab, token, stack, sizeof(stack), 0, true);
+    if (n >= 0) return std::string(stack, static_cast<size_t>(n));
+
+    std::vector<char> buffer(static_cast<size_t>(-n));
+    n = llama_token_to_piece(vocab, token, buffer.data(), buffer.size(), 0, true);
+    if (n < 0) return std::nullopt;
+    return std::string(buffer.data(), static_cast<size_t>(n));
 }
 
 // Read GGUF metadata helpers
@@ -354,10 +389,10 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
     config.repeat_last_n  = env_int  ("NRVNA_REPEAT_LAST_N",  gguf_repeat_last_n_);
     config.seed = static_cast<uint32_t>(env_int("NRVNA_SEED", 0));
 
-    config.max_ctx = std::min(n_ctx_train, env_int("NRVNA_MAX_CTX", 8192));
-    int n_predict = env_int("NRVNA_PREDICT", 2048);
+    config.max_ctx = std::min(n_ctx_train, env_positive_int("NRVNA_MAX_CTX", 8192));
+    int n_predict = env_positive_int("NRVNA_PREDICT", 2048);
     if (!std::getenv("NRVNA_PREDICT")) {
-        n_predict = env_int("NRVNA_N_PREDICT", 2048);
+        n_predict = env_positive_int("NRVNA_N_PREDICT", 2048);
     }
     config.n_predict = n_predict;
 
@@ -732,19 +767,17 @@ RunResult Runner::runText(const std::string& prompt) {
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
                 LOG_ERROR("Failed to convert token to piece");
-                break;
+                return {false, "", "Failed to convert generated token to text"};
             }
-
-            output.append(buf, n);
+            output += *piece;
 
             llama_batch gen_batch = llama_batch_get_one(&new_token_id, 1);
             if (llama_decode(ctx.get(), gen_batch)) {
                 LOG_ERROR("Failed to decode generated token");
-                break;
+                return {false, "", "Failed to decode generated token"};
             }
             generated += 1;
         }
@@ -780,8 +813,8 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         std::string formatted_prompt = formatMultimodalPrompt(prompt, imagePaths.size(), marker);
 
         auto loadStart = std::chrono::steady_clock::now();
-        std::vector<mtmd_bitmap*> bitmaps = loadImages(imagePaths);
-        if (bitmaps.empty()) {
+        BitmapList bitmaps{loadImages(imagePaths)};
+        if (bitmaps.values.empty()) {
             return {false, "", "Failed to load image(s)"};
         }
         auto loadTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - loadStart).count();
@@ -792,31 +825,26 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         text.add_special = true;  // Add BOS token
         text.parse_special = true;
 
-        mtmd_input_chunks* chunks = mtmd_input_chunks_init();
+        MtmdChunksPtr chunks(mtmd_input_chunks_init());
         if (!chunks) {
-            freeBitmaps(bitmaps);
             return {false, "", "Failed to init image chunks"};
         }
 
         std::vector<const mtmd_bitmap*> bitmap_ptrs;
-        bitmap_ptrs.reserve(bitmaps.size());
-        for (auto* bmp : bitmaps) {
+        bitmap_ptrs.reserve(bitmaps.values.size());
+        for (auto* bmp : bitmaps.values) {
             bitmap_ptrs.push_back(bmp);
         }
 
-        int32_t res = mtmd_tokenize(mtmd_ctx_, chunks, &text, bitmap_ptrs.data(), bitmap_ptrs.size());
+        int32_t res = mtmd_tokenize(mtmd_ctx_, chunks.get(), &text, bitmap_ptrs.data(), bitmap_ptrs.size());
         if (res != 0) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(bitmaps);
             return {false, "", "Failed to tokenize multimodal prompt"};
         }
 
-        size_t n_prompt = mtmd_helper_get_n_tokens(chunks);
+        size_t n_prompt = mtmd_helper_get_n_tokens(chunks.get());
         constexpr int kContextOverhead = 64;
         int max_predict = config.max_ctx - static_cast<int>(n_prompt) - kContextOverhead;
         if (max_predict <= 0) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(bitmaps);
             return {false, "", "Prompt too large for context budget: prompt_tokens=" +
                 std::to_string(n_prompt) + " max_ctx=" + std::to_string(config.max_ctx) +
                 " overhead=" + std::to_string(kContextOverhead) +
@@ -829,8 +857,6 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         buildContextParams(static_cast<int>(n_prompt), config, ctx_params);
         LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(bitmaps);
             return {false, "", "Failed to create context"};
         }
 
@@ -843,15 +869,13 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         auto encodeStart = std::chrono::steady_clock::now();
         {
             std::lock_guard<std::mutex> vision_lock(vision_encoding_mutex_);
-            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
-                mtmd_input_chunks_free(chunks);
-                freeBitmaps(bitmaps);
+            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks.get(), 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
                 return {false, "", "Failed to eval multimodal prompt"};
             }
         }
 
-        mtmd_input_chunks_free(chunks);
-        freeBitmaps(bitmaps);
+        chunks.reset();
+        bitmaps.clear();
 
         auto encodeTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - encodeStart).count();
         LOG_INFO("Vision encoding: " + std::to_string(encodeTime) + "s for " + std::to_string(n_past) + " tokens");
@@ -860,7 +884,9 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
         std::string output;
         llama_token new_token_id;
-        llama_batch batch = llama_batch_init(1, 0, 1);
+        LlamaBatchOwner batchOwner(1);
+        llama_batch& batch = batchOwner.value;
+        std::string generationError;
 
         for (int i = 0; i < config.n_predict; ++i) {
             new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
@@ -870,12 +896,12 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
+                generationError = "Failed to convert generated vision token to text";
                 break;
             }
-            output.append(buf, n);
+            output += *piece;
 
             // Decode next token with explicit position (like reference)
             batch.n_tokens = 1;
@@ -886,11 +912,14 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
             batch.logits[0] = true;
 
             if (llama_decode(ctx.get(), batch)) {
+                generationError = "Failed to decode generated vision token";
                 break;
             }
         }
 
-        llama_batch_free(batch);
+        if (!generationError.empty()) {
+            return {false, "", generationError};
+        }
 
         LOG_INFO("Generated " + std::to_string(output.size()) + " bytes before strip");
         output = stripThinkBlocks(output);
@@ -929,8 +958,8 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         const std::string task = prompt.empty() ? "Transcribe the audio." : prompt;
         std::string formatted_prompt = formatMultimodalPrompt(task, audioPaths.size(), marker);
 
-        std::vector<mtmd_bitmap*> audioBitmaps = loadAudio(audioPaths);
-        if (audioBitmaps.empty()) {
+        BitmapList audioBitmaps{loadAudio(audioPaths)};
+        if (audioBitmaps.values.empty()) {
             return {false, "", "Failed to load audio file(s)"};
         }
 
@@ -939,31 +968,26 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         text.add_special = true;
         text.parse_special = true;
 
-        mtmd_input_chunks* chunks = mtmd_input_chunks_init();
+        MtmdChunksPtr chunks(mtmd_input_chunks_init());
         if (!chunks) {
-            freeBitmaps(audioBitmaps);
             return {false, "", "Failed to init audio chunks"};
         }
 
         std::vector<const mtmd_bitmap*> bitmap_ptrs;
-        bitmap_ptrs.reserve(audioBitmaps.size());
-        for (auto* bmp : audioBitmaps) {
+        bitmap_ptrs.reserve(audioBitmaps.values.size());
+        for (auto* bmp : audioBitmaps.values) {
             bitmap_ptrs.push_back(bmp);
         }
 
-        int32_t res = mtmd_tokenize(mtmd_ctx_, chunks, &text, bitmap_ptrs.data(), bitmap_ptrs.size());
+        int32_t res = mtmd_tokenize(mtmd_ctx_, chunks.get(), &text, bitmap_ptrs.data(), bitmap_ptrs.size());
         if (res != 0) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(audioBitmaps);
             return {false, "", "Failed to tokenize audio prompt"};
         }
 
-        size_t n_prompt = mtmd_helper_get_n_tokens(chunks);
+        size_t n_prompt = mtmd_helper_get_n_tokens(chunks.get());
         constexpr int kContextOverhead = 64;
         int max_predict = config.max_ctx - static_cast<int>(n_prompt) - kContextOverhead;
         if (max_predict <= 0) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(audioBitmaps);
             return {false, "", "Prompt too large for context budget: prompt_tokens=" +
                 std::to_string(n_prompt) + " max_ctx=" + std::to_string(config.max_ctx) +
                 " overhead=" + std::to_string(kContextOverhead) +
@@ -977,8 +1001,6 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         buildContextParams(static_cast<int>(n_prompt), config, ctx_params);
         LlamaContextPtr ctx(llama_init_from_model(shared_model_.get(), ctx_params));
         if (!ctx) {
-            mtmd_input_chunks_free(chunks);
-            freeBitmaps(audioBitmaps);
             return {false, "", "Failed to create STT context"};
         }
 
@@ -986,19 +1008,19 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         llama_pos n_past = 0;
         {
             std::lock_guard<std::mutex> media_lock(vision_encoding_mutex_);
-            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks, 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
-                mtmd_input_chunks_free(chunks);
-                freeBitmaps(audioBitmaps);
+            if (mtmd_helper_eval_chunks(mtmd_ctx_, ctx.get(), chunks.get(), 0, 0, ctx_params.n_batch, true, &n_past) != 0) {
                 return {false, "", "Failed to eval audio prompt"};
             }
         }
 
-        mtmd_input_chunks_free(chunks);
-        freeBitmaps(audioBitmaps);
+        chunks.reset();
+        audioBitmaps.clear();
 
         const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
         std::string output;
-        llama_batch batch = llama_batch_init(1, 0, 1);
+        LlamaBatchOwner batchOwner(1);
+        llama_batch& batch = batchOwner.value;
+        std::string generationError;
 
         for (int i = 0; i < config.n_predict; ++i) {
             llama_token new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
@@ -1008,12 +1030,12 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
                 break;
             }
 
-            char buf[128];
-            int n = llama_token_to_piece(vocab, new_token_id, buf, sizeof(buf), 0, true);
-            if (n < 0) {
+            auto piece = tokenPiece(vocab, new_token_id);
+            if (!piece) {
+                generationError = "Failed to convert generated STT token to text";
                 break;
             }
-            output.append(buf, n);
+            output += *piece;
 
             batch.n_tokens = 1;
             batch.token[0] = new_token_id;
@@ -1023,11 +1045,14 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
             batch.logits[0] = true;
 
             if (llama_decode(ctx.get(), batch)) {
+                generationError = "Failed to decode generated STT token";
                 break;
             }
         }
 
-        llama_batch_free(batch);
+        if (!generationError.empty()) {
+            return {false, "", generationError};
+        }
 
         output = extractAsrText(output);
         LOG_INFO("STT generated " + std::to_string(output.size()) + " chars");

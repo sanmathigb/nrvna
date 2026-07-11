@@ -100,6 +100,17 @@ bool containsToken(const std::string & haystack, const std::string & needle) {
     return haystack.find(needle) != std::string::npos;
 }
 
+bool parseIntStrict(const char* raw, int minValue, int maxValue, int& out) {
+    if (!raw) return false;
+    errno = 0;
+    char* end = nullptr;
+    long value = std::strtol(raw, &end, 10);
+    if (end == raw || *end != '\0' || errno == ERANGE ||
+        value < minValue || value > maxValue) return false;
+    out = static_cast<int>(value);
+    return true;
+}
+
 int daemonGpuLayers() {
     const char* value = std::getenv("NRVNA_GPU_LAYERS");
     if (!value) return 0;
@@ -298,7 +309,8 @@ void printHelp() {
     std::cout << "  -v, --version          Show version\n\n";
     std::cout << "Lifecycle:\n";
     std::cout << "  nrvnad status <workspace> [--json]   Is the daemon running/ready? (exit 0 ready, 2 starting, 1 not running)\n";
-    std::cout << "  nrvnad stop <workspace>              Stop the workspace daemon gracefully\n\n";
+    std::cout << "  nrvnad stop <workspace> [--timeout <1-3600>]\n";
+    std::cout << "                                           Stop gracefully (default timeout 20s)\n\n";
     std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
     std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
     std::cout << "you rarely need to pass them explicitly.\n\n";
@@ -316,6 +328,10 @@ int main(int argc, char * argv[]) {
     g_models_dir = resolveModelsDir(argv[0]);
 
     if (argc >= 3 && std::string(argv[1]) == "status") {
+        if (argc > 4 || (argc == 4 && std::string(argv[3]) != "--json")) {
+            std::cerr << "Usage: nrvnad status <workspace> [--json]\n";
+            return 1;
+        }
         std::filesystem::path ws = argv[2];
         bool json = (argc >= 4 && std::string(argv[3]) == "--json");
         auto info = lifecycle::query(ws);
@@ -345,16 +361,13 @@ int main(int argc, char * argv[]) {
     if (argc >= 3 && std::string(argv[1]) == "stop") {
         std::filesystem::path ws = argv[2];
         int timeout = 20;
-        for (int i = 3; i + 1 < argc; ++i) {
-            if (std::string(argv[i]) == "--timeout") {
-                char* end = nullptr;
-                long v = std::strtol(argv[i + 1], &end, 10);
-                if (end == argv[i + 1] || *end != '\0' || v <= 0 || v > 3600) {
-                    std::cerr << "Error: --timeout requires seconds in 1-3600\n";
-                    return 1;
-                }
-                timeout = static_cast<int>(v);
+        for (int i = 3; i < argc; ++i) {
+            if (std::string(argv[i]) != "--timeout" || i + 1 >= argc ||
+                !parseIntStrict(argv[i + 1], 1, 3600, timeout)) {
+                std::cerr << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n";
+                return 1;
             }
+            ++i;
         }
         int rc = lifecycle::stopDaemon(ws, timeout);
         if (rc == 0) std::cout << "stopped\n";
@@ -381,14 +394,8 @@ int main(int argc, char * argv[]) {
     bool drainMode = false;
     int workers = 4;
     if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
-        try {
-            workers = std::stoi(envWorkers);
-        } catch (...) {
+        if (!parseIntStrict(envWorkers, 1, 64, workers)) {
             std::cerr << "Error: Invalid NRVNA_WORKERS value\n";
-            return 1;
-        }
-        if (workers < 1 || workers > 64) {
-            std::cerr << "Error: NRVNA_WORKERS must be between 1 and 64\n";
             return 1;
         }
     }
@@ -401,14 +408,8 @@ int main(int argc, char * argv[]) {
                 std::cerr << "Error: --workers requires a value\n";
                 return 1;
             }
-            try {
-                workers = std::stoi(argv[++i]);
-            } catch (...) {
+            if (!parseIntStrict(argv[++i], 1, 64, workers)) {
                 std::cerr << "Error: Invalid worker count\n";
-                return 1;
-            }
-            if (workers < 1 || workers > 64) {
-                std::cerr << "Error: worker count must be between 1 and 64\n";
                 return 1;
             }
         } else if (arg == "--mmproj") {

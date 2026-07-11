@@ -52,11 +52,12 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_CURL=OFF \
             -DLLAMA_OPENSSL=OFF
-          cmake --build build -j4 --target nrvnad wrk flw contract_test
+          cmake --build build -j4 --target nrvnad wrk flw contract_test meta_test
 
       - name: Test contracts
         run: |
           ./build/contract_test
+          ./build/meta_test
           bash tests/primitive-contract.sh build
           bash tests/lifecycle-contract.sh build
           bash tests/contract-literals.sh
@@ -76,6 +77,16 @@ jobs:
         run: |
           mkdir -p ../../dist/stage
           go build -trimpath -ldflags="-s -w" -o ../../dist/stage/imgsrch .
+
+      - name: Build and inspect bckbrnr bundle
+        if: runner.os == 'macOS'
+        working-directory: apps/bckbrnr
+        run: |
+          make app ENGINE_DIR=../../build
+          if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
+            echo 'bckbrnr contains dynamically linked engine libraries' >&2
+            exit 1
+          fi
 
       - name: Package
         run: |
