@@ -1,0 +1,11 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/reference/configuration
+reviews:
+  # File the review as a real GitHub review: "Changes requested" while its
+  # comments are open, flipping to an explicit Approve once they're resolved.
+  # The PR's review state then answers "did we address everything" by itself.
+  request_changes_workflow: true
+  # Skip the "Review in progress / skipped" status comments — the check run
+  # already carries that signal.
+  review_status: false
+  auto_review:
+    enabled: true
