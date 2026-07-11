@@ -9,21 +9,15 @@ uses `nrvnad`, `wrk`, and `flw`.
 
 ## Build
 
-From the repository root, build the primitive binaries first:
-
-```bash
-cmake -S . -B build
-cmake --build build -j4 --target nrvnad wrk flw
-```
-
-Then build and launch the app:
+Build and launch the app:
 
 ```bash
 cd apps/bckbrnr
 make run          # builds the .app and opens it (use `make app` to build only)
 ```
 
-The build bundles the primitives inside the app:
+The build creates statically linked primitive binaries and bundles them inside
+the app, so it does not depend on llama.cpp dylibs from the repository build:
 
 ```text
 .build/bckbrnr.app/

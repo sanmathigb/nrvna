@@ -1,6 +1,10 @@
 import AppKit
 import Foundation
 
+private final class ProcessOutputBox {
+    var data = Data()
+}
+
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
     @Published var statusText = restingHint
@@ -215,12 +219,29 @@ final class BckbrnrController: ObservableObject {
                   let prompt = try? String(contentsOf: job.appendingPathComponent("prompt.txt")),
                   let content = try? String(contentsOf: job.appendingPathComponent(source))
             else { continue }
-            let base = Naming.deriveStem(from: prompt)
+            let base = recoveryStem(for: prompt, ext: ext)
             let target = responseDir.appendingPathComponent("\(base)\(ext)")
             guard !FileManager.default.fileExists(atPath: target.path) else { continue }
             try? content.write(to: target, atomically: true, encoding: .utf8)
             notify(title: title, body: base, path: target.path)
         }
+    }
+
+    /// Submission already chose a collision-safe prompt filename. Recover that
+    /// same identity instead of deriving the unsuffixed first-line stem again.
+    private func recoveryStem(for prompt: String, ext: String) -> String {
+        let fallback = Naming.deriveStem(from: prompt)
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: promptDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ) else { return fallback }
+        for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+        where file.pathExtension == "txt" {
+            guard let saved = try? String(contentsOf: file), saved == prompt else { continue }
+            let stem = file.deletingPathExtension().lastPathComponent
+            let target = responseDir.appendingPathComponent("\(stem)\(ext)")
+            if !FileManager.default.fileExists(atPath: target.path) { return stem }
+        }
+        return fallback
     }
 
     // MARK: model
@@ -353,13 +374,30 @@ final class BckbrnrController: ObservableObject {
         process.standardError = stderr
         if input != nil { process.standardInput = stdin }
         try process.run()
+
+        // Drain both pipes while the child runs. Waiting first can deadlock if
+        // either pipe fills and the child blocks before it can exit.
+        let stdoutBox = ProcessOutputBox()
+        let stderrBox = ProcessOutputBox()
+        let readers = DispatchGroup()
+        readers.enter()
+        DispatchQueue.global(qos: .utility).async {
+            stdoutBox.data = stdout.fileHandleForReading.readDataToEndOfFile()
+            readers.leave()
+        }
+        readers.enter()
+        DispatchQueue.global(qos: .utility).async {
+            stderrBox.data = stderr.fileHandleForReading.readDataToEndOfFile()
+            readers.leave()
+        }
         if let input {
             stdin.fileHandleForWriting.write(input.data(using: .utf8) ?? Data())
             try? stdin.fileHandleForWriting.close()
         }
         process.waitUntilExit()
-        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        let errOut = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        readers.wait()
+        let output = String(data: stdoutBox.data, encoding: .utf8) ?? ""
+        let errOut = String(data: stderrBox.data, encoding: .utf8) ?? ""
         guard process.terminationStatus == 0 else {
             throw NSError(domain: "bckbrnr", code: Int(process.terminationStatus),
                           userInfo: [NSLocalizedDescriptionKey: errOut.isEmpty ? output : errOut])
