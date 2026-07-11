@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/flow.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/scanner.hpp"
 #include "nrvna/logger.hpp"
 #include <fstream>
@@ -30,10 +31,10 @@ std::optional<Job> Flow::latest() const noexcept {
     try {
         std::optional<Job> newest;
         const std::pair<std::filesystem::path, Status> dirs[] = {
-            {workspace_ / "output", Status::Done},
-            {workspace_ / "failed", Status::Failed},
-            {workspace_ / "processing", Status::Running},
-            {workspace_ / "input" / "ready", Status::Queued},
+            {contract::stateDir(workspace_, Status::Done), Status::Done},
+            {contract::stateDir(workspace_, Status::Failed), Status::Failed},
+            {contract::stateDir(workspace_, Status::Running), Status::Running},
+            {contract::stateDir(workspace_, Status::Queued), Status::Queued},
         };
 
         for (const auto& [dir, status] : dirs) {
@@ -53,24 +54,7 @@ std::optional<Job> Flow::latest() const noexcept {
 }
 
 bool Flow::isValidJobId(const JobId& id) noexcept {
-    if (id.empty() || id.size() > 128) return false;
-    if (id.front() == '_' || id.back() == '_') return false;
-
-    bool prev_underscore = false;
-    for (char c : id) {
-        if (!std::isdigit(static_cast<unsigned char>(c)) && c != '_') {
-            return false;
-        }
-        if (c == '_') {
-            if (prev_underscore) {
-                return false;
-            }
-            prev_underscore = true;
-        } else {
-            prev_underscore = false;
-        }
-    }
-    return true;
+    return contract::isValidJobId(id);
 }
 
 std::optional<Job> Flow::get(const JobId& id) const noexcept {
@@ -79,30 +63,35 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
         Status jobStatus = status(id);
 
         if (jobStatus == Status::Done) {
-            auto outputDir = workspace_ / "output" / id;
-            auto resultFile = outputDir / "result.txt";
-            auto transcriptFile = outputDir / "transcript.txt";
-            auto audioFile = outputDir / "audio.wav";
-
-            std::string content;
-            if (std::filesystem::exists(resultFile)) {
-                content = readResultContent(id);
-            } else if (std::filesystem::exists(transcriptFile)) {
-                std::ifstream file(transcriptFile, std::ios::binary);
-                content.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-            } else if (std::filesystem::exists(audioFile)) {
-                // Audio output — return absolute path as content
-                content = std::filesystem::absolute(audioFile).string();
-            } else if (auto embeddingFile = outputDir / "embedding.json";
-                       std::filesystem::exists(embeddingFile)) {
-                std::ifstream file(embeddingFile);
-                std::string line;
-                while (std::getline(file, line)) {
-                    content += line + "\n";
-                }
-            } else {
+            auto outputDir = contract::jobDir(workspace_, Status::Done, id);
+            auto artifact = contract::findOutputArtifact(outputDir);
+            if (!artifact) {
                 LOG_DEBUG("No result file found for job: " + id);
                 return std::nullopt;
+            }
+
+            std::string content;
+            switch (artifact->kind) {
+                case contract::ArtifactKind::Result:
+                    content = readResultContent(id);
+                    break;
+                case contract::ArtifactKind::Transcript: {
+                    std::ifstream file(artifact->path, std::ios::binary);
+                    content.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                    break;
+                }
+                case contract::ArtifactKind::Audio:
+                    // Audio output — return absolute path as content
+                    content = std::filesystem::absolute(artifact->path).string();
+                    break;
+                case contract::ArtifactKind::Embedding: {
+                    std::ifstream file(artifact->path);
+                    std::string line;
+                    while (std::getline(file, line)) {
+                        content += line + "\n";
+                    }
+                    break;
+                }
             }
 
             auto timestamp = std::filesystem::last_write_time(outputDir);
@@ -111,8 +100,8 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
             return Job{id, Status::Done, content, sctp};
 
         } else if (jobStatus == Status::Failed) {
-            auto failedDir = workspace_ / "failed" / id;
-            auto errorFile = failedDir / "error.txt";
+            auto failedDir = contract::jobDir(workspace_, Status::Failed, id);
+            auto errorFile = failedDir / contract::kErrorFile;
 
             std::string errorContent = "";
             if (std::filesystem::exists(errorFile)) {
@@ -142,10 +131,10 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
     std::vector<Job> jobs;
     try {
         const std::pair<std::filesystem::path, Status> dirs[] = {
-            {workspace_ / "output",          Status::Done},
-            {workspace_ / "failed",          Status::Failed},
-            {workspace_ / "processing",      Status::Running},
-            {workspace_ / "input" / "ready", Status::Queued},
+            {contract::stateDir(workspace_, Status::Done),    Status::Done},
+            {contract::stateDir(workspace_, Status::Failed),  Status::Failed},
+            {contract::stateDir(workspace_, Status::Running), Status::Running},
+            {contract::stateDir(workspace_, Status::Queued),  Status::Queued},
         };
 
         for (const auto& [dir, status] : dirs) {
@@ -179,16 +168,16 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
 Status Flow::status(const JobId& id) const noexcept {
     try {
         if (!isValidJobId(id)) return Status::Missing;
-        if (std::filesystem::exists(workspace_ / "processing" / id)) {
+        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Running, id))) {
             return Status::Running;
         }
-        if (std::filesystem::exists(workspace_ / "output" / id)) {
+        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Done, id))) {
             return Status::Done;
         }
-        if (std::filesystem::exists(workspace_ / "failed" / id)) {
+        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Failed, id))) {
             return Status::Failed;
         }
-        if (std::filesystem::exists(workspace_ / "input" / "ready" / id)) {
+        if (std::filesystem::exists(contract::jobDir(workspace_, Status::Queued, id))) {
             return Status::Queued;
         }
 
@@ -206,7 +195,7 @@ bool Flow::exists(const JobId& id) const noexcept {
 std::optional<std::string> Flow::error(const JobId& id) const {
     try {
         if (!isValidJobId(id)) return std::nullopt;
-        auto errorFile = workspace_ / "failed" / id / "error.txt";
+        auto errorFile = contract::jobDir(workspace_, Status::Failed, id) / contract::kErrorFile;
         if (!std::filesystem::exists(errorFile)) {
             return std::nullopt;
         }
@@ -228,15 +217,15 @@ std::optional<std::string> Flow::prompt(const JobId& id) const {
     try {
         if (!isValidJobId(id)) return std::nullopt;
         std::vector<std::filesystem::path> searchDirs = {
-            workspace_ / "output" / id,
-            workspace_ / "failed" / id,
-            workspace_ / "processing" / id,
-            workspace_ / "input" / "ready" / id,
-            workspace_ / "input" / "writing" / id
+            contract::jobDir(workspace_, Status::Done, id),
+            contract::jobDir(workspace_, Status::Failed, id),
+            contract::jobDir(workspace_, Status::Running, id),
+            contract::jobDir(workspace_, Status::Queued, id),
+            workspace_ / contract::kWritingDir / id
         };
 
         for (const auto& dir : searchDirs) {
-            auto promptFile = dir / "prompt.txt";
+            auto promptFile = dir / contract::kPromptFile;
             if (std::filesystem::exists(promptFile)) {
                 std::ifstream file(promptFile);
                 std::string content, line;
@@ -259,11 +248,11 @@ std::optional<JobMeta> Flow::meta(const JobId& id) const noexcept {
     try {
         if (!isValidJobId(id)) return std::nullopt;
         std::vector<std::filesystem::path> searchDirs = {
-            workspace_ / "output" / id,
-            workspace_ / "failed" / id,
-            workspace_ / "processing" / id,
-            workspace_ / "input" / "ready" / id,
-            workspace_ / "input" / "writing" / id
+            contract::jobDir(workspace_, Status::Done, id),
+            contract::jobDir(workspace_, Status::Failed, id),
+            contract::jobDir(workspace_, Status::Running, id),
+            contract::jobDir(workspace_, Status::Queued, id),
+            workspace_ / contract::kWritingDir / id
         };
 
         for (const auto& dir : searchDirs) {
@@ -297,9 +286,9 @@ static std::size_t countSubdirs(const std::filesystem::path& dir) noexcept {
 WorkspaceCounts Flow::counts() const noexcept {
     WorkspaceCounts c;
     c.queued  = Scanner(workspace_).readyJobCount();
-    c.running = countSubdirs(workspace_ / "processing");
-    c.done    = countSubdirs(workspace_ / "output");
-    c.failed  = countSubdirs(workspace_ / "failed");
+    c.running = countSubdirs(contract::stateDir(workspace_, Status::Running));
+    c.done    = countSubdirs(contract::stateDir(workspace_, Status::Done));
+    c.failed  = countSubdirs(contract::stateDir(workspace_, Status::Failed));
     return c;
 }
 
@@ -323,7 +312,7 @@ std::optional<Job> Flow::latestInDir(const std::filesystem::path& dir) const noe
 }
 
 std::string Flow::readResultContent(const JobId& id) const {
-    auto resultFile = workspace_ / "output" / id / "result.txt";
+    auto resultFile = contract::jobDir(workspace_, Status::Done, id) / contract::kResultFile;
     std::ifstream file(resultFile);
     std::string content, line;
     while (std::getline(file, line)) {

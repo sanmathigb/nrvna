@@ -73,6 +73,10 @@ foreach(_cli nrvnad wrk flw)
     target_compile_definitions(${_cli} PRIVATE NRVNA_VERSION="${PROJECT_VERSION}")
 endforeach()
 
+# Contract unit test — header-only include, deliberately no llama linkage
+add_executable(contract_test tests/contract_test.cpp)
+target_include_directories(contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 # Install targets
 install(TARGETS nrvnad wrk flw
     RUNTIME DESTINATION bin

@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/flow.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/meta.hpp"
 #include "nrvna/logger.hpp"
 #include <fstream>
@@ -56,14 +57,7 @@ const char* statusToString(Status status) {
 }
 
 const char* statusToJsonString(Status status) {
-    switch (status) {
-        case Status::Queued: return "queued";
-        case Status::Running: return "running";
-        case Status::Done: return "done";
-        case Status::Failed: return "failed";
-        case Status::Missing: return "missing";
-        default: return "unknown";
-    }
+    return contract::toString(status);
 }
 
 int main(int argc, char* argv[]) {
@@ -216,7 +210,7 @@ int main(int argc, char* argv[]) {
 
             if (json) {
                 auto meta = flow.meta(jobId);
-                auto outputDir = std::filesystem::path(workspace) / "output" / jobId;
+                auto outputDir = contract::jobDir(std::filesystem::path(workspace), Status::Done, jobId);
                 std::ostringstream out;
                 out << "{";
                 out << "\"id\":\"" << escapeJson(jobId) << "\"";
@@ -246,18 +240,23 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (job->status == Status::Done) {
-                    auto resultPath = outputDir / "result.txt";
-                    auto transcriptPath = outputDir / "transcript.txt";
-                    auto audioPath = outputDir / "audio.wav";
-                    auto embeddingPath = outputDir / "embedding.json";
-                    if (std::filesystem::exists(resultPath)) {
-                        out << ",\"result\":\"" << escapeJson(job->content) << "\"";
-                    } else if (std::filesystem::exists(transcriptPath)) {
-                        out << ",\"transcript\":\"" << escapeJson(job->content) << "\"";
-                    } else if (std::filesystem::exists(audioPath)) {
-                        out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(audioPath).string()) << "\"";
-                    } else if (std::filesystem::exists(embeddingPath)) {
-                        out << ",\"embedding\":" << readFileRaw(embeddingPath);
+                    if (auto artifact = contract::findOutputArtifact(outputDir)) {
+                        out << ",\"artifact_kind\":\"" << contract::toString(artifact->kind) << "\"";
+                        out << ",\"artifact_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
+                        switch (artifact->kind) {
+                            case contract::ArtifactKind::Result:
+                                out << ",\"result\":\"" << escapeJson(job->content) << "\"";
+                                break;
+                            case contract::ArtifactKind::Transcript:
+                                out << ",\"transcript\":\"" << escapeJson(job->content) << "\"";
+                                break;
+                            case contract::ArtifactKind::Audio:
+                                out << ",\"audio_path\":\"" << escapeJson(std::filesystem::absolute(artifact->path).string()) << "\"";
+                                break;
+                            case contract::ArtifactKind::Embedding:
+                                out << ",\"embedding\":" << readFileRaw(artifact->path);
+                                break;
+                        }
                     }
                 } else if (job->status == Status::Failed) {
                     out << ",\"error\":\"" << escapeJson(job->content) << "\"";
@@ -268,10 +267,11 @@ int main(int argc, char* argv[]) {
             }
 
             if (job->status == Status::Done) {
-                // Check for audio output — print path instead of binary content
-                auto audioPath = std::filesystem::path(workspace) / "output" / jobId / "audio.wav";
-                if (std::filesystem::exists(audioPath)) {
-                    std::cout << std::filesystem::absolute(audioPath).string() << std::endl;
+                // Audio output — print path instead of binary content
+                auto artifact = contract::findOutputArtifact(
+                    contract::jobDir(std::filesystem::path(workspace), Status::Done, jobId));
+                if (artifact && artifact->kind == contract::ArtifactKind::Audio) {
+                    std::cout << std::filesystem::absolute(artifact->path).string() << std::endl;
                     return 0;
                 }
                 std::cout << job->content;
