@@ -14,6 +14,10 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <libproc.h>
+#include <sys/param.h>
+#endif
 
 namespace nrvnaai::lifecycle {
 
@@ -60,6 +64,21 @@ int readLockHolderPid(const std::filesystem::path& ws) {
     int pid = 0;
     f >> pid;
     return pid;
+}
+
+// Safety interlock before signaling: is this pid actually an nrvnad?
+// Used only pre-kill — liveness detection stays with the flock.
+bool pidLooksLikeNrvnad(int pid) {
+#ifdef __APPLE__
+    char name[2 * MAXCOMLEN] = {0};
+    if (proc_name(pid, name, sizeof(name)) <= 0) return false;
+    return std::string(name).find("nrvnad") != std::string::npos;
+#else
+    std::ifstream f("/proc/" + std::to_string(pid) + "/comm");
+    std::string comm;
+    std::getline(f, comm);
+    return comm.find("nrvnad") != std::string::npos;
+#endif
 }
 
 // Minimal extraction from .nrvnad.info; tolerant of missing fields.
@@ -126,6 +145,9 @@ int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     // prefer it over the separately-written (and possibly lagging) pidfile.
     if (int lockPid = readLockHolderPid(ws); lockPid > 0) info.pid = lockPid;
     if (info.pid <= 0) return 1;  // lock held but pid unknown: refuse to guess
+    // Never signal a process we can't identify: if the pid doesn't look like
+    // an nrvnad, someone else holds the lock (or the file is garbage) — refuse.
+    if (!pidLooksLikeNrvnad(info.pid)) return 1;
 
     (void)::kill(info.pid, SIGTERM);
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutSeconds);

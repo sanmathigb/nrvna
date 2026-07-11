@@ -62,7 +62,13 @@ bool acquireWorkspaceLock(const std::filesystem::path& workspace) {
         std::cerr << "Error: cannot open workspace lock: " << lockPath << "\n";
         return false;
     }
-    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+    // Retry briefly: a `nrvnad status` probe holds this lock for microseconds
+    // while checking liveness; don't let that blip abort a daemon start.
+    int lockAttempts = 0;
+    while (::flock(fd, LOCK_EX | LOCK_NB) != 0 && ++lockAttempts < 10) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    if (lockAttempts >= 10) {
         std::cerr << "Error: workspace already has a running nrvnad: " << workspace << "\n";
         ::close(fd);
         return false;
@@ -287,7 +293,7 @@ void printHelp() {
     std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
     std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
-    std::cout << "      --drain            Process everything queued, then exit (no daemon left behind)\n";
+    std::cout << "      --drain            Process everything queued, then exit; starts no lasting daemon\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
     std::cout << "Lifecycle:\n";

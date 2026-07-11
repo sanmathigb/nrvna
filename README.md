@@ -91,7 +91,9 @@ flw ./ws --tag batch1 --json            # NDJSON: one job per line, results inli
 ```
 
 `--drain` exits 0 when the queue is quiet (1 if any job failed this run) and
-leaves nothing running. For long-lived daemons instead:
+leaves nothing running that it started. If a daemon already owns the
+workspace, drain waits for it to finish the queue instead — same
+postcondition, and your daemon stays up. For long-lived daemons:
 
 ```bash
 nrvnad status ./ws      # exit 0 ready, 2 starting, 1 not running (--json for details)
@@ -183,7 +185,7 @@ whole framework.
 - [QUICKSTART.md](QUICKSTART.md) — the guided path for builders
 - [ADVANCED.md](ADVANCED.md) — batch, fan-out, chaining, multi-model patterns
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together
-- [docs/how-it-works.md](docs/how-it-works.md) — the philosophy
+- [CONTEXT.md](CONTEXT.md) — the domain language and contracts
 
 ## Platform
 
