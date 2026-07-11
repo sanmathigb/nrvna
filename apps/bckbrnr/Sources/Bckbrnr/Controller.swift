@@ -35,9 +35,11 @@ final class BckbrnrController: ObservableObject {
         self.rootDisplay = Self.collapseTilde(desk.path)
         self.engine = EnginePaths.discover()
         if let model = resolveModel() { modelName = model.lastPathComponent }
-        if workspaceDaemonPid() != nil {
+        let code = engineStatusCode()
+        if code == 0 || code == 2 {
             isRunning = true
-            statusText = "Ready"
+            statusText = code == 0 ? "Ready" : "Warming up…"
+            if code == 2 { awaitReadiness(launched: nil) }
             recoverCompletedResponses()
         }
         // Don't leave a daemon we launched running headless after the app quits.
@@ -60,18 +62,46 @@ final class BckbrnrController: ObservableObject {
                 setStatus("Engine binaries not found (set BCKBRNR_ENGINE_DIR)"); return
             }
             self.engine = engine
-            if workspaceDaemonPid() != nil {
+            if engineStatusCode() != 1 {
                 daemon = nil                       // adopt an already-running daemon
             } else if daemon?.isRunning != true {
                 try startDaemon(model: model, engine: engine)
             }
             DispatchQueue.main.async {
                 self.isRunning = true
-                self.statusText = "Ready"
+                self.statusText = "Warming up…"
             }
+            awaitReadiness(launched: daemon)
             recoverCompletedResponses()
         } catch {
             setStatus("Start failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Poll the engine until the model is loaded. "Ready" is the engine's
+    /// word, not ours: exit 0 means ready, 2 means still loading, 1 means
+    /// the daemon is gone.
+    private func awaitReadiness(launched: Process?) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let deadline = Date().addingTimeInterval(180)
+            while Date() < deadline {
+                switch self.engineStatusCode() {
+                case 0:
+                    self.setStatus("Ready")
+                    return
+                case 2:
+                    break // still loading
+                default:
+                    if launched == nil || launched?.isRunning != true {
+                        DispatchQueue.main.async { self.isRunning = false }
+                        self.setStatus("Engine stopped during startup")
+                        return
+                    }
+                }
+                Thread.sleep(forTimeInterval: 1)
+            }
+            self.setStatus("Engine is taking unusually long to load")
         }
     }
 
@@ -79,11 +109,12 @@ final class BckbrnrController: ObservableObject {
     /// Called when the popover opens so the prompt box only shows for a live
     /// daemon — you can never send a prompt into nothing.
     func refresh() {
-        let alive = daemon?.isRunning == true || workspaceDaemonPid() != nil
+        let code = engineStatusCode()
+        let alive = code == 0 || code == 2
         DispatchQueue.main.async {
             if self.isRunning != alive {
                 self.isRunning = alive
-                self.statusText = alive ? "Ready" : Self.restingHint
+                self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
             }
         }
         if alive { recoverCompletedResponses() }
@@ -91,16 +122,15 @@ final class BckbrnrController: ObservableObject {
 
     /// On app quit, shut down the daemon bound to this utility workspace.
     /// bckbrnr owns this workspace; leaving it headless is more surprising than
-    /// stopping it.
+    /// stopping it. The engine identifies and stops its own process — we never
+    /// signal a pid ourselves.
     func terminateWorkspaceDaemon() {
-        if daemon?.isRunning == true { daemon?.terminate() }
-        else if let pid = workspaceDaemonPid() { kill(pid, SIGTERM) }
+        engineStop()
         daemon = nil
     }
 
     func stop() {
-        if daemon?.isRunning == true { daemon?.terminate() }
-        else if let pid = workspaceDaemonPid() { kill(pid, SIGTERM) }
+        engineStop()
         daemon = nil
         DispatchQueue.main.async {
             self.isRunning = false
@@ -119,8 +149,9 @@ final class BckbrnrController: ObservableObject {
 
     func submit(_ text: String) {
         // Never send into a dead workspace: require a live daemon, not just
-        // that Start was pressed at some point.
-        let alive = daemon?.isRunning == true || workspaceDaemonPid() != nil
+        // that Start was pressed at some point. (Starting counts — the queue
+        // holds the prompt until the model finishes loading.)
+        let alive = engineStatusCode() != 1
         guard alive, let engine else { refresh(); return }
         setStatus("Working…")
         queue.async { [weak self] in
@@ -283,11 +314,32 @@ final class BckbrnrController: ObservableObject {
         daemon = process
     }
 
-    private func workspaceDaemonPid() -> pid_t? {
-        let pidFile = workspace.appendingPathComponent(".nrvnad.pid")
-        guard let raw = try? String(contentsOf: pidFile).trimmingCharacters(in: .whitespacesAndNewlines),
-              let value = Int32(raw), value > 0 else { return nil }
-        return kill(value, 0) == 0 ? value : nil
+    /// Exit codes from `nrvnad status`: 0 ready, 2 starting, 1 not running.
+    /// The engine owns lifecycle truth; bckbrnr never reads pidfiles or
+    /// signals processes itself.
+    private func engineStatusCode() -> Int32 {
+        guard let engine = engine ?? EnginePaths.discover() else { return 1 }
+        let process = Process()
+        process.executableURL = engine.nrvnad
+        process.arguments = ["status", workspace.path]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        guard (try? process.run()) != nil else { return 1 }
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+
+    /// Graceful stop, delegated to the engine (short timeout: this runs on
+    /// app-quit, where macOS gives us limited time).
+    private func engineStop() {
+        guard let engine = engine ?? EnginePaths.discover() else { return }
+        let process = Process()
+        process.executableURL = engine.nrvnad
+        process.arguments = ["stop", workspace.path, "--timeout", "5"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try? process.run()
+        process.waitUntilExit()
     }
 
     private func runProcess(_ executable: URL, arguments: [String], input: String? = nil) throws -> String {
