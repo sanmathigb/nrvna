@@ -154,6 +154,10 @@ int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     bool escalated = false;
     while (lockIsHeld(ws)) {
         if (std::chrono::steady_clock::now() >= deadline) {
+            // Revalidate identity before every escalation signal. The flock
+            // being held implies the holder is alive, but the pid we signal
+            // must still be an nrvnad at the moment we signal it.
+            if (!pidLooksLikeNrvnad(info.pid)) return 1;
             if (!escalated) {
                 // nrvnad treats a second signal as "force exit now"
                 (void)::kill(info.pid, SIGTERM);

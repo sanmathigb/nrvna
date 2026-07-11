@@ -450,8 +450,9 @@ std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) con
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(imagesDir)) {
-            // Accept regular files or symlinks (symlinks used for local files)
-            if (entry.is_regular_file() || entry.is_symlink()) {
+            // wrk copies media into the job (self-contained by contract), so a
+            // symlink here is foreign — reject rather than read through it.
+            if (!entry.is_symlink() && entry.is_regular_file()) {
                 imagePaths.push_back(entry.path());
             }
         }
@@ -472,7 +473,7 @@ std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) cons
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(audioDir)) {
-            if (entry.is_regular_file() || entry.is_symlink()) {
+            if (!entry.is_symlink() && entry.is_regular_file()) {
                 audioPaths.push_back(entry.path());
             }
         }
@@ -488,8 +489,15 @@ JobType Processor::readJobType(const JobId& jobId) const noexcept {
     try {
         auto typePath = getJobPath(contract::kProcessingDir, jobId) / contract::kTypeFile;
 
-        if (!std::filesystem::exists(typePath)) {
+        // Same guard as prompt.txt: never open a type.txt that isn't a plain
+        // regular file (a symlinked or FIFO type file could block a worker).
+        std::error_code ec;
+        auto st = std::filesystem::symlink_status(typePath, ec);
+        if (ec || !std::filesystem::exists(st)) {
             return JobType::Text;  // No type.txt means text
+        }
+        if (std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
+            return JobType::Text;
         }
 
         std::ifstream file(typePath, std::ios::binary);

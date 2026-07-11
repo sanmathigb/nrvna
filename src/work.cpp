@@ -194,7 +194,12 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
     }
 
     if (!writeMetaFile(jobId, type, opts)) {
-        LOG_WARN("Failed to write meta.json for: " + jobId + " (non-fatal)");
+        // Metadata is part of the contract now: tags, lineage, and set
+        // collection all read it. A job without meta.json is invisible to
+        // --tag/--children, so refuse to publish rather than lose lineage.
+        LOG_ERROR("Failed to write meta.json for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write job metadata"};
     }
 
     if (!atomicPublish(jobId)) {
@@ -253,7 +258,9 @@ SubmitResult Work::submitAudio(const std::string& prompt, const std::vector<std:
     }
 
     if (!writeMetaFile(jobId, JobType::Stt, opts)) {
-        LOG_WARN("Failed to write meta.json for: " + jobId + " (non-fatal)");
+        LOG_ERROR("Failed to write meta.json for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write job metadata"};
     }
 
     if (!atomicPublish(jobId)) {
