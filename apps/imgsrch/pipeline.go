@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,16 +40,6 @@ func embedEnv() map[string]string {
 		"NRVNA_BATCH":      envOr("NRVNA_BATCH", "512"),
 		"NRVNA_UBATCH":     envOr("NRVNA_UBATCH", "512"),
 	}
-}
-
-func startCaption(project string, c config) error {
-	return startWorker("caption", c.CaptionModel, captionWs(project), captionEnv(), "--mmproj", c.CaptionMmproj, "-w", "1")
-}
-func startOcr(project string, c config) error {
-	return startWorker("ocr", c.OcrModel, ocrWs(project), ocrEnv(), "--mmproj", c.OcrMmproj, "-w", "1")
-}
-func startEmbed(project string, c config) error {
-	return startWorker("embed", c.EmbedModel, embedWs(project), embedEnv(), "-w", "1")
 }
 
 // submit runs wrk and returns the job id from stdout.
@@ -174,13 +165,6 @@ func cmdIndex(project string, newImages []string) error {
 			return err
 		}
 	}
-	if err := startCaption(project, c); err != nil {
-		return err
-	}
-	if err := startOcr(project, c); err != nil {
-		return err
-	}
-
 	accepted, unsupported, err := collectImages(project)
 	if err != nil {
 		return err
@@ -195,7 +179,12 @@ func cmdIndex(project string, newImages []string) error {
 	if err != nil {
 		return err
 	}
-	defer unlock()
+	locked := true
+	defer func() {
+		if locked {
+			unlock()
+		}
+	}()
 
 	items, err := readItems(project)
 	if err != nil {
@@ -222,16 +211,21 @@ func cmdIndex(project string, newImages []string) error {
 		it := item{Key: key, Path: rel}
 		if exists {
 			it = items[idx]
-			var retry bool
-			it, retry = resetFailedImageJobs(it, jobFailed, captionWs(project), ocrWs(project))
-			if retry {
+			var imageRetry, embedRetry bool
+			it, imageRetry = resetFailedImageJobs(it, jobFailed, captionWs(project), ocrWs(project))
+			it, embedRetry = resetFailedEmbedJob(it, jobFailed, embedWs(project))
+			if imageRetry || embedRetry {
 				items[idx] = it
 				if err := writeItems(project, items); err != nil {
 					return err
 				}
 			}
 			if it.CapJob != "" && it.OcrJob != "" {
-				skipped++
+				if embedRetry {
+					queued++
+				} else {
+					skipped++
+				}
 				continue
 			}
 		}
@@ -255,13 +249,26 @@ func cmdIndex(project string, newImages []string) error {
 		}
 		queued++
 	}
+	unlock()
+	locked = false
+
+	pr, err := readProgress(project)
+	if err != nil {
+		return err
+	}
+	if pr.Indexed < pr.Total {
+		if err := launchFinisher(project); err != nil {
+			return err
+		}
+	}
 
 	fmt.Printf("queued:  %d image(s)\n", queued)
 	fmt.Printf("skipped: %d already indexed\n", skipped)
-	fmt.Println()
-	fmt.Println("indexing runs in the background. come back later:")
-	fmt.Printf("  imgsrch status %s\n", project)
-	fmt.Printf("  imgsrch search %s \"your query\"\n", project)
+	if pr.Indexed < pr.Total {
+		fmt.Println("indexing in the background")
+	} else {
+		fmt.Println("index is up to date")
+	}
 	return nil
 }
 
@@ -272,9 +279,8 @@ type progress struct {
 	Failures                                      []failure
 }
 
-// advance is the single-pass pipeline driver: move every item as far as it
-// can go right now, then return. No polling — the filesystem holds the state
-// between runs. It is called implicitly by status and search.
+// advance is one filesystem transformation pass. Worker lifecycle belongs to
+// the caller; this function only collects, combines, submits, and finalizes.
 func advance(project string, verbose bool) (progress, error) {
 	var pr progress
 	if err := requireProject(project); err != nil {
@@ -284,7 +290,6 @@ func advance(project string, verbose bool) (progress, error) {
 		return pr, err
 	}
 	c := loadConfig(project)
-
 	// Serialize the manifest read-modify-write against a concurrent index run.
 	unlock, err := lockProject(project)
 	if err != nil {
@@ -302,7 +307,6 @@ func advance(project string, verbose bool) (progress, error) {
 	}
 
 	capWs, oWs, eWs := captionWs(project), ocrWs(project), embedWs(project)
-	embedStarted := false
 	var nCap, nOcr, nComb, nEmb, nQueued, nIdx int
 
 	var newIndexRows []string
@@ -316,13 +320,6 @@ func advance(project string, verbose bool) (progress, error) {
 		ocrFile := filepath.Join(adir, "ocr.txt")
 		combFile := filepath.Join(adir, "combined.md")
 		embFile := filepath.Join(adir, "embedding.json")
-
-		if updated, retry := resetFailedEmbedJob(*it, jobFailed, eWs); retry {
-			*it = updated
-			if err := writeItems(project, items); err != nil {
-				return pr, err
-			}
-		}
 
 		if it.CapJob != "" && !exists(capFile) {
 			if src, ok := jobOutput(capWs, it.CapJob, "result.txt"); ok {
@@ -351,12 +348,6 @@ func advance(project string, verbose bool) (progress, error) {
 			nComb++
 		}
 		if exists(combFile) && it.EmbJob == "" {
-			if !embedStarted {
-				if err := startEmbed(project, c); err != nil {
-					return pr, err
-				}
-				embedStarted = true
-			}
 			payload, err := os.ReadFile(combFile)
 			if err != nil {
 				return pr, err
@@ -412,6 +403,41 @@ func advance(project string, verbose bool) (progress, error) {
 	return pr, nil
 }
 
+// finishPipeline is the finite background continuation for one or more index
+// submissions. Duplicate continuations are harmless: engine drains delegate
+// to the active worker and advance serializes project mutations.
+func finishPipeline(project string) error {
+	c := loadConfig(project)
+	before, err := readProgress(project)
+	if err != nil {
+		return err
+	}
+	visionErrs := make(chan error, 2)
+	if before.Caption < before.Total {
+		go func() {
+			visionErrs <- drainWorker("caption", c.CaptionModel, captionWs(project), captionEnv(), "--mmproj", c.CaptionMmproj, "-w", "1")
+		}()
+	} else {
+		visionErrs <- nil
+	}
+	if before.Ocr < before.Total {
+		go func() {
+			visionErrs <- drainWorker("ocr", c.OcrModel, ocrWs(project), ocrEnv(), "--mmproj", c.OcrMmproj, "-w", "1")
+		}()
+	} else {
+		visionErrs <- nil
+	}
+	firstVisionErr, secondVisionErr := <-visionErrs, <-visionErrs
+
+	pr, advanceErr := advance(project, true)
+	var embedErr error
+	if advanceErr == nil && pr.Combined > pr.Embed {
+		embedErr = drainWorker("embed", c.EmbedModel, embedWs(project), embedEnv(), "-w", "1")
+	}
+	_, finalizeErr := advance(project, true)
+	return errors.Join(firstVisionErr, secondVisionErr, advanceErr, embedErr, finalizeErr)
+}
+
 func exists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 func countArtifacts(project, name string) int {
@@ -423,6 +449,63 @@ func countArtifacts(project, name string) int {
 		}
 	}
 	return n
+}
+
+// readProgress observes durable files and job terminal states. It never starts
+// workers, submits jobs, or changes the project.
+func readProgress(project string) (progress, error) {
+	var pr progress
+	if err := requireProject(project); err != nil {
+		return pr, err
+	}
+	items, err := readItems(project)
+	if err != nil {
+		return pr, err
+	}
+	indexed, err := readIndexKeys(project)
+	if err != nil {
+		return pr, err
+	}
+	pr.Total = len(items)
+	pr.Combined = countArtifacts(project, "combined.md")
+	pr.Indexed = len(indexed)
+	for _, it := range items {
+		adir := filepath.Join(artifactsDir(project), it.Key)
+		capDone := exists(filepath.Join(adir, "caption.txt"))
+		if !capDone && it.CapJob != "" {
+			_, capDone = jobOutput(captionWs(project), it.CapJob, "result.txt")
+		}
+		if capDone {
+			pr.Caption++
+		} else if it.CapJob != "" {
+			if reason, failed := jobError(captionWs(project), it.CapJob); failed {
+				pr.Failures = append(pr.Failures, failure{it.Path, "caption", reason})
+			}
+		}
+		ocrDone := exists(filepath.Join(adir, "ocr.txt"))
+		if !ocrDone && it.OcrJob != "" {
+			_, ocrDone = jobOutput(ocrWs(project), it.OcrJob, "result.txt")
+		}
+		if ocrDone {
+			pr.Ocr++
+		} else if it.OcrJob != "" {
+			if reason, failed := jobError(ocrWs(project), it.OcrJob); failed {
+				pr.Failures = append(pr.Failures, failure{it.Path, "ocr", reason})
+			}
+		}
+		embedDone := exists(filepath.Join(adir, "embedding.json"))
+		if !embedDone && it.EmbJob != "" {
+			_, embedDone = jobOutput(embedWs(project), it.EmbJob, "embedding.json")
+		}
+		if embedDone {
+			pr.Embed++
+		} else if it.EmbJob != "" {
+			if reason, failed := jobError(embedWs(project), it.EmbJob); failed {
+				pr.Failures = append(pr.Failures, failure{it.Path, "embed", reason})
+			}
+		}
+	}
+	return pr, nil
 }
 
 // writeCombined merges caption + OCR into the embedding source document.
@@ -454,7 +537,7 @@ func writeCombined(capFile, ocrFile, outFile string) error {
 }
 
 func cmdStatus(project string) error {
-	pr, err := advance(project, false)
+	pr, err := readProgress(project)
 	if err != nil {
 		return err
 	}
@@ -468,16 +551,4 @@ func cmdStatus(project string) error {
 		fmt.Printf("failed:   %s (%s: %s)\n", f.Path, f.Stage, f.Reason)
 	}
 	return nil
-}
-
-func cmdStop(project string) error {
-	var firstErr error
-	for _, w := range []struct{ label, ws string }{
-		{"caption", captionWs(project)}, {"ocr", ocrWs(project)}, {"embed", embedWs(project)},
-	} {
-		if err := stopWorker(w.label, w.ws); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -137,22 +138,35 @@ type hit struct {
 	DenseRank, B25Rank int
 }
 
-func embedQuery(project string, c config, query string) ([]float64, error) {
-	job, err := submitStdin(embedWs(project), c.QueryPrefix+query, "-", "--embed")
-	if err != nil {
-		return nil, err
-	}
+func submitQuery(project string, c config, query string) (string, error) {
+	return submitStdin(embedWs(project), c.QueryPrefix+query, "-", "--embed")
+}
+
+func collectQuery(project, job string) ([]float64, error) {
 	flw := binFlw()
 	if flw == "" {
 		return nil, fmt.Errorf("engine result binary not found")
 	}
-	out, err := exec.Command(flw, embedWs(project), "-w", job, "--json").Output()
+	out, err := exec.Command(flw, embedWs(project), job, "--json").Output()
 	if err != nil {
-		return nil, fmt.Errorf("waiting for query embedding: %w", err)
+		return nil, fmt.Errorf("collecting query embedding: %w", err)
 	}
 	qvec, err := parseVector(out)
 	if err != nil {
 		return nil, fmt.Errorf("query embedding: %w", err)
+	}
+	return qvec, nil
+}
+
+func embedQuery(project string, c config, query string) ([]float64, error) {
+	job, err := submitQuery(project, c, query)
+	if err != nil {
+		return nil, err
+	}
+	drainErr := drainWorker("embed", c.EmbedModel, embedWs(project), embedEnv(), "-w", "1")
+	qvec, collectErr := collectQuery(project, job)
+	if collectErr != nil {
+		return nil, errors.Join(drainErr, collectErr)
 	}
 	return qvec, nil
 }
@@ -311,22 +325,18 @@ func applyRRF(hits []hit) {
 	}
 }
 
-// ensureSearchReady does the query-independent setup: index progress,
-// config, model presence, embed daemon. Called once per search or eval run.
+// ensureSearchReady does query-independent setup without driving indexing.
 func ensureSearchReady(project string) (config, error) {
-	pr, err := advance(project, false)
+	pr, err := readProgress(project)
 	if err != nil {
 		return config{}, err
 	}
 	if pr.Indexed == 0 {
-		return config{}, fmt.Errorf("nothing indexed yet; run 'imgsrch status %s' and try again later", project)
+		return config{}, fmt.Errorf("nothing indexed yet; indexing may still be in progress")
 	}
 	c := loadConfig(project)
 	if missing := checkModels(c); len(missing) > 0 {
 		return config{}, fmt.Errorf("missing models:\n  %s", strings.Join(missing, "\n  "))
-	}
-	if err := startEmbed(project, c); err != nil {
-		return config{}, err
 	}
 	return c, nil
 }
