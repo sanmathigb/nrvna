@@ -125,6 +125,16 @@ func TestResetFailedEmbedJob(t *testing.T) {
 	}
 }
 
+func TestVisionTokenBudgetsHaveSafeDefaults(t *testing.T) {
+	t.Setenv("NRVNA_IMAGE_MAX_TOKENS", "")
+	if got := captionEnv()["NRVNA_IMAGE_MAX_TOKENS"]; got != "512" {
+		t.Fatalf("caption image token budget = %q, want 512", got)
+	}
+	if got := ocrEnv()["NRVNA_IMAGE_MAX_TOKENS"]; got != "1024" {
+		t.Fatalf("OCR image token budget = %q, want 1024", got)
+	}
+}
+
 func TestReadProgressObservesArtifactsAndFailures(t *testing.T) {
 	project := t.TempDir()
 	if err := ensureProject(project); err != nil {

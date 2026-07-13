@@ -25,12 +25,13 @@ func captionEnv() map[string]string {
 
 func ocrEnv() map[string]string {
 	return map[string]string{
-		"NRVNA_GPU_LAYERS": "0",
-		"NRVNA_TEMP":       envOr("NRVNA_TEMP", "0.1"),
-		"NRVNA_PREDICT":    envOr("NRVNA_PREDICT", "512"),
-		"NRVNA_THINKING":   envOr("NRVNA_THINKING", "0"),
-		"NRVNA_BATCH":      envOr("NRVNA_BATCH", "512"),
-		"NRVNA_UBATCH":     envOr("NRVNA_UBATCH", "512"),
+		"NRVNA_GPU_LAYERS":       "0",
+		"NRVNA_TEMP":             envOr("NRVNA_TEMP", "0.1"),
+		"NRVNA_PREDICT":          envOr("NRVNA_PREDICT", "512"),
+		"NRVNA_THINKING":         envOr("NRVNA_THINKING", "0"),
+		"NRVNA_BATCH":            envOr("NRVNA_BATCH", "512"),
+		"NRVNA_UBATCH":           envOr("NRVNA_UBATCH", "512"),
+		"NRVNA_IMAGE_MAX_TOKENS": envOr("NRVNA_IMAGE_MAX_TOKENS", "1024"),
 	}
 }
 
