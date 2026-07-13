@@ -33,19 +33,17 @@ not exist — `init` creates it; a typo never silently becomes a new project.
 The current MVP uses an explicit project directory; direct in-place indexing
 of an arbitrary folder is not implemented yet.
 
-Indexing returns after queuing work and continues in local background workers.
-Check progress and search:
+Indexing returns after queuing work. The caption and OCR stages finish in the
+background, followed by embedding; each model exits when its stage is empty.
+Search later, or optionally inspect read-only progress:
 
 ```bash
 ./imgsrch status my-images
 ./imgsrch search my-images "diagram explaining KV cache"
 ```
 
-Stop the workers when needed:
-
-```bash
-./imgsrch stop my-images
-```
+`status` only reports durable progress. It is never required to move indexing
+forward.
 
 Run `./imgsrch doctor my-images` when setup or model discovery fails.
 

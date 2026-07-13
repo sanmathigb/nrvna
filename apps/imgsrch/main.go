@@ -23,8 +23,6 @@ Commands:
   index <project> [image...]                           Add images (optional) and index
   search <project> <query> [--top-k n] [--scorer s]    Search a project
   status <project>                                     Show indexing status
-  stop <project>                                       Stop background indexing
-
   add <project> <image...>                             Stage images without indexing
   eval <project> <hardset.json> [--top-k n]            Evaluate scorers on a hard set
   doctor [project]                                     Check the installation
@@ -200,18 +198,11 @@ func main() {
 		if err == nil {
 			err = cmdEval(a.Project, a.SetPath, a.TopK, a.Scorers)
 		}
-	case "stop":
+	case "__finish": // internal detached continuation launched by index
 		if len(rest) != 1 {
-			usage()
 			os.Exit(1)
 		}
-		err = cmdStop(rest[0])
-	case "collect": // hidden maintenance verb: one advance pass, prints the delta
-		if len(rest) != 1 {
-			usage()
-			os.Exit(1)
-		}
-		_, err = advance(rest[0], true)
+		err = finishPipeline(rest[0])
 	case "doctor":
 		if len(rest) > 1 {
 			usage()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -200,10 +201,18 @@ func cmdEval(project, setPath string, topK int, scorers []scorer) error {
 	for _, sc := range scorers {
 		resultsByScorer[sc] = make([][]hit, 0, len(cases))
 	}
-	for _, tc := range cases {
-		qvec, err := embedQuery(project, c, tc.Query)
+	jobs := make([]string, len(cases))
+	for i, tc := range cases {
+		jobs[i], err = submitQuery(project, c, tc.Query)
 		if err != nil {
 			return fmt.Errorf("query %q: %w", tc.Query, err)
+		}
+	}
+	drainErr := drainWorker("embed", c.EmbedModel, embedWs(project), embedEnv(), "-w", "1")
+	for i, tc := range cases {
+		qvec, err := collectQuery(project, jobs[i])
+		if err != nil {
+			return fmt.Errorf("query %q: %w", tc.Query, errors.Join(drainErr, err))
 		}
 		baseHits, err := denseHits(corpus, qvec)
 		if err != nil {

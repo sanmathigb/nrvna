@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -120,5 +122,77 @@ func TestResetFailedEmbedJob(t *testing.T) {
 
 	if !changed || got.EmbJob != "" {
 		t.Fatalf("failed embed was not cleared: changed=%v item=%+v", changed, got)
+	}
+}
+
+func TestVisionTokenBudgetsHaveSafeDefaults(t *testing.T) {
+	t.Setenv("NRVNA_IMAGE_MAX_TOKENS", "")
+	if got := captionEnv()["NRVNA_IMAGE_MAX_TOKENS"]; got != "512" {
+		t.Fatalf("caption image token budget = %q, want 512", got)
+	}
+	if got := ocrEnv()["NRVNA_IMAGE_MAX_TOKENS"]; got != "1024" {
+		t.Fatalf("OCR image token budget = %q, want 1024", got)
+	}
+}
+
+func TestReadProgressObservesArtifactsAndFailures(t *testing.T) {
+	project := t.TempDir()
+	if err := ensureProject(project); err != nil {
+		t.Fatal(err)
+	}
+	items := []item{
+		{Key: "ready", Path: "images/ready.png", CapJob: "cap-1", OcrJob: "ocr-1", EmbJob: "emb-1"},
+		{Key: "failed", Path: "images/failed.png", CapJob: "cap-2", OcrJob: "ocr-2"},
+	}
+	if err := writeItems(project, items); err != nil {
+		t.Fatal(err)
+	}
+	ready := filepath.Join(artifactsDir(project), "ready")
+	if err := os.MkdirAll(ready, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"ocr.txt", "combined.md", "embedding.json"} {
+		if err := os.WriteFile(filepath.Join(ready, name), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	captionDone := filepath.Join(captionWs(project), "output", "cap-1")
+	if err := os.MkdirAll(captionDone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(captionDone, "result.txt"), []byte("caption\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendIndexRows(project, []string{"ready\timages/ready.png\t.imgsrch/artifacts/ready/embedding.json\n"}); err != nil {
+		t.Fatal(err)
+	}
+	failedJob := filepath.Join(captionWs(project), "failed", "cap-2")
+	if err := os.MkdirAll(failedJob, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(failedJob, "error.txt"), []byte("vision failed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	before, err := os.ReadFile(itemsFile(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := readProgress(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(itemsFile(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("readProgress changed the manifest")
+	}
+	if got.Total != 2 || got.Caption != 1 || got.Ocr != 1 || got.Combined != 1 || got.Embed != 1 || got.Indexed != 1 {
+		t.Fatalf("unexpected progress: %+v", got)
+	}
+	if len(got.Failures) != 1 || got.Failures[0].Stage != "caption" || got.Failures[0].Reason != "vision failed" {
+		t.Fatalf("unexpected failures: %+v", got.Failures)
 	}
 }
