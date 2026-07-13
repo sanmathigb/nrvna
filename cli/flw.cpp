@@ -166,7 +166,9 @@ int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job
     }
     out << "}\n";
     std::cout << out.str();
-    return job.status == Status::Failed ? 1 : 0;
+    if (job.status == Status::Failed) return 1;
+    if (job.status == Status::Queued || job.status == Status::Running) return 2;
+    return 0;
 }
 
 int main(int argc, char* argv[]) {

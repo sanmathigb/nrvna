@@ -39,6 +39,11 @@ case "$counts" in
         ;;
 esac
 
+queued_id="$("$bin_dir/wrk" "$tmp" "queued job")"
+queued_rc=0
+"$bin_dir/flw" "$tmp" "$queued_id" --json >/dev/null || queued_rc=$?
+[ "$queued_rc" -eq 2 ] || { echo "queued JSON job should exit 2, got $queued_rc" >&2; exit 1; }
+
 # ── Output artifact rule through flw --json ──────────────────────────────
 embed_id="00001781482179019398_4090_000002"
 mkdir -p "$tmp/output/$embed_id"
