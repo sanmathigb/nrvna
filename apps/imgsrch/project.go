@@ -205,7 +205,7 @@ func addImages(project string, images []string) error {
 	if err := ensureProject(project); err != nil {
 		return err
 	}
-	copied, skipped := 0, 0
+	copied, skipped, existing := 0, 0, 0
 	for _, img := range images {
 		st, err := os.Stat(img)
 		if err != nil || st.IsDir() {
@@ -220,6 +220,12 @@ func addImages(project string, images []string) error {
 		dst := filepath.Join(imgDir(project), filepath.Base(img))
 		if err := copyFileNoClobber(img, dst); err != nil {
 			if os.IsExist(err) {
+				srcKey, srcErr := contentKey(img)
+				dstKey, dstErr := contentKey(dst)
+				if srcErr == nil && dstErr == nil && srcKey == dstKey {
+					existing++
+					continue
+				}
 				return fmt.Errorf("%s already exists in the project; rename the new image first", filepath.Base(img))
 			}
 			return fmt.Errorf("copying %s: %w", img, err)
@@ -229,6 +235,9 @@ func addImages(project string, images []string) error {
 	note("added %d image(s) to %s", copied, imgDir(project))
 	if skipped > 0 {
 		note("skipped %d unsupported file(s)", skipped)
+	}
+	if existing > 0 {
+		note("skipped %d image(s) already in the project", existing)
 	}
 	return nil
 }

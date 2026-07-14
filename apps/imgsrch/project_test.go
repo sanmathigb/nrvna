@@ -95,6 +95,25 @@ func TestCmdAddRejectsExistingBasename(t *testing.T) {
 	}
 }
 
+func TestCmdAddSkipsIdenticalExistingImage(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	sourceDir := t.TempDir()
+	image := filepath.Join(sourceDir, "same.png")
+	if err := os.WriteFile(image, []byte("same image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cmdAdd(project, []string{image}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdAdd(project, []string{image}); err != nil {
+		t.Fatalf("adding the same image twice should be idempotent: %v", err)
+	}
+}
+
 func TestCopyFileNoClobberIsAtomic(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.png")
