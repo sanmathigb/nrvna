@@ -33,12 +33,12 @@ func TestParseSearchArgsDefaultsToRRFScorer(t *testing.T) {
 }
 
 func TestParseSearchArgsAcceptsTopKAndScorer(t *testing.T) {
-	got, err := parseSearchArgs([]string{"project", "query text", "--top-k", "10", "--scorer", "rrf"})
+	got, err := parseSearchArgs([]string{"project", "query text", "--top-k", "10", "--scorer", "dense"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.TopN != 10 || got.Scorer != scorerRRF {
-		t.Fatalf("parseSearchArgs = %+v, want top 10 rrf", got)
+	if got.TopN != 10 || got.Scorer != scorerDense {
+		t.Fatalf("parseSearchArgs = %+v, want top 10 dense", got)
 	}
 }
 
@@ -53,8 +53,14 @@ func TestParseEvalArgsDefaultsToAllScorers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.TopK != 5 || len(got.Scorers) != 2 || got.Scorers[0] != scorerSimple || got.Scorers[1] != scorerRRF {
+	want := []scorer{scorerSimple, scorerRRF, scorerDense, scorerBM25}
+	if got.TopK != 5 || len(got.Scorers) != len(want) {
 		t.Fatalf("parseEvalArgs defaults = %+v", got)
+	}
+	for i := range want {
+		if got.Scorers[i] != want[i] {
+			t.Fatalf("parseEvalArgs scorers = %v, want %v", got.Scorers, want)
+		}
 	}
 }
 

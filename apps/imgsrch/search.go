@@ -25,6 +25,8 @@ type scorer string
 const (
 	scorerSimple scorer = "simple"
 	scorerRRF    scorer = "rrf"
+	scorerDense  scorer = "dense"
+	scorerBM25   scorer = "bm25"
 )
 
 func parseScorer(s string) (scorer, error) {
@@ -33,8 +35,12 @@ func parseScorer(s string) (scorer, error) {
 		return scorerSimple, nil
 	case scorerRRF:
 		return scorerRRF, nil
+	case scorerDense:
+		return scorerDense, nil
+	case scorerBM25:
+		return scorerBM25, nil
 	default:
-		return "", fmt.Errorf("unknown scorer %q (want simple or rrf)", s)
+		return "", fmt.Errorf("unknown scorer %q (want simple, rrf, dense, or bm25)", s)
 	}
 }
 
@@ -224,9 +230,17 @@ func scoreHits(hits []hit, query string, sc scorer) []hit {
 	computeBM25(hits, query)
 	assignRanks(hits)
 	switch sc {
+	case scorerDense:
+		for i := range hits {
+			hits[i].Score = hits[i].Dense
+		}
+	case scorerBM25:
+		for i := range hits {
+			hits[i].Score = hits[i].B25
+		}
 	case scorerRRF:
 		applyRRF(hits)
-	default:
+	case scorerSimple:
 		applySimpleBlend(hits)
 	}
 	sort.Slice(hits, func(i, j int) bool {
