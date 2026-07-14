@@ -20,6 +20,20 @@ func TestScoreHitsRRFUsesRanksInsteadOfRawScoreScale(t *testing.T) {
 	}
 }
 
+func TestDiagnosticScorersExposeIndependentRankings(t *testing.T) {
+	hits := []hit{
+		{Key: "semantic", Path: "images/semantic.png", Text: "nothing lexical", Dense: 0.99},
+		{Key: "lexical", Path: "images/lexical.png", Text: "docker docker error", Dense: 0.10},
+	}
+
+	if got := scoreHits(hits, "docker error", scorerDense)[0].Key; got != "semantic" {
+		t.Fatalf("dense top hit = %q, want semantic", got)
+	}
+	if got := scoreHits(hits, "docker error", scorerBM25)[0].Key; got != "lexical" {
+		t.Fatalf("BM25 top hit = %q, want lexical", got)
+	}
+}
+
 func TestParseScorer(t *testing.T) {
 	for _, tc := range []struct {
 		input string
@@ -29,6 +43,8 @@ func TestParseScorer(t *testing.T) {
 		{"simple", scorerSimple, true},
 		{"rrf", scorerRRF, true},
 		{"RRF", scorerRRF, true},
+		{"dense", scorerDense, true},
+		{"bm25", scorerBM25, true},
 		{"dbsf", "", false},
 	} {
 		got, err := parseScorer(tc.input)

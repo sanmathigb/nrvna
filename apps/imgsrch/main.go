@@ -30,10 +30,12 @@ Commands:
 Scorers:
   rrf       Reciprocal rank fusion over dense and BM25 rankings (default search scorer)
   simple    Original 50/50 dense + normalized BM25 blend
+  dense     Semantic vector ranking only (diagnostic)
+  bm25      Exact-token ranking only (diagnostic)
 
 Options:
   --top-k n                 Results to return (search) or eval cutoff; default 5
-  --scorer simple|rrf       Select search scorer
+  --scorer simple|rrf|dense|bm25   Select search scorer
   --scorer all              Eval only; compare all scorers
   -h, --help                Show help
   -v, --version             Show version
@@ -72,7 +74,7 @@ func parseSearchArgs(rest []string) (searchArgs, error) {
 		switch rest[i] {
 		case "--scorer":
 			if i+1 >= len(rest) {
-				return args, fmt.Errorf("--scorer requires simple or rrf")
+				return args, fmt.Errorf("--scorer requires simple, rrf, dense, or bm25")
 			}
 			sc, err := parseScorer(rest[i+1])
 			if err != nil {
@@ -108,7 +110,7 @@ func parseEvalArgs(rest []string) (evalArgs, error) {
 	if len(rest) < 2 {
 		return evalArgs{}, fmt.Errorf("eval requires <project> and <hardset.json>")
 	}
-	args := evalArgs{Project: rest[0], SetPath: rest[1], TopK: 5, Scorers: []scorer{scorerSimple, scorerRRF}}
+	args := evalArgs{Project: rest[0], SetPath: rest[1], TopK: 5, Scorers: []scorer{scorerSimple, scorerRRF, scorerDense, scorerBM25}}
 	for i := 2; i < len(rest); i++ {
 		switch rest[i] {
 		case "--top-k":
@@ -123,10 +125,10 @@ func parseEvalArgs(rest []string) (evalArgs, error) {
 			i++
 		case "--scorer":
 			if i+1 >= len(rest) {
-				return args, fmt.Errorf("--scorer requires simple, rrf, or all")
+				return args, fmt.Errorf("--scorer requires simple, rrf, dense, bm25, or all")
 			}
 			if rest[i+1] == "all" {
-				args.Scorers = []scorer{scorerSimple, scorerRRF}
+				args.Scorers = []scorer{scorerSimple, scorerRRF, scorerDense, scorerBM25}
 			} else {
 				sc, err := parseScorer(rest[i+1])
 				if err != nil {
