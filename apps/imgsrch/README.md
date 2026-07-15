@@ -19,6 +19,11 @@ cd imgsrch-darwin-arm64
 `setup` downloads the pinned caption, OCR, and embedding models into
 `~/.imgsrch/models`. The download is about 3.4 GB and happens once.
 
+Release archives support macOS 13.3 or newer on Apple Silicon and Intel, and
+64-bit AVX2 Linux systems compatible with Ubuntu 22.04. The macOS archives are
+not yet signed or notarized; they are developer previews and may require
+approval in **System Settings > Privacy & Security** the first time they run.
+
 ## Use
 
 ```bash
