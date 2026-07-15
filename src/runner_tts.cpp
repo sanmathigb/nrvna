@@ -643,7 +643,6 @@ TtsResult TtsRunner::run(const std::string& text) {
 
         for (int i = 0; i < n_predict; ++i) {
             llama_token new_token = llama_sampler_sample(smpl.get(), ctx_ttc.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token);
 
             if (llama_vocab_is_eog(vocab, new_token)) {
                 break;

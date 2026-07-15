@@ -758,7 +758,6 @@ RunResult Runner::runText(const std::string& prompt) {
         int generated = 0;
         for (; generated < config.n_predict; ) {
             new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -884,7 +883,6 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
 
         for (int i = 0; i < config.n_predict; ++i) {
             new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -1015,7 +1013,6 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
 
         for (int i = 0; i < config.n_predict; ++i) {
             llama_token new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
