@@ -488,7 +488,7 @@ EmbedResult Runner::embed(const std::string& text) {
         ctx_params.n_batch = n_tokens;
         ctx_params.n_ubatch = n_tokens;  // encoder requires n_ubatch >= n_tokens
         ctx_params.embeddings = true;
-        ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;  // Mean pooling for sentence embeddings
+        ctx_params.pooling_type = LLAMA_POOLING_TYPE_UNSPECIFIED;  // Honor the model's declared pooling strategy.
         if (effective_gpu_layers() <= 0) {
             ctx_params.offload_kqv = false;
             ctx_params.op_offload = false;
@@ -563,10 +563,7 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
             return {false, {}, "Failed to load image(s)"};
         }
 
-        mtmd_input_text text;
-        text.text = formatted_prompt.c_str();
-        text.add_special = true;
-        text.parse_special = true;
+        mtmd_input_text text{formatted_prompt.c_str(), formatted_prompt.size(), true, true};
 
         chunks = mtmd_input_chunks_init();
         if (!chunks) {
@@ -761,7 +758,6 @@ RunResult Runner::runText(const std::string& prompt) {
         int generated = 0;
         for (; generated < config.n_predict; ) {
             new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -820,10 +816,7 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         auto loadTime = std::chrono::duration<double>(std::chrono::steady_clock::now() - loadStart).count();
         LOG_DEBUG("Image load time: " + std::to_string(loadTime) + "s");
 
-        mtmd_input_text text;
-        text.text = formatted_prompt.c_str();
-        text.add_special = true;  // Add BOS token
-        text.parse_special = true;
+        mtmd_input_text text{formatted_prompt.c_str(), formatted_prompt.size(), true, true};
 
         MtmdChunksPtr chunks(mtmd_input_chunks_init());
         if (!chunks) {
@@ -890,7 +883,6 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
 
         for (int i = 0; i < config.n_predict; ++i) {
             new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
@@ -963,10 +955,7 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
             return {false, "", "Failed to load audio file(s)"};
         }
 
-        mtmd_input_text text;
-        text.text = formatted_prompt.c_str();
-        text.add_special = true;
-        text.parse_special = true;
+        mtmd_input_text text{formatted_prompt.c_str(), formatted_prompt.size(), true, true};
 
         MtmdChunksPtr chunks(mtmd_input_chunks_init());
         if (!chunks) {
@@ -1024,7 +1013,6 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
 
         for (int i = 0; i < config.n_predict; ++i) {
             llama_token new_token_id = llama_sampler_sample(smpl.get(), ctx.get(), -1);
-            llama_sampler_accept(smpl.get(), new_token_id);
 
             if (llama_vocab_is_eog(vocab, new_token_id)) {
                 break;
