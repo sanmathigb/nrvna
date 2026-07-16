@@ -110,12 +110,6 @@
   .cmds .name { font-weight: 700; font-size: 13.5px; }
   .cmds .desc { color: var(--dim); }
 
-  .stats { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--hairline); margin: 20px 0 14px; }
-  .stat { flex: 1 1 120px; padding: 14px 20px; border-right: 1px solid var(--hairline); }
-  .stat:last-child { border-right: none; }
-  .stat .n { font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1.2; }
-  .stat .l { font-size: 12px; color: var(--dim); }
-
   .dl { list-style: none; margin: 18px 0; border-top: 1px solid var(--hairline); }
   .dl li { display: grid; grid-template-columns: 1fr auto; gap: 18px; padding: 11px 0; border-bottom: 1px solid var(--hairline); font-size: 13.5px; }
   .dl .plat { color: var(--dim); }
@@ -153,10 +147,11 @@
     <div class="wrap">
       <h1>Search screenshots by what they <em>say</em> and what they <em>mean</em>.</h1>
       <p class="sub">Small vision models read each image once, on your machine.
-      Natural language finds it again. Nothing leaves your computer.</p>
+      Natural language finds it again. Nothing leaves your computer.
+      For humans and agents.</p>
 
       <div class="demo" role="img" aria-label="A folder of opaquely named screenshots; a search for a remembered phrase surfaces the two relevant files with the caption text that matched.">
-        <div class="demo-label">~/Screenshots — 70 files, zero useful names</div>
+        <div class="demo-label">~/Screenshots — zero useful names</div>
         <div class="pile" aria-hidden="true">
           <span>IMG_7702.PNG</span>
           <span>IMG_7708.PNG</span>
@@ -183,7 +178,7 @@
           </div>
         </div>
       </div>
-      <p class="demo-note">Index once, in the background. Search anytime, offline.</p>
+      <p class="demo-note">Index in the background. Search anytime, offline.</p>
     </div>
   </div>
 
@@ -193,12 +188,12 @@
       <h2>Three commands</h2>
       <div class="code"><pre><span class="p">$</span> imgsrch init shots
 <span class="p">$</span> imgsrch index shots ~/Screenshots/*.png
-<span class="c">queued: 70 image(s) — indexing runs in the background. come back later.</span>
+<span class="c">queued: 24 image(s) · skipped: 46 already indexed — work continues in the background</span>
 <span class="p">$</span> imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
       <ul class="cmds">
         <li><span class="name">setup</span><span class="desc">Download the three pinned models — 3.4 GB, checksum-verified, once</span></li>
         <li><span class="name">init</span><span class="desc">Create a project</span></li>
-        <li><span class="name">index</span><span class="desc">Copy images in, queue the reading; workers finish in the background</span></li>
+        <li><span class="name">index</span><span class="desc">Index as you go — new images queue, already-indexed are skipped</span></li>
         <li><span class="name">status</span><span class="desc">Read-only progress — what finished, what failed and why</span></li>
         <li><span class="name">search</span><span class="desc">Natural language in, ranked files with matched text out</span></li>
       </ul>
@@ -216,8 +211,7 @@
 search:  query ──► embedding ──► cosine per image ──► dense ranks ─┐
          query ──► BM25 over combined.md ───────────► keyword ranks┴─► RRF</pre></div>
       <p class="quiet">RRF is the default because it measured better on a
-      labeled hard set. The previous scorer still ships, so the claim stays
-      checkable.</p>
+      labeled hard set. <code>imgsrch eval</code> keeps the claim checkable.</p>
     </div>
   </section>
 
@@ -240,13 +234,8 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
       <h2>Visual memory for agents</h2>
       <p>Agents search first, read matched captions and text, and open
       originals only for verification.</p>
-      <div class="stats" role="group" aria-label="Measured 70-screenshot agent run">
-        <div class="stat"><div class="n">1</div><div class="l">search run</div></div>
-        <div class="stat"><div class="n">0</div><div class="l">originals opened</div></div>
-        <div class="stat"><div class="n">10</div><div class="l">cited candidates</div></div>
-      </div>
-      <p class="quiet">Measured on a real 70-screenshot collection. A
-      candidate-reduction result, not a token-savings claim.</p>
+      <p class="quiet">One command, stable text output: ranked files with
+      cited paths — a small candidate set, not an image library.</p>
     </div>
   </section>
 

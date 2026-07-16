@@ -40,7 +40,8 @@ Commands refuse a project that does not exist; `init` creates it.
 `index` copies images into `shots/images/` (PNG, JPEG, GIF; originals
 untouched) and returns after queuing. Caption and OCR finish in the
 background — each model loads, drains its queue, and exits. Close the
-terminal; the work continues.
+terminal; the work continues. Index as you go: run `index` again as images
+accumulate, and already-indexed images are skipped.
 
 Progress is optional to watch:
 
