@@ -73,7 +73,7 @@ Results print ranked filenames with the caption and visible text that
 matched. Search also writes `shots/search-results.md`, with links to the
 originals, for any Markdown viewer.
 
-## Give an agent visual memory
+## Use from an agent
 
 Ask an agent to retrieve first and open only the strongest candidates:
 
@@ -91,11 +91,6 @@ The retrieval step is an ordinary command:
 ```bash
 ./imgsrch search shots "engineering management culture hiring" --top-k 10
 ```
-
-Measured on a real 70-screenshot collection: one search produced ten
-grounded interview leads with zero original images loaded into the agent's
-context. A candidate-reduction result, not a universal token-savings claim —
-the cost after retrieval depends on how many results the agent inspects.
 
 All indexing and search inference stays local. A cloud agent receives the
 terminal output and any originals you explicitly allow it to open.
