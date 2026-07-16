@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>imgsrch — search screenshots by what they say and what they mean</title>
+<title>imgsrch: search screenshots by what they say and what they mean</title>
 <meta name="description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, three commands, plain files.">
-<meta property="og:title" content="imgsrch — search screenshots by what they say and what they mean">
+<meta property="og:title" content="imgsrch: search screenshots by what they say and what they mean">
 <meta property="og:description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, three commands, plain files.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
@@ -45,6 +45,7 @@
   header .wrap { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
   .wordmark { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
   .wordmark .dot { color: var(--ember); }
+  .badge { font-size: 11px; letter-spacing: 0.06em; color: var(--dim); border: 1px solid var(--hairline); padding: 2px 9px; border-radius: 999px; margin-left: 12px; vertical-align: 2px; }
   nav { font-size: 13px; }
   nav a { text-decoration: none; color: var(--dim); margin-left: 22px; }
   nav a:hover { color: var(--ember-ink); }
@@ -134,7 +135,7 @@
 
 <header>
   <div class="wrap">
-    <span class="wordmark">imgsrch<span class="dot">.</span></span>
+    <span class="wordmark">imgsrch<span class="dot">.</span><span class="badge">pre-beta</span></span>
     <nav>
       <a href="#install">install</a>
       <a href="https://github.com/sanmathigb/nrvna-ai/tree/main/apps/imgsrch">github</a>
@@ -151,7 +152,7 @@
       For humans and agents.</p>
 
       <div class="demo" role="img" aria-label="A folder of opaquely named screenshots; a search for a remembered phrase surfaces the two relevant files with the caption text that matched.">
-        <div class="demo-label">~/Screenshots — zero useful names</div>
+        <div class="demo-label">~/Screenshots: zero useful names</div>
         <div class="pile" aria-hidden="true">
           <span>IMG_7702.PNG</span>
           <span>IMG_7708.PNG</span>
@@ -170,7 +171,7 @@
         <div class="results">
           <div class="hit">
             <span class="score">[0.033]</span> <span class="file">images/IMG_7741.PNG</span>
-            <span class="snippet">Screenshot of a post about engineering <mark>ownership</mark> — “strong teams own outcomes, not tickets” …</span>
+            <span class="snippet">Screenshot of a post about engineering <mark>ownership</mark>: “strong teams own outcomes, not tickets” …</span>
           </div>
           <div class="hit">
             <span class="score">[0.031]</span> <span class="file">images/Screenshot 2026-03-14 at 9.12.03.png</span>
@@ -188,13 +189,13 @@
       <h2>Three commands</h2>
       <div class="code"><pre><span class="p">$</span> imgsrch init shots
 <span class="p">$</span> imgsrch index shots ~/Screenshots/*.png
-<span class="c">queued: 24 image(s) · skipped: 46 already indexed — work continues in the background</span>
+<span class="c">queued: 24 image(s) · skipped: 46 already indexed · work continues in the background</span>
 <span class="p">$</span> imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
       <ul class="cmds">
-        <li><span class="name">setup</span><span class="desc">Download the three pinned models — 3.4 GB, checksum-verified, once</span></li>
+        <li><span class="name">setup</span><span class="desc">Download the three pinned models: 3.4 GB, checksum-verified, once</span></li>
         <li><span class="name">init</span><span class="desc">Create a project</span></li>
-        <li><span class="name">index</span><span class="desc">Index as you go — new images queue, already-indexed are skipped</span></li>
-        <li><span class="name">status</span><span class="desc">Read-only progress — what finished, what failed and why</span></li>
+        <li><span class="name">index</span><span class="desc">Index as you go: new images queue, already-indexed are skipped</span></li>
+        <li><span class="name">status</span><span class="desc">Read-only progress: what finished, what failed and why</span></li>
         <li><span class="name">search</span><span class="desc">Natural language in, ranked files with matched text out</span></li>
       </ul>
       <p class="quiet" style="margin-top:12px">Plus <code>add</code>, <code>stop</code>, and <code>doctor</code>. That’s the whole surface.</p>
@@ -221,7 +222,7 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
       <h2>The index is plain files</h2>
       <div class="code"><pre>shots/.imgsrch/
 ├── artifacts/&lt;image&gt;/   <span class="c">caption.txt · ocr.txt · combined.md · embedding.json</span>
-├── index/index.tsv      <span class="c">the search index — a TSV you can read</span>
+├── index/index.tsv      <span class="c">the search index, a TSV you can read</span>
 └── workspaces/          <span class="c">the engine’s job queues, inspectable mid-flight</span></pre></div>
       <p class="quiet">No database. If a search result surprises you, the
       reason is a file you can open.</p>
@@ -235,7 +236,7 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
       <p>Agents search first, read matched captions and text, and open
       originals only for verification.</p>
       <p class="quiet">One command, stable text output: ranked files with
-      cited paths — a small candidate set, not an image library.</p>
+      cited paths. A small candidate set, not an image library.</p>
     </div>
   </section>
 
@@ -255,6 +256,10 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
       GPU required. SHA-256 checksums ship next to each archive. macOS builds
       are unsigned; the first run may need approval in System Settings →
       Privacy &amp; Security.</p>
+      <p class="quiet">imgsrch is pre-beta. It does one thing: search your
+      screenshots. It's early. If something breaks,
+      <a href="https://github.com/sanmathigb/nrvna-ai/issues">open an issue</a>;
+      every report gets read.</p>
     </div>
   </section>
 </main>
@@ -263,7 +268,7 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
   <div class="wrap">
     <div class="credit">
       <span class="orb" aria-hidden="true"></span>
-      <span>built with <a href="../">nrvna ai</a> — local async inference
+      <span>built with <a href="../">nrvna ai</a>, local async inference
       primitives</span>
     </div>
     <div class="footlinks">

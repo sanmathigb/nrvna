@@ -2,10 +2,15 @@
 
 Search local screenshots and images by what they say and what they mean.
 
-`imgsrch` reads each image once with local vision models — a caption of what
-it shows, OCR of what it says — then searches those words by meaning and by
+`imgsrch` reads each image once with local vision models, a caption of what
+it shows and OCR of what it says, then searches those words by meaning and by
 keyword. Indexing runs in the background; search is offline. Humans get
 ranked originals. Agents get a small, cited candidate set.
+
+**Status: pre-beta.** It does one thing: search your screenshots. It's
+early. If something breaks or you have an idea,
+[open an issue](https://github.com/sanmathigb/nrvna-ai/issues); every report
+gets read.
 
 ## Install
 
@@ -18,12 +23,12 @@ cd imgsrch-darwin-arm64
 ```
 
 `setup` downloads the pinned caption, OCR, and embedding models into
-`~/.imgsrch/models` — about 3.4 GB, checksum-verified, one time. Everything
+`~/.imgsrch/models`: about 3.4 GB, checksum-verified, one time. Everything
 else ships in the archive: the `imgsrch` binary and the engine binaries in
 `bin/`. Keep them together.
 
 Platforms: macOS 13.3+ (Apple Silicon and Intel) and x86-64 Linux with AVX2
-(Ubuntu 22.04 compatible). CPU-first — no GPU required. The macOS archives
+(Ubuntu 22.04 compatible). CPU-first, no GPU required. The macOS archives
 are not yet signed or notarized; the first run may need approval under
 **System Settings → Privacy & Security**.
 
@@ -39,7 +44,7 @@ Commands refuse a project that does not exist; `init` creates it.
 
 `index` copies images into `shots/images/` (PNG, JPEG, GIF; originals
 untouched) and returns after queuing. Caption and OCR finish in the
-background — each model loads, drains its queue, and exits. Close the
+background: each model loads, drains its queue, and exits. Close the
 terminal; the work continues. Index as you go: run `index` again as images
 accumulate, and already-indexed images are skipped.
 
@@ -62,7 +67,7 @@ Search with the part you remember:
 
 ```text
 [0.033] images/IMG_7741.PNG
-        Screenshot of a post about engineering ownership — "strong teams
+        Screenshot of a post about engineering ownership: "strong teams
         own outcomes, not tickets" …
 [0.031] images/Screenshot 2026-03-14 at 9.12.03.png
         Slide titled "Ownership vs. accountability" with a two-column
@@ -109,17 +114,17 @@ search: query ──► embedding ──► cosine against every image ──►
 ```
 
 RRF (reciprocal rank fusion) scores each image by summing `1/(60 + rank)`
-across both lists — it fuses ranks, not incomparable raw score scales.
+across both lists. It fuses ranks, not incomparable raw score scales.
 
 The choices, and why:
 
-- **RRF is the default because it measured better** — higher top-1 and top-3
+- **RRF is the default because it measured better**: higher top-1 and top-3
   recall than the original 50/50 dense + normalized-BM25 blend on the local
   hard set. The old blend is kept as `--scorer simple` so the claim stays
   checkable.
-- **Captions are capped at 900 characters** in `combined.md` — verbose
+- **Captions are capped at 900 characters** in `combined.md`: verbose
   captions dilute the embedding. Proven by A/B, not taste.
-- **Embedding prefixes matter** — documents embed as `search_document: …`,
+- **Embedding prefixes matter**: documents embed as `search_document: …`,
   queries as `search_query: …` (nomic-embed's contract). The wrong prefix
   quietly degrades everything.
 - **Ties break on path**, so results are stable across runs.
@@ -156,7 +161,7 @@ The index is plain files under `shots/.imgsrch/`:
 ```text
 shots/.imgsrch/
 ├── artifacts/<image>/   caption.txt · ocr.txt · combined.md · embedding.json
-├── index/index.tsv      the search index — a TSV you can read
+├── index/index.tsv      the search index, a TSV you can read
 └── workspaces/          the engine's job queues, inspectable mid-flight
 ```
 
@@ -168,4 +173,4 @@ primitives directly.
 
 ---
 
-Built with [nrvna](../../README.md) — local async inference primitives.
+Built with [nrvna](../../README.md), local async inference primitives.
