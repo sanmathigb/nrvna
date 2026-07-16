@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>imgsrch: search screenshots by what they say and what they mean</title>
-<meta name="description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, three commands, plain files.">
+<meta name="description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
 <meta property="og:title" content="imgsrch: search screenshots by what they say and what they mean">
-<meta property="og:description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, three commands, plain files.">
+<meta property="og:description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -121,6 +121,7 @@
 
   @media (max-width: 560px) {
     .cmds li { grid-template-columns: 92px 1fr; gap: 12px; }
+    .dl li { grid-template-columns: 1fr; gap: 2px; }
     .hit .snippet { padding-left: 0; }
     nav a { margin-left: 14px; }
   }
@@ -143,7 +144,7 @@
     <div class="wrap">
       <h1>Search screenshots by what they <em>say</em> and what they <em>mean</em>.</h1>
       <p class="sub">Small vision models read each image once, on your machine.
-      Natural language finds it again. Nothing leaves your computer.
+      Natural language finds it again. Your images never leave your machine.
       For humans and agents.</p>
 
       <div class="demo" role="img" aria-label="A folder of screenshots; a search for a remembered phrase surfaces the two relevant files with the caption text that matched.">
@@ -151,7 +152,7 @@
           <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M1 2.5C1 1.7 1.7 1 2.5 1H6l1.5 2h6C14.3 3 15 3.7 15 4.5v7c0 .8-.7 1.5-1.5 1.5h-11C1.7 13 1 12.3 1 11.5Z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>~/Screenshots</span>
         </div>
-        <div class="query"><span class="prompt">$</span> imgsrch search shots <span class="q">"that post about engineering ownership"</span></div>
+        <div class="query"><span class="prompt">$</span> ./imgsrch search shots <span class="q">"that post about engineering ownership"</span></div>
         <div class="results">
           <div class="hit">
             <span class="score">[0.033]</span> <span class="file">images/IMG_7741.PNG</span>
@@ -171,10 +172,10 @@
     <div class="wrap">
       <div class="eyebrow">workflow</div>
       <h2>The whole tool</h2>
-      <div class="code"><pre><span class="p">$</span> imgsrch init shots
-<span class="p">$</span> imgsrch index shots ~/Screenshots/*.png
+      <div class="code"><pre><span class="p">$</span> ./imgsrch init shots
+<span class="p">$</span> ./imgsrch index shots ~/Screenshots/*.png
 <span class="c">queued: 24 image(s) · skipped: 46 already indexed · work continues in the background</span>
-<span class="p">$</span> imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
+<span class="p">$</span> ./imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
       <ul class="cmds">
         <li><span class="name">setup</span><span class="desc">Download the three pinned models: 3.4 GB, checksum-verified, once</span></li>
         <li><span class="name">init</span><span class="desc">Create a project</span></li>
@@ -182,7 +183,7 @@
         <li><span class="name">status</span><span class="desc">Read-only progress: what finished, what failed and why</span></li>
         <li><span class="name">search</span><span class="desc">Natural language in, ranked files with matched text out</span></li>
       </ul>
-      <p class="quiet" style="margin-top:12px">Plus <code>add</code>, <code>stop</code>, and <code>doctor</code>. That’s the whole surface.</p>
+      <p class="quiet" style="margin-top:12px">Plus <code>add</code>, <code>stop</code>, and <code>doctor</code>. That’s the daily surface.</p>
     </div>
   </section>
 
