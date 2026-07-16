@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "7953a6914b11",
+  "strategy": "manual-commit",
+  "branch": "fix/imgsrch-release-readiness",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "apps/imgsrch/README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/79/53a6914b11/0/metadata.json",
+      "transcript": "/79/53a6914b11/0/full.jsonl",
+      "compact_transcript": "/79/53a6914b11/0/transcript.jsonl",
+      "content_hash": "/79/53a6914b11/0/content_hash.txt",
+      "prompt": "/79/53a6914b11/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 19565,
+    "cache_creation_tokens": 8008931,
+    "cache_read_tokens": 69506138,
+    "output_tokens": 505866,
+    "api_call_count": 235
+  }
+}
