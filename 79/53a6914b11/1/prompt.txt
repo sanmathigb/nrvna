@@ -1,0 +1,358 @@
+Current State
+
+  imgsrch is a working release candidate, not yet released.
+
+  Product
+
+  - Standalone packaged CLI over nrvna and llama.cpp.
+  - setup downloads pinned, checksum-verified models.
+  - init creates an explicit image project.
+  - index copies originals and asynchronously runs caption, OCR, combine,
+    embed, and indexing.
+
+  - Workers use finite --drain lifecycles and exit after each stage.
+  - status is read-only and optional.
+  - search uses caption + OCR, dense embeddings + BM25, fused with RRF.
+  - Search writes terminal results and search-results.md.
+  - doctor diagnoses installation/model problems.
+  - eval exists for maintainers, with simple/RRF/dense/BM25 diagnostics.
+
+  Validation
+
+  - A real 70-screenshot collection completed autonomously:
+      - 70 captions
+      - 70 OCR results
+      - 70 combined artifacts
+      - 70 embeddings
+      - 70 indexed images
+
+  - Searches for engineering culture, llama.cpp, life advice, and team
+    building produced useful results.
+
+  - Go tests pass.
+  - The updated llama.cpp backend is merged into main.
+  - No model daemons remained after completed runs.
+
+  Agent Evidence
+
+  We tested three approaches:
+
+  - Raw 70-image inspection stalled without producing an answer.
+  - An unconstrained agent used imgsrch repeatedly, opened ten images,
+    and consumed too much context.
+
+  - A constrained agent ran one search, loaded zero originals, and
+    produced ten grounded interview leads.
+
+  Compact run:
+
+  1 search
+  0 raw images loaded
+  10 cited candidates
+  26,031 cumulative input tokens
+  20,992 cached input tokens
+
+  This proves candidate reduction and feasibility. It does not yet prove
+  a universal token-savings percentage.
+
+  Positioning
+
+  Launch product:
+
+  > Search local screenshots and images by what they say and what they
+  > mean.
+
+  Larger hypothesis:
+
+  > Intentional local visual memory for agents.
+
+  The distinction matters. imgsrch indexes screenshots the human
+  deliberately saved. It does not continuously record the screen like
+  Microsoft Recall, screenpipe, or similar screen-history products.
+
+  Research supports the architecture:
+
+  - Keep visual archives outside model context.
+  - Retrieve selectively.
+  - Maintain verbal representations such as caption and OCR.
+  - Inspect only a few originals when pixel-level evidence matters.
+  - Do not treat complete screenshot history as model context.
+
+  Release Work
+
+  Committed on fix/imgsrch-release-readiness:
+
+  9a3091c build: harden imgsrch release artifacts
+
+  That commit adds:
+
+  - portable non-native release builds;
+  - macOS 13.3 deployment target;
+  - README inside archives;
+  - release smoke checks;
+  - documented platform and unsigned macOS limitations.
+
+  Uncommitted documentation changes:
+
+  - apps/imgsrch/README.md
+      - human demo;
+      - agent demo;
+      - privacy boundary;
+      - honest 70-image evidence;
+      - eval identified as maintainer tooling.
+
+  - README.md
+      - sharper imgsrch description.
+
+  Unrelated untracked local files remain untouched.
+
+  What Remains
+
+  1. Review and commit the two README changes.
+  2. Push fix/imgsrch-release-readiness.
+  3. Open a PR and let all platform builds and CodeRabbit finish.
+  4. Merge after checks pass.
+  5. Produce the v0.1.0 release archives.
+
+  Not release blockers:
+
+  - Direct CLIP/visual embeddings.
+  - MCP server.
+  - Agent framework.
+  - 500-image formal benchmark.
+  - Continuous folder watching.
+  - GUI or chat interface.
+
+  The product is functionally ready. The remaining path is documentation
+  commit, CI, merge, and release packaging.Yes. From the nrvna perspective, imgsrch matters because it validates
+  the primitives under a real multi-model application.
+
+  The Core
+
+  nrvna is still three primitives:
+
+  nrvnad   runs a model against durable jobs
+  wrk      submits work and returns immediately
+  flw      observes and retrieves results
+
+  The filesystem is the contract:
+
+  input/ready → processing → output | failed
+
+  A job survives the submitting process, terminal session, application,
+  and daemon. That is the asynchronous DNA.
+
+  What imgsrch Proved
+
+  imgsrch is not an alternate inference implementation. It composes nrvna
+  jobs:
+
+                  ┌─ caption workspace ─┐
+  image submitted ┤                     ├─ combine
+                  └─ OCR workspace ─────┘
+                                        ↓
+                                 embed workspace
+                                        ↓
+                                    search index
+
+  The 70-image run exercised:
+
+  - 140 independent vision jobs;
+  - two different vision models concurrently;
+  - durable stage outputs;
+  - partial progress and selective retry;
+  - a barrier between vision and embedding stages;
+  - 70 embedding jobs;
+  - autonomous background completion;
+  - finite daemon lifecycles;
+  - recovery without an application database;
+  - plain-file artifacts consumed by another application.
+
+  That is stronger validation than a single prompt demo.
+
+  What Changed in the Primitives
+
+  The app exposed lifecycle needs that were previously implicit:
+
+  - --drain: run queued work, then exit.
+  - tagged/job-aware waiting and terminal-state inspection.
+  - consistent job contracts and artifact selection.
+  - reliable failure finalization.
+  - model and workspace ownership checks.
+  - process cleanup and finite resource residency.
+  - embedding, vision, OCR, STT, and TTS through one durable job
+    protocol.
+
+  The important lesson is --drain. It lets an application treat a model
+  stage as a finite operation:
+
+  start model → drain durable queue → return when terminal → release
+  model
+
+  No watcher, idle timeout, PID protocol, or permanent service is
+  required.
+
+  The Architectural Claim
+
+  nrvna is not an agent framework, scheduler, vector database, or
+  workflow engine.
+
+  It provides the smaller substrate:
+
+  durable submission
+  atomic claiming
+  asynchronous execution
+  plain-file artifacts
+  failure visibility
+  finite or persistent workers
+  job lineage
+
+  Applications compose those properties into workflows.
+
+  imgsrch demonstrates:
+
+  pipeline = multiple durable queues + application-owned transitions
+
+  The clips agent demonstrates:
+
+  agent = inference jobs + tools + loop + lineage + stopping policy
+
+  bckbrnr demonstrates:
+
+  background utility = submission surface + durable delivery
+
+  Same primitives, different products.
+
+  What nrvna Still Needs
+
+  For release, the core should stay small. The most useful additions
+  would be narrowly reusable composition helpers, only where apps already
+  proved the need:
+
+  1. Ensure/run/drain lifecycle API
+
+     A library-level way to invoke daemon lifecycle without every app
+     shelling out and rebuilding process supervision.
+
+  2. Terminal barrier
+
+     Wait until a known job set or tag reaches output or failed.
+
+  3. Structured status
+
+     Stable machine-readable progress for applications, while preserving
+     the human CLI.
+
+  4. Documented application contract
+
+     How an app owns pipeline state, retries failed stages, and consumes
+     artifacts without violating nrvna’s queue ownership.
+
+  Not needed in core:
+
+  - pipeline definitions;
+  - DAG scheduler;
+  - agent loops;
+  - image indexing;
+  - vector search;
+  - MCP;
+  - callbacks or webhooks;
+  - application databases.
+
+  The Strongest nrvna Story
+
+  > Models get wrk. You get flw.
+
+  Then imgsrch supplies the proof:
+
+  > Seventy images moved through three local models in the background.
+  > The application exited, the work continued, each stage released its
+  > model when done, and the final artifacts became a searchable index.
+
+  That is the primitives story made concrete. nrvna is not merely an
+  inference wrapper. It is a durable asynchronous execution substrate
+  from which local AI applications can be built without turning every
+  application into infrastructure.
+
+
+› and did yuou mention llama cpp update?
+
+
+• Yes, but only briefly. It deserves explicit status.
+
+  llama.cpp Update
+
+  The nrvna backend was updated from its older June snapshot to a recent
+  llama.cpp revision and merged into main through PR #14:
+
+  ed24f9b  build: update llama.cpp backend
+  4c3b870  fix: avoid double-accepting sampled tokens
+  61dc47f  Merge pull request #14
+
+  We treated llama.cpp’s examples as upstream reference implementations,
+  as intended:
+
+  - studied current llama-simple;
+  - compared llama-cli sampling behavior;
+  - reviewed current multimodal/mtmd paths;
+  - reviewed TTS code and ownership patterns;
+  - borrowed only relevant API and lifecycle changes into nrvna’s
+    runners;
+
+  - did not copy examples or replace nrvna’s durable execution
+    architecture.
+
+  The update delivered:
+
+  - support for newer model architectures, including lfm2-bidir;
+  - compatibility with the LiquidAI LFM2.5 embedding model;
+  - current llama.cpp model loading and runtime APIs;
+  - corrected sampling acceptance behavior;
+  - updated multimodal backend behavior;
+  - retained CPU-only operation as your chosen default;
+  - preserved nrvna’s text, embedding, vision, STT, and TTS runners.
+
+  The updated backend was then exercised through the real imgsrch
+  pipeline, not merely compiled:
+
+  caption vision model
+  OCR vision model
+  text embedding model
+  70 images indexed successfully
+  queries embedded and searched successfully
+
+  That means the backend update has application-level evidence behind it.
+
+  The important boundary remains:
+
+  llama.cpp  = model execution substrate
+  nrvna      = durable asynchronous inference primitives
+  imgsrch    = product composed from those primitives
+
+  llama.cpp knows how to run model computation. nrvna determines how work
+  is submitted, claimed, persisted, failed, resumed, collected, and
+  composed across time.
+
+---
+
+what did you gather about imgsrch? do you see the new angle? visual memory layer for agents?
+
+---
+
+am just curious? would you use imgsrch? or lets say if you can hypothetically answe hhow would you tackle problems like searching and retriving and synthtsising hundreds of screenshots or visals what would you do today?
+
+---
+
+would you not reach out for rclip and imgrep?
+
+---
+
+what does the indistry do today
+
+---
+
+but this is different right - this is more on the lines of here is so this is more on the lines of. So this is more on the lines of: "Here is a bunch of images, and let's do something about it, right?"
+
+---
+
+Again, what does the world do today? I'm curious.
