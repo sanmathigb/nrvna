@@ -161,9 +161,9 @@ llama.cpp carries the tools built on top of it. Each app bundles the
 primitives and adds no alternate inference path: the app is the surface,
 `nrvnad`/`wrk`/`flw` are the engine.
 
-- [`apps/imgsrch`](apps/imgsrch/README.md): local image search. A Go CLI that
-  packages the primitives, manages pinned models, indexes images, and
-  searches them with hybrid BM25 + embedding retrieval — from one command.
+- [`apps/imgsrch`](apps/imgsrch/README.md): local screenshot and image search
+  by visible words or meaning. It gives humans ranked originals and gives
+  agents a small, grounded candidate set instead of an entire image library.
 - [`apps/bckbrnr`](apps/bckbrnr/README.md): local prompt work from the menu bar.
   A macOS app that starts a text utility and writes answers back as files.
 

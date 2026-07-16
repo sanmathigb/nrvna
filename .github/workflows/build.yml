@@ -29,10 +29,13 @@ jobs:
         include:
           - os: macos-14
             target: darwin-arm64
+            deployment_target: '13.3'
           - os: macos-15-intel
             target: darwin-x86_64
+            deployment_target: '13.3'
           - os: ubuntu-22.04
             target: linux-x86_64
+            deployment_target: ''
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +53,8 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ matrix.deployment_target }}" \
+            -DGGML_NATIVE=OFF \
             -DLLAMA_CURL=OFF \
             -DLLAMA_OPENSSL=OFF
           cmake --build build -j4 --target nrvnad wrk flw contract_test meta_test
@@ -94,6 +99,7 @@ jobs:
           mkdir -p "dist/$kit/bin"
           mv dist/stage/imgsrch "dist/$kit/"
           cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
+          cp apps/imgsrch/README.md "dist/$kit/README.md"
           cp LICENSE "dist/$kit/"
           tar -C dist -czf "dist/$kit.tar.gz" "$kit"
           shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
@@ -103,6 +109,7 @@ jobs:
           kit="imgsrch-${{ matrix.target }}"
           mkdir -p dist/smoke
           tar -C dist/smoke -xzf "dist/$kit.tar.gz"
+          test -f "dist/smoke/$kit/README.md"
           export NRVNA_BUILD_DIR="$PWD/dist/smoke/$kit/bin"
           export CAPTION_MODEL="$PWD/dist/smoke/$kit/LICENSE"
           export CAPTION_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"
@@ -113,6 +120,12 @@ jobs:
           "dist/smoke/$kit/bin/nrvnad" --version
           "dist/smoke/$kit/bin/wrk" --version
           "dist/smoke/$kit/bin/flw" --version
+
+      - name: Check macOS compatibility floor
+        if: runner.os == 'macOS'
+        run: |
+          kit="imgsrch-${{ matrix.target }}"
+          vtool -show-build "dist/smoke/$kit/bin/nrvnad" | grep -q 'minos 13.3'
 
       - uses: actions/upload-artifact@v4
         with:

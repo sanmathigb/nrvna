@@ -1,8 +1,11 @@
 # imgsrch
 
-`imgsrch` is a native local tool for creating searchable image projects.
-It packages a small Go CLI over nrvna and llama.cpp. The user operates one
-command and does not manage the backend.
+Search local screenshots and images by what they say and what they mean.
+
+`imgsrch` reads each image once with local models, then searches the resulting
+captions and visible text. Indexing runs in the background. Humans get ranked
+originals; agents get a small, grounded candidate set instead of an entire
+image library.
 
 ## Install
 
@@ -18,6 +21,11 @@ cd imgsrch-darwin-arm64
 
 `setup` downloads the pinned caption, OCR, and embedding models into
 `~/.imgsrch/models`. The download is about 3.4 GB and happens once.
+
+Release archives support macOS 13.3 or newer on Apple Silicon and Intel, and
+64-bit AVX2 Linux systems compatible with Ubuntu 22.04. The macOS archives are
+not yet signed or notarized; they are developer previews and may require
+approval in **System Settings > Privacy & Security** the first time they run.
 
 ## Use
 
@@ -47,6 +55,57 @@ forward.
 
 Run `./imgsrch doctor my-images` when setup or model discovery fails.
 
+## Demo: find a screenshot
+
+Suppose your screenshots have opaque names such as `IMG_7741.PNG`. Index them
+once:
+
+```bash
+./imgsrch init screenshots
+./imgsrch index screenshots ~/Downloads/Screenshots/*.PNG
+```
+
+The command returns after queuing the work. Close the terminal or do something
+else. Later, search with the part you remember:
+
+```bash
+./imgsrch search screenshots "that post about engineering ownership"
+```
+
+The terminal prints ranked filenames with the caption and visible text that
+made each result relevant. It also writes `screenshots/search-results.md`, with
+links to the copied originals, for preview in a Markdown viewer.
+
+## Demo: give an agent visual memory
+
+A vision-capable agent should not inspect a whole screenshot library. Ask it to
+retrieve first and look at only the strongest candidates:
+
+```text
+Use ./imgsrch to find screenshots in ./screenshots relevant to my engineering
+management interview. Search locally first. Do not enumerate or open the whole
+image directory. Use the returned captions and visible-text snippets to narrow
+the results. Open at most three original images when visual verification is
+necessary. Cite the project-relative filename for every source.
+```
+
+The retrieval step is an ordinary command the agent can run:
+
+```bash
+./imgsrch search screenshots \
+  "engineering management leadership culture hiring execution feedback" \
+  --top-k 10
+```
+
+In a measured 70-screenshot run, one search produced ten grounded interview
+leads while loading zero original images into the agent's context. That is a
+candidate-reduction result, not a universal token-savings claim: the cost after
+retrieval depends on how many results the agent chooses to inspect.
+
+All indexing and search inference stays local. In this workflow, a cloud agent
+receives the terminal output and any original images you explicitly allow it
+to open.
+
 ## How search works
 
 Indexing writes plain-text artifacts per image; search fuses two rankings
@@ -61,9 +120,9 @@ search: query ──► embedding ──► cosine against every image ──►
 ```
 
 RRF (reciprocal rank fusion) scores each image by summing `1/(60 + rank)`
-across both lists. It fuses ranks, not raw scores — neither signal can drown
-the other, and an image that is good in both lists beats one that is perfect
-in one and missing from the other.
+across both lists. It fuses ranks rather than incomparable raw score scales.
+An image that ranks well in both lists is rewarded, while either list can still
+influence the final order.
 
 The choices, and why:
 
@@ -82,6 +141,9 @@ Change a weight, swap a model, add a signal — then run `eval` below and see
 whether it actually got better.
 
 ## Evaluate search quality
+
+Most users never run `eval`. It is a maintainer tool for deciding whether a
+ranking or model change actually improves retrieval on a labeled collection.
 
 Create a hard set as JSON. Expected images may be project-relative paths,
 basenames, or content keys:
