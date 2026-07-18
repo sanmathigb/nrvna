@@ -87,6 +87,7 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/bckbrnr
         run: |
+          make test
           make bundle \
             ENGINE_DIR=../../build \
             MACOSX_DEPLOYMENT_TARGET="${{ matrix.deployment_target }}"

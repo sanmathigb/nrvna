@@ -13,7 +13,7 @@ SWIFT_TARGET ?= $(ARCH)-apple-macosx$(MACOSX_DEPLOYMENT_TARGET)
 # fall back to the default install path if xcode-select isn't set up.
 DEVELOPER_DIR ?= $(shell xcode-select -p 2>/dev/null || echo /Applications/Xcode.app/Contents/Developer)
 
-.PHONY: app bundle engine clean run
+.PHONY: app bundle engine clean run test
 
 engine:
 	cmake -S ../.. -B "$(ENGINE_DIR)" \
@@ -48,6 +48,14 @@ bundle:
 
 run: app
 	open "$(APP_DIR)"
+
+test:
+	@mkdir -p "$(BUILD_DIR)/ModuleCache"
+	DEVELOPER_DIR="$(DEVELOPER_DIR)" xcrun swiftc -parse-as-library \
+		-Xcc -fmodules-cache-path="$(BUILD_DIR)/ModuleCache" \
+		-o "$(BUILD_DIR)/naming-tests" \
+		Sources/Bckbrnr/Naming.swift Tests/NamingTests.swift
+	"$(BUILD_DIR)/naming-tests"
 
 clean:
 	rm -rf "$(BUILD_DIR)"
