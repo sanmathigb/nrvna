@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UserNotifications
 
 private final class ProcessOutputBox {
     var data = Data()
@@ -13,6 +14,7 @@ final class BckbrnrController: ObservableObject {
     @Published var rootDisplay = ""
 
     private let queue = DispatchQueue(label: "ai.nrvna.bckbrnr.jobs")
+    private let collectQueue = DispatchQueue(label: "ai.nrvna.bckbrnr.results")
     private let defaults = UserDefaults.standard
 
     private var desk: URL
@@ -44,8 +46,8 @@ final class BckbrnrController: ObservableObject {
             isRunning = true
             statusText = code == 0 ? "Ready" : "Warming up…"
             if code == 2 { awaitReadiness(launched: nil) }
-            recoverCompletedResponses()
         }
+        recoverCompletedResponses()
         // Don't leave a daemon we launched running headless after the app quits.
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -146,11 +148,15 @@ final class BckbrnrController: ObservableObject {
     }
 
     func stop() {
-        engineStop()
-        daemon = nil
-        DispatchQueue.main.async {
-            self.isRunning = false
-            self.statusText = Self.restingHint
+        setStatus("Stopping…")
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.engineStop()
+            DispatchQueue.main.async {
+                self.daemon = nil
+                self.isRunning = false
+                self.statusText = Self.restingHint
+            }
         }
     }
 
@@ -176,52 +182,92 @@ final class BckbrnrController: ObservableObject {
             let stem = Naming.uniqueStem(Naming.deriveStem(from: text), in: self.promptDir, ext: "txt")
             let promptFile = self.promptDir.appendingPathComponent("\(stem).txt")
             let responseFile = self.responseDir.appendingPathComponent("\(stem).txt")
+            let errorFile = self.responseDir.appendingPathComponent("\(stem).error.txt")
+            let workspacePath = self.workspace.path
             do {
                 try text.write(to: promptFile, atomically: true, encoding: .utf8)
-                let jobId = try self.runProcess(engine.wrk, arguments: [self.workspace.path, "-"], input: text)
+                let jobId = try self.runProcess(engine.wrk, arguments: [workspacePath, "-"], input: text)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                let result = try self.runProcess(engine.flw, arguments: [self.workspace.path, "-w", jobId])
-                try result.write(to: responseFile, atomically: true, encoding: .utf8)
-                self.setStatus("Ready")
-                self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
+                // Submission is now durable. Collect on a separate queue so
+                // the next prompt can be submitted without waiting for this
+                // model run to finish.
+                self.collectQueue.async { [weak self] in
+                    guard let self else { return }
+                    do {
+                        let result = try self.runProcess(
+                            engine.flw, arguments: [workspacePath, "-w", jobId]
+                        )
+                        try result.write(to: responseFile, atomically: true, encoding: .utf8)
+                        self.setStatus("Ready")
+                        self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
+                    } catch {
+                        self.writeFailure(
+                            stem: stem, prompt: text, error: error, errorFile: errorFile
+                        )
+                    }
+                }
             } catch {
-                // Failure is durable too: leave a readable artifact beside
-                // where the answer would have been.
-                let errorFile = self.responseDir.appendingPathComponent("\(stem).error.txt")
-                let body = """
-                bckbrnr couldn’t finish this prompt.
-
-                PROMPT:
-                \(text)
-
-                ERROR:
-                \(error.localizedDescription)
-                """
-                try? body.write(to: errorFile, atomically: true, encoding: .utf8)
-                // Don't claim "Ready": a dead daemon is a likely cause of the
-                // failure, so re-derive the status from the engine.
-                self.refresh()
-                self.notify(title: "bckbrnr — couldn’t finish", body: stem, path: errorFile.path)
+                self.writeFailure(stem: stem, prompt: text, error: error, errorFile: errorFile)
             }
         }
     }
 
+    private func writeFailure(stem: String, prompt: String, error: Error, errorFile: URL) {
+        // Failure is durable too: leave a readable artifact beside where the
+        // answer would have been.
+        let body = """
+        bckbrnr couldn’t finish this prompt.
+
+        PROMPT:
+        \(prompt)
+
+        ERROR:
+        \(error.localizedDescription)
+        """
+        try? body.write(to: errorFile, atomically: true, encoding: .utf8)
+        // Don't claim "Ready": a dead daemon is a likely cause of the
+        // failure, so re-derive the status from the engine.
+        refresh()
+        notify(title: "bckbrnr — couldn’t finish", body: stem, path: errorFile.path)
+    }
+
     private func recoverCompletedResponses() {
+        // Root changes are allowed while stopped. Snapshot one complete desk
+        // before dispatch so recovery can never read from one root and write
+        // into another.
+        let directories = [desk, promptDir, responseDir, workspace]
+        let workspace = self.workspace
+        let promptDir = self.promptDir
+        let responseDir = self.responseDir
         queue.async { [weak self] in
             guard let self else { return }
-            try? self.ensureFolders()
+            for directory in directories {
+                try? FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: true
+                )
+            }
             // Success and failure are both durable: backfill answers from
             // completed jobs and error artifacts from failed ones.
             self.reconcile(subdir: "output", source: "result.txt",
-                           ext: ".txt", title: "bckbrnr — your answer is ready")
+                           ext: ".txt", title: "bckbrnr — your answer is ready",
+                           workspace: workspace, promptDir: promptDir, responseDir: responseDir)
             self.reconcile(subdir: "failed", source: "error.txt",
-                           ext: ".error.txt", title: "bckbrnr — couldn’t finish")
+                           ext: ".error.txt", title: "bckbrnr — couldn’t finish",
+                           workspace: workspace, promptDir: promptDir, responseDir: responseDir)
         }
     }
 
     /// Mirror a finished nrvna job into the user-facing response folder, once.
     /// Runs on the work queue.
-    private func reconcile(subdir: String, source: String, ext: String, title: String) {
+    private func reconcile(
+        subdir: String,
+        source: String,
+        ext: String,
+        title: String,
+        workspace: URL,
+        promptDir: URL,
+        responseDir: URL
+    ) {
         let dir = workspace.appendingPathComponent(subdir, isDirectory: true)
         guard let jobs = try? FileManager.default.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
@@ -231,7 +277,9 @@ final class BckbrnrController: ObservableObject {
                   let prompt = try? String(contentsOf: job.appendingPathComponent("prompt.txt")),
                   let content = try? String(contentsOf: job.appendingPathComponent(source))
             else { continue }
-            let base = recoveryStem(for: prompt, ext: ext)
+            let base = recoveryStem(
+                for: prompt, ext: ext, promptDir: promptDir, responseDir: responseDir
+            )
             let target = responseDir.appendingPathComponent("\(base)\(ext)")
             guard !FileManager.default.fileExists(atPath: target.path) else { continue }
             try? content.write(to: target, atomically: true, encoding: .utf8)
@@ -241,7 +289,9 @@ final class BckbrnrController: ObservableObject {
 
     /// Submission already chose a collision-safe prompt filename. Recover that
     /// same identity instead of deriving the unsuffixed first-line stem again.
-    private func recoveryStem(for prompt: String, ext: String) -> String {
+    private func recoveryStem(
+        for prompt: String, ext: String, promptDir: URL, responseDir: URL
+    ) -> String {
         let fallback = Naming.deriveStem(from: prompt)
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: promptDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
@@ -418,13 +468,15 @@ final class BckbrnrController: ObservableObject {
     }
 
     private func notify(title: String, body: String, path: String?) {
-        DispatchQueue.main.async {
-            let n = NSUserNotification()
-            n.title = title
-            n.informativeText = body
-            if let path { n.userInfo = ["path": path] }
-            NSUserNotificationCenter.default.deliver(n)
-        }
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        if let path { content.userInfo = ["path": path] }
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString, content: content, trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 
     private func setStatus(_ value: String) {

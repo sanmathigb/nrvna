@@ -37,7 +37,7 @@ bundle:
 		-sdk "$$(DEVELOPER_DIR="$(DEVELOPER_DIR)" xcrun --sdk macosx --show-sdk-path)" \
 		-target "$(SWIFT_TARGET)" \
 		-Xcc -fmodules-cache-path="$(BUILD_DIR)/ModuleCache" \
-		-framework AppKit -framework SwiftUI \
+		-framework AppKit -framework SwiftUI -framework UserNotifications \
 		-o "$(MACOS)/$(APP_NAME)" \
 		Sources/Bckbrnr/*.swift
 	cp Info.plist "$(CONTENTS)/Info.plist"
