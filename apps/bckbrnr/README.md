@@ -14,6 +14,7 @@ Build and launch the app:
 ```bash
 cd apps/bckbrnr
 make run          # builds the .app and opens it (use `make app` to build only)
+make test         # runs the naming tests (no engine build required)
 ```
 
 The build creates statically linked primitive binaries and bundles them inside
