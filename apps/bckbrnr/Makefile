@@ -6,29 +6,42 @@ MACOS := $(CONTENTS)/MacOS
 RESOURCES := $(CONTENTS)/Resources
 BIN := $(RESOURCES)/bin
 ENGINE_DIR ?= $(BUILD_DIR)/engine
+MACOSX_DEPLOYMENT_TARGET ?= 13.3
+ARCH ?= $(shell uname -m)
+SWIFT_TARGET ?= $(ARCH)-apple-macosx$(MACOSX_DEPLOYMENT_TARGET)
 # Use the active toolchain (xcode-select) rather than assuming Xcode's location;
 # fall back to the default install path if xcode-select isn't set up.
 DEVELOPER_DIR ?= $(shell xcode-select -p 2>/dev/null || echo /Applications/Xcode.app/Contents/Developer)
 
-.PHONY: app engine clean run
+.PHONY: app bundle engine clean run
 
 engine:
 	cmake -S ../.. -B "$(ENGINE_DIR)" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_OSX_DEPLOYMENT_TARGET="$(MACOSX_DEPLOYMENT_TARGET)" \
+		-DGGML_NATIVE=OFF \
 		-DLLAMA_CURL=OFF \
 		-DLLAMA_OPENSSL=OFF
 	cmake --build "$(ENGINE_DIR)" -j4 --target nrvnad wrk flw
 
 app: engine
+	$(MAKE) bundle ENGINE_DIR="$(ENGINE_DIR)"
+
+# Assemble an app around an engine that was already built. Release CI uses this
+# target so its portable engine configuration is not reconfigured here.
+bundle:
+	rm -rf "$(APP_DIR)"
 	mkdir -p "$(MACOS)" "$(BIN)"
 	DEVELOPER_DIR="$(DEVELOPER_DIR)" CLANG_MODULE_CACHE_PATH="$(BUILD_DIR)/ModuleCache" xcrun swiftc -O -parse-as-library \
 		-sdk "$$(DEVELOPER_DIR="$(DEVELOPER_DIR)" xcrun --sdk macosx --show-sdk-path)" \
+		-target "$(SWIFT_TARGET)" \
 		-Xcc -fmodules-cache-path="$(BUILD_DIR)/ModuleCache" \
 		-framework AppKit -framework SwiftUI \
 		-o "$(MACOS)/$(APP_NAME)" \
 		Sources/Bckbrnr/*.swift
 	cp Info.plist "$(CONTENTS)/Info.plist"
+	plutil -lint "$(CONTENTS)/Info.plist"
 	install -m 755 "$(ENGINE_DIR)/nrvnad" "$(BIN)/nrvnad"
 	install -m 755 "$(ENGINE_DIR)/wrk" "$(BIN)/wrk"
 	install -m 755 "$(ENGINE_DIR)/flw" "$(BIN)/flw"
