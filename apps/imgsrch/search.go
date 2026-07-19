@@ -400,8 +400,9 @@ func cmdSearch(project, query string, topN int, sc scorer) error {
 			}
 			snippet = cut + "..."
 		}
-		fmt.Printf("[%.3f] %s  (scorer=%s dense=%.3f dense_rank=%d bm25=%.3f bm25_rank=%d)\n%s\n\n",
-			h.Score, h.Path, sc, h.Dense, h.DenseRank, h.B25, h.B25Rank, snippet)
+		// Terminal shows what the user acts on: rank, path, evidence.
+		// Scores and per-channel ranks stay in search-results.md below.
+		fmt.Printf("%d  %s\n   %s\n\n", i+1, h.Path, snippet)
 		fmt.Fprintf(&md, "## %d. %s\n\nScore: `%.3f`  Dense: `%.3f`  Dense rank: `%d`  BM25: `%.3f`  BM25 rank: `%d`\n\nImage: `%s`\n\n![](%s)\n\n> %s\n\n",
 			i+1, filepath.Base(h.Path), h.Score, h.Dense, h.DenseRank, h.B25, h.B25Rank, h.Path, h.Path, snippet)
 	}

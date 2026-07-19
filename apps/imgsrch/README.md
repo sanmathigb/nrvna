@@ -66,12 +66,12 @@ Search with the part you remember:
 ```
 
 ```text
-[0.033] images/IMG_7741.PNG
-        Screenshot of a post about engineering ownership: "strong teams
-        own outcomes, not tickets" …
-[0.031] images/Screenshot 2026-03-14 at 9.12.03.png
-        Slide titled "Ownership vs. accountability" with a two-column
-        comparison …
+1  images/IMG_7741.PNG
+   Screenshot of a post about engineering ownership: "strong teams own
+   outcomes, not tickets" …
+2  images/Screenshot 2026-03-14 at 9.12.03.png
+   Slide titled "Ownership vs. accountability" with a two-column
+   comparison …
 ```
 
 Results print ranked filenames with the caption and visible text that
