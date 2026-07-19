@@ -26,7 +26,7 @@ may be blocked the first time. It requires macOS 13.3 or newer.
 4. Type a prompt and press Return.
 5. Leave. A notification opens the answer when it is ready.
 
-Click the workspace path in the popover at any time to open your answers:
+Click the folder path in the popover at any time to open your answers:
 
 ```text
 ~/bckbrnr/text/response/
@@ -39,7 +39,7 @@ download. Inference, prompts, and answers stay on this Mac.
 
 ```text
 ~/bckbrnr/text/
-├── response/          answers and readable failures
+├── response/          answers, readable failures, and the engine log
 ├── .prompt/           copies of submitted prompts
 └── .ws/               durable nrvna jobs
 ```
@@ -50,7 +50,7 @@ download. Inference, prompts, and answers stay on this Mac.
 - completed answers are recovered when the app reopens, even without a daemon
 - unfinished jobs remain in `.ws/` and resume the next time you press Start
 
-You may change the workspace folder while the utility is stopped. The app never
+You may change the answer folder while the utility is stopped. The app never
 uploads or deletes your model, prompts, jobs, or answers.
 
 ## Build From Source

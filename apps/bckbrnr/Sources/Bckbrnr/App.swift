@@ -147,7 +147,7 @@ struct PopoverView: View {
     private var rootRow: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("WORKSPACE")
+                Text("FOLDER")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                 Button(action: controller.openResponses) {
