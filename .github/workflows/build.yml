@@ -87,6 +87,7 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/bckbrnr
         run: |
+          make test
           make app ENGINE_DIR=../../build
           if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
             echo 'bckbrnr contains dynamically linked engine libraries' >&2

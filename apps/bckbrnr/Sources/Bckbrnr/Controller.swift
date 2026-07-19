@@ -40,7 +40,7 @@ final class BckbrnrController: ObservableObject {
         self.engine = EnginePaths.discover()
         if let model = resolveModel() { modelName = model.lastPathComponent }
         let code = engineStatusCode()
-        if code == 0 || code == 2 {
+        if Self.isLive(code) {
             isRunning = true
             statusText = code == 0 ? "Ready" : "Warming up…"
             if code == 2 { awaitReadiness(launched: nil) }
@@ -53,8 +53,14 @@ final class BckbrnrController: ObservableObject {
     }
 
     deinit {
-        stop()
+        // No dispatch here: capturing self in a queued closure during deinit
+        // is object resurrection. Stop the daemon synchronously and be done.
+        terminateWorkspaceDaemon()
     }
+
+    /// 0 (ready) and 2 (starting) are the live states; any other status code
+    /// means there is no daemon to talk to.
+    private static func isLive(_ code: Int32) -> Bool { code == 0 || code == 2 }
 
     // MARK: lifecycle
 
@@ -67,7 +73,7 @@ final class BckbrnrController: ObservableObject {
             }
             self.engine = engine
             let code = engineStatusCode()
-            if code == 0 || code == 2 {            // ready or starting: live states only
+            if Self.isLive(code) {
                 daemon = nil                       // adopt the already-running daemon
             } else if daemon?.isRunning != true {
                 try startDaemon(model: model, engine: engine)
@@ -114,15 +120,20 @@ final class BckbrnrController: ObservableObject {
     /// Called when the popover opens so the prompt box only shows for a live
     /// daemon — you can never send a prompt into nothing.
     func refresh() {
-        let code = engineStatusCode()
-        let alive = code == 0 || code == 2
-        DispatchQueue.main.async {
-            self.isRunning = alive
-            // Always refresh the label: starting → ready flips the text even
-            // when the running boolean hasn't changed.
-            self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
+        // Status is a subprocess call; keep it off the main thread so opening
+        // the popover never hitches on it.
+        queue.async { [weak self] in
+            guard let self else { return }
+            let code = self.engineStatusCode()
+            let alive = Self.isLive(code)
+            DispatchQueue.main.async {
+                self.isRunning = alive
+                // Always refresh the label: starting → ready flips the text even
+                // when the running boolean hasn't changed.
+                self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
+            }
+            if alive { self.recoverCompletedResponses() }
         }
-        if alive { recoverCompletedResponses() }
     }
 
     /// On app quit, shut down the daemon bound to this utility workspace.
@@ -153,16 +164,15 @@ final class BckbrnrController: ObservableObject {
     // MARK: submit
 
     func submit(_ text: String) {
-        // Never send into a dead workspace: require a live daemon, not just
-        // that Start was pressed at some point. (Starting counts — the queue
-        // holds the prompt until the model finishes loading.) Only 0 and 2
-        // are live states; any other exit code is not a daemon.
-        let code = engineStatusCode()
-        let alive = code == 0 || code == 2
-        guard alive, let engine else { refresh(); return }
+        guard let engine else { refresh(); return }
         setStatus("Working…")
         queue.async { [weak self] in
             guard let self else { return }
+            // Never send into a dead workspace: require a live daemon, not
+            // just that Start was pressed at some point. (Starting counts —
+            // the queue holds the prompt until the model finishes loading.)
+            // Checked here so the subprocess call stays off the main thread.
+            guard Self.isLive(self.engineStatusCode()) else { self.refresh(); return }
             let stem = Naming.uniqueStem(Naming.deriveStem(from: text), in: self.promptDir, ext: "txt")
             let promptFile = self.promptDir.appendingPathComponent("\(stem).txt")
             let responseFile = self.responseDir.appendingPathComponent("\(stem).txt")
@@ -188,7 +198,9 @@ final class BckbrnrController: ObservableObject {
                 \(error.localizedDescription)
                 """
                 try? body.write(to: errorFile, atomically: true, encoding: .utf8)
-                self.setStatus("Ready")
+                // Don't claim "Ready": a dead daemon is a likely cause of the
+                // failure, so re-derive the status from the engine.
+                self.refresh()
                 self.notify(title: "bckbrnr — couldn’t finish", body: stem, path: errorFile.path)
             }
         }
