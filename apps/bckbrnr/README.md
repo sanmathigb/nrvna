@@ -66,7 +66,8 @@ open .build/bckbrnr.app
 
 `make app` builds portable, statically linked nrvna engine binaries and bundles
 them under `Contents/Resources/bin/`. Use `make run` to build and open in one
-command.
+command. Maintainers can run the model-backed controller journey with
+`make integration-test MODEL=/path/to/model.gguf`.
 
 ## Status
 

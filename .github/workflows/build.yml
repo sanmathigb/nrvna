@@ -102,6 +102,15 @@ jobs:
             exit 1
           fi
 
+      - name: Test bckbrnr controller journey
+        if: runner.os == 'macOS'
+        working-directory: apps/bckbrnr
+        run: |
+          model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
+          curl -fL --retry 3 -o "$model" \
+            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
+          make integration-test ENGINE_DIR=../../build MODEL="$model"
+
       - name: Package and smoke-test bckbrnr
         if: runner.os == 'macOS'
         working-directory: apps/bckbrnr

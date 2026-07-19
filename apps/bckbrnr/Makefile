@@ -13,7 +13,7 @@ SWIFT_TARGET ?= $(ARCH)-apple-macosx$(MACOSX_DEPLOYMENT_TARGET)
 # fall back to the default install path if xcode-select isn't set up.
 DEVELOPER_DIR ?= $(shell xcode-select -p 2>/dev/null || echo /Applications/Xcode.app/Contents/Developer)
 
-.PHONY: app bundle engine clean run test
+.PHONY: app bundle engine clean integration-test run test
 
 engine:
 	cmake -S ../.. -B "$(ENGINE_DIR)" \
@@ -56,6 +56,18 @@ test:
 		-o "$(BUILD_DIR)/naming-tests" \
 		Sources/Bckbrnr/Naming.swift Tests/NamingTests.swift
 	"$(BUILD_DIR)/naming-tests"
+
+integration-test:
+	@test -n "$(MODEL)" || { echo "MODEL=/path/to/model.gguf is required" >&2; exit 2; }
+	@mkdir -p "$(BUILD_DIR)/ModuleCache"
+	DEVELOPER_DIR="$(DEVELOPER_DIR)" xcrun swiftc -O \
+		-Xcc -fmodules-cache-path="$(BUILD_DIR)/ModuleCache" \
+		-framework AppKit -framework UserNotifications \
+		-o "$(BUILD_DIR)/controller-journey-tests" \
+		Sources/Bckbrnr/Controller.swift Sources/Bckbrnr/EnginePaths.swift \
+		Sources/Bckbrnr/Naming.swift Tests/ControllerJourneyTests.swift
+	BCKBRNR_ENGINE_DIR="$(ENGINE_DIR)" BCKBRNR_TEXT_MODEL="$(MODEL)" \
+		"$(BUILD_DIR)/controller-journey-tests"
 
 clean:
 	rm -rf "$(BUILD_DIR)"
