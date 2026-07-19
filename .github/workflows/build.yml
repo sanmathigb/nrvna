@@ -117,9 +117,13 @@ jobs:
           plutil -lint "$unpacked/Contents/Info.plist"
           test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
           vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
+          expected_arch="${{ matrix.target }}"
+          expected_arch="${expected_arch#darwin-}"
+          test "$(lipo -archs "$unpacked/Contents/MacOS/bckbrnr")" = "$expected_arch"
           for bin in nrvnad wrk flw; do
             "$unpacked/Contents/Resources/bin/$bin" --version
             vtool -show-build "$unpacked/Contents/Resources/bin/$bin" | grep -q "minos ${{ matrix.deployment_target }}"
+            test "$(lipo -archs "$unpacked/Contents/Resources/bin/$bin")" = "$expected_arch"
           done
 
       - name: Package
