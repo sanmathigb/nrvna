@@ -6,6 +6,13 @@ private final class ProcessOutputBox {
     var data = Data()
 }
 
+private struct CollectedJob: Decodable {
+    let status: String
+    let tags: [String]?
+    let result: String?
+    let error: String?
+}
+
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
     @Published var statusText = restingHint
@@ -19,11 +26,13 @@ final class BckbrnrController: ObservableObject {
 
     private var desk: URL
     private var promptDir: URL
+    private var mappingDir: URL
     private var responseDir: URL
     private var workspace: URL
 
     private var engine: EnginePaths?
     private var daemon: Process?
+    private var daemonLog: FileHandle?
 
     init() {
         // bckbrnr is the umbrella; each utility is a modality-named workspace
@@ -36,6 +45,7 @@ final class BckbrnrController: ObservableObject {
             ?? defaultDesk
         self.desk = desk
         self.promptDir = desk.appendingPathComponent(".prompt", isDirectory: true)
+        self.mappingDir = self.promptDir.appendingPathComponent(".jobs", isDirectory: true)
         self.responseDir = desk.appendingPathComponent("response", isDirectory: true)
         self.workspace = desk.appendingPathComponent(".ws", isDirectory: true)
         self.rootDisplay = Self.collapseTilde(desk.path)
@@ -108,7 +118,7 @@ final class BckbrnrController: ObservableObject {
                 default:
                     if launched == nil || launched?.isRunning != true {
                         DispatchQueue.main.async { self.isRunning = false }
-                        self.setStatus("Engine stopped during startup")
+                        self.setStatus("Engine stopped during startup — see bckbrnr-engine.log")
                         return
                     }
                 }
@@ -149,7 +159,7 @@ final class BckbrnrController: ObservableObject {
 
     func stop() {
         setStatus("Stopping…")
-        queue.async { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             self.engineStop()
             DispatchQueue.main.async {
@@ -161,7 +171,7 @@ final class BckbrnrController: ObservableObject {
     }
 
     /// Reveal the answers in Finder. Prompt copies live in a hidden .prompt
-    /// sibling, so the workspace shows only responses.
+    /// sibling, so the folder shows only responses.
     func openResponses() {
         try? ensureFolders()
         NSWorkspace.shared.open(responseDir)
@@ -184,9 +194,16 @@ final class BckbrnrController: ObservableObject {
             let responseFile = self.responseDir.appendingPathComponent("\(stem).txt")
             let errorFile = self.responseDir.appendingPathComponent("\(stem).error.txt")
             let workspacePath = self.workspace.path
+            let token = "bckbrnr-" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            let mappingFile = self.mappingDir.appendingPathComponent(token)
             do {
                 try text.write(to: promptFile, atomically: true, encoding: .utf8)
-                let jobId = try self.runProcess(engine.wrk, arguments: [workspacePath, "-"], input: text)
+                try stem.write(to: mappingFile, atomically: true, encoding: .utf8)
+                let jobId = try self.runProcess(
+                    engine.wrk,
+                    arguments: [workspacePath, "-", "--tag", "bckbrnr", "--tag", token],
+                    input: text
+                )
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 // Submission is now durable. Collect on a separate queue so
                 // the next prompt can be submitted without waiting for this
@@ -207,6 +224,7 @@ final class BckbrnrController: ObservableObject {
                     }
                 }
             } catch {
+                try? FileManager.default.removeItem(at: mappingFile)
                 self.writeFailure(stem: stem, prompt: text, error: error, errorFile: errorFile)
             }
         }
@@ -235,9 +253,10 @@ final class BckbrnrController: ObservableObject {
         // Root changes are allowed while stopped. Snapshot one complete desk
         // before dispatch so recovery can never read from one root and write
         // into another.
-        let directories = [desk, promptDir, responseDir, workspace]
+        guard let flw = (engine ?? EnginePaths.discover())?.flw else { return }
+        let directories = [desk, promptDir, mappingDir, responseDir, workspace]
         let workspace = self.workspace
-        let promptDir = self.promptDir
+        let mappingDir = self.mappingDir
         let responseDir = self.responseDir
         queue.async { [weak self] in
             guard let self else { return }
@@ -246,64 +265,31 @@ final class BckbrnrController: ObservableObject {
                     at: directory, withIntermediateDirectories: true
                 )
             }
-            // Success and failure are both durable: backfill answers from
-            // completed jobs and error artifacts from failed ones.
-            self.reconcile(subdir: "output", source: "result.txt",
-                           ext: ".txt", title: "bckbrnr — your answer is ready",
-                           workspace: workspace, promptDir: promptDir, responseDir: responseDir)
-            self.reconcile(subdir: "failed", source: "error.txt",
-                           ext: ".error.txt", title: "bckbrnr — couldn’t finish",
-                           workspace: workspace, promptDir: promptDir, responseDir: responseDir)
+            guard let output = try? self.runProcess(
+                flw,
+                arguments: [workspace.path, "--tag", "bckbrnr", "--json"],
+                acceptedExitCodes: [0, 1]
+            ) else { return }
+            let decoder = JSONDecoder()
+            for line in output.split(separator: "\n") {
+                guard let job = try? decoder.decode(CollectedJob.self, from: Data(line.utf8)),
+                      job.status == "done" || job.status == "failed",
+                      let token = job.tags?.first(where: { $0.hasPrefix("bckbrnr-") }),
+                      let stem = try? String(contentsOf: mappingDir.appendingPathComponent(token)),
+                      let content = job.status == "done" ? job.result : job.error
+                else { continue }
+                let failed = job.status == "failed"
+                let ext = failed ? ".error.txt" : ".txt"
+                let target = responseDir.appendingPathComponent("\(stem)\(ext)")
+                guard !FileManager.default.fileExists(atPath: target.path) else { continue }
+                try? content.write(to: target, atomically: true, encoding: .utf8)
+                self.notify(
+                    title: failed ? "bckbrnr — couldn’t finish" : "bckbrnr — your answer is ready",
+                    body: stem,
+                    path: target.path
+                )
+            }
         }
-    }
-
-    /// Mirror a finished nrvna job into the user-facing response folder, once.
-    /// Runs on the work queue.
-    private func reconcile(
-        subdir: String,
-        source: String,
-        ext: String,
-        title: String,
-        workspace: URL,
-        promptDir: URL,
-        responseDir: URL
-    ) {
-        let dir = workspace.appendingPathComponent(subdir, isDirectory: true)
-        guard let jobs = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
-        ) else { return }
-        for job in jobs {
-            guard (try? job.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
-                  let prompt = try? String(contentsOf: job.appendingPathComponent("prompt.txt")),
-                  let content = try? String(contentsOf: job.appendingPathComponent(source))
-            else { continue }
-            let base = recoveryStem(
-                for: prompt, ext: ext, promptDir: promptDir, responseDir: responseDir
-            )
-            let target = responseDir.appendingPathComponent("\(base)\(ext)")
-            guard !FileManager.default.fileExists(atPath: target.path) else { continue }
-            try? content.write(to: target, atomically: true, encoding: .utf8)
-            notify(title: title, body: base, path: target.path)
-        }
-    }
-
-    /// Submission already chose a collision-safe prompt filename. Recover that
-    /// same identity instead of deriving the unsuffixed first-line stem again.
-    private func recoveryStem(
-        for prompt: String, ext: String, promptDir: URL, responseDir: URL
-    ) -> String {
-        let fallback = Naming.deriveStem(from: prompt)
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: promptDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
-        ) else { return fallback }
-        for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
-        where file.pathExtension == "txt" {
-            guard let saved = try? String(contentsOf: file), saved == prompt else { continue }
-            let stem = file.deletingPathExtension().lastPathComponent
-            let target = responseDir.appendingPathComponent("\(stem)\(ext)")
-            if !FileManager.default.fileExists(atPath: target.path) { return stem }
-        }
-        return fallback
     }
 
     // MARK: model
@@ -352,6 +338,7 @@ final class BckbrnrController: ObservableObject {
     private func applyDesk(_ url: URL) {
         desk = url
         promptDir = url.appendingPathComponent(".prompt", isDirectory: true)
+        mappingDir = promptDir.appendingPathComponent(".jobs", isDirectory: true)
         responseDir = url.appendingPathComponent("response", isDirectory: true)
         workspace = url.appendingPathComponent(".ws", isDirectory: true)
         rootDisplay = Self.collapseTilde(url.path)
@@ -365,7 +352,7 @@ final class BckbrnrController: ObservableObject {
     // MARK: helpers (carried over from the original app)
 
     private func ensureFolders() throws {
-        for url in [desk, promptDir, responseDir, workspace] {
+        for url in [desk, promptDir, mappingDir, responseDir, workspace] {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
     }
@@ -384,6 +371,15 @@ final class BckbrnrController: ObservableObject {
         let process = Process()
         process.executableURL = engine.nrvnad
         process.arguments = [model.path, workspace.path, "-w", "1"]
+        let logURL = responseDir.appendingPathComponent("bckbrnr-engine.log")
+        if !FileManager.default.fileExists(atPath: logURL.path) {
+            FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        }
+        let log = try FileHandle(forWritingTo: logURL)
+        try log.seekToEnd()
+        log.write("\n--- starting \(model.lastPathComponent) at \(Date()) ---\n".data(using: .utf8)!)
+        process.standardOutput = log
+        process.standardError = log
         // Conservative defaults for a non-technical, single-GPU machine:
         // CPU only (0 GPU layers) avoids the discrete-GPU overflow that yields
         // gibberish; low temp + thinking-off keep small models terse and on-task;
@@ -396,7 +392,14 @@ final class BckbrnrController: ObservableObject {
             "NRVNA_MAX_CTX": "4096",
             "NRVNA_THINKING": "0"
         ]) { _, new in new }
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            try? log.close()
+            throw error
+        }
+        try? daemonLog?.close()
+        daemonLog = log
         daemon = process
     }
 
@@ -426,9 +429,16 @@ final class BckbrnrController: ObservableObject {
         process.standardError = Pipe()
         try? process.run()
         process.waitUntilExit()
+        try? daemonLog?.close()
+        daemonLog = nil
     }
 
-    private func runProcess(_ executable: URL, arguments: [String], input: String? = nil) throws -> String {
+    private func runProcess(
+        _ executable: URL,
+        arguments: [String],
+        input: String? = nil,
+        acceptedExitCodes: Set<Int32> = [0]
+    ) throws -> String {
         let process = Process(); let stdout = Pipe(); let stderr = Pipe(); let stdin = Pipe()
         process.executableURL = executable
         process.arguments = arguments
@@ -460,7 +470,7 @@ final class BckbrnrController: ObservableObject {
         readers.wait()
         let output = String(data: stdoutBox.data, encoding: .utf8) ?? ""
         let errOut = String(data: stderrBox.data, encoding: .utf8) ?? ""
-        guard process.terminationStatus == 0 else {
+        guard acceptedExitCodes.contains(process.terminationStatus) else {
             throw NSError(domain: "bckbrnr", code: Int(process.terminationStatus),
                           userInfo: [NSLocalizedDescriptionKey: errOut.isEmpty ? output : errOut])
         }
