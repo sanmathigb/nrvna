@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imgsrch: search screenshots by what they say and what they mean</title>
+<meta name="description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
+<meta property="og:title" content="imgsrch: search screenshots by what they say and what they mean">
+<meta property="og:description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FEFEFC;
+    --ink: #191813;
+    --dim: #6F6B61;
+    --faint: #A5A199;
+    --hairline: #E9E7E0;
+    --panel: #F7F6F2;
+    --ember: #D96B2B;
+    --ember-ink: #B4531B;
+    --display: "Space Grotesk", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--ember); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: var(--ember-ink); }
+  a:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+  ::selection { background: #F5DECD; }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 24px; }
+
+  header { padding: 26px 0; }
+  header .wrap { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--hairline); padding-bottom: 18px; }
+  .wordmark { font-weight: 700; font-size: 15px; letter-spacing: 0.01em; }
+  .wordmark .dot { color: var(--ember); }
+  .badge { font-size: 11px; letter-spacing: 0.06em; color: var(--dim); border: 1px solid var(--hairline); padding: 2px 9px; border-radius: 999px; margin-left: 12px; vertical-align: 2px; }
+  nav { font-size: 13px; }
+  nav a { text-decoration: none; color: var(--dim); margin-left: 22px; }
+  nav a:hover { color: var(--ember-ink); }
+
+  .hero { padding: 64px 0 8px; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(30px, 5.2vw, 46px);
+    line-height: 1.14;
+    letter-spacing: -0.015em;
+    max-width: 17em;
+  }
+  h1 em { font-style: normal; color: var(--ember-ink); }
+  .sub { margin-top: 20px; font-size: 15px; color: var(--dim); max-width: 44em; }
+
+  /* signature: the pile resolves into meaning */
+  .demo { border: 1px solid var(--hairline); margin: 48px 0 12px; }
+  .query .q, .code .q { color: var(--dim); }
+  .folder { display: flex; align-items: center; gap: 10px; padding: 14px 20px;
+            color: var(--dim); font-size: 13.5px; border-bottom: 1px solid var(--hairline); }
+  .folder svg { flex: none; }
+  .query { padding: 16px 20px 0; font-size: 13.5px; }
+  .query .prompt { color: var(--ember-ink); font-weight: 700; }
+  .results { padding: 6px 20px 18px; font-size: 13.5px; }
+  .hit { margin-top: 12px; animation: settle 0.5s ease-out backwards; }
+  .hit:nth-child(2) { animation-delay: 0.25s; }
+  .hit:nth-child(3) { animation-delay: 0.5s; }
+  @keyframes settle { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .hit { animation: none; } }
+  .hit .score { color: var(--faint); }
+  .hit .file { font-weight: 700; }
+  .hit .snippet { color: var(--dim); padding-left: 1.6em; display: block; }
+  .hit mark { background: none; color: var(--ember-ink); font-weight: 700; }
+  .demo-note { font-size: 12.5px; color: var(--faint); margin: 10px 0 0; }
+
+  section { padding: 56px 0 0; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ember-ink); margin-bottom: 14px;
+  }
+  h2 { font-family: var(--display); font-weight: 600; font-size: 24px; letter-spacing: -0.01em; margin-bottom: 14px; }
+  section p { max-width: 46em; margin-bottom: 12px; }
+  .quiet { color: var(--dim); }
+
+  pre { font-family: var(--mono); overflow-x: auto; }
+  .code {
+    background: var(--panel); border: 1px solid var(--hairline);
+    padding: 16px 20px; font-size: 13px; line-height: 1.9; margin: 18px 0;
+  }
+  .code .c { color: var(--faint); }
+  .code .p { color: var(--ember-ink); font-weight: 700; }
+  code { font-size: 0.95em; background: var(--panel); padding: 1px 5px; border: 1px solid var(--hairline); }
+  pre code { background: none; border: none; padding: 0; }
+
+  .cmds { list-style: none; margin: 20px 0 0; border-top: 1px solid var(--hairline); }
+  .cmds li { display: grid; grid-template-columns: 130px 1fr; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+  .cmds .name { font-weight: 700; font-size: 13.5px; }
+  .cmds .desc { color: var(--dim); }
+
+  .dl { list-style: none; margin: 18px 0; border-top: 1px solid var(--hairline); }
+  .dl li { display: grid; grid-template-columns: 1fr auto; gap: 18px; padding: 11px 0; border-bottom: 1px solid var(--hairline); font-size: 13.5px; }
+  .dl .plat { color: var(--dim); }
+
+  footer { padding: 72px 0 48px; }
+  footer .wrap { border-top: 1px solid var(--hairline); padding-top: 20px; font-size: 13px; color: var(--dim); }
+  .credit { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .orb { width: 8px; height: 8px; border-radius: 50%; background: var(--ember); flex: none; animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .orb { animation: none; } }
+  .footlinks { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 24px; }
+  .footlinks a { text-decoration: none; }
+
+  @media (max-width: 560px) {
+    .cmds li { grid-template-columns: 92px 1fr; gap: 12px; }
+    .dl li { grid-template-columns: 1fr; gap: 2px; }
+    .hit .snippet { padding-left: 0; }
+    nav a { margin-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="wordmark">imgsrch<span class="dot">.</span><span class="badge">pre-beta</span></span>
+    <nav>
+      <a href="#install">install</a>
+      <a href="https://github.com/sanmathigb/nrvna-ai/tree/main/apps/imgsrch">github</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>Search screenshots by what they <em>say</em> and what they <em>mean</em>.</h1>
+      <p class="sub">Small vision models read each image once, on your machine.
+      Natural language finds it again. Your images never leave your machine.
+      For humans and agents.</p>
+
+      <div class="demo" role="img" aria-label="A folder of screenshots; a search for a remembered phrase surfaces the two relevant files with the caption text that matched.">
+        <div class="folder">
+          <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><path d="M1 2.5C1 1.7 1.7 1 2.5 1H6l1.5 2h6C14.3 3 15 3.7 15 4.5v7c0 .8-.7 1.5-1.5 1.5h-11C1.7 13 1 12.3 1 11.5Z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span>~/Screenshots</span>
+        </div>
+        <div class="query"><span class="prompt">$</span> ./imgsrch search shots <span class="q">"that post about engineering ownership"</span></div>
+        <div class="results">
+          <div class="hit">
+            <span class="score">1</span> <span class="file">images/IMG_7741.PNG</span>
+            <span class="snippet">Screenshot of a post about engineering <mark>ownership</mark>: “strong teams own outcomes, not tickets” …</span>
+          </div>
+          <div class="hit">
+            <span class="score">2</span> <span class="file">images/Screenshot 2026-03-14 at 9.12.03.png</span>
+            <span class="snippet">Slide titled “<mark>Ownership</mark> vs. accountability” with a two-column comparison …</span>
+          </div>
+        </div>
+      </div>
+      <p class="demo-note">Index in the background. Search anytime, offline.</p>
+    </div>
+  </div>
+
+  <section id="workflow">
+    <div class="wrap">
+      <div class="eyebrow">workflow</div>
+      <h2>The whole tool</h2>
+      <div class="code"><pre><span class="p">$</span> ./imgsrch init shots
+<span class="p">$</span> ./imgsrch index shots ~/Screenshots/*.png
+<span class="c">queued: 24 image(s) · skipped: 46 already indexed · work continues in the background</span>
+<span class="p">$</span> ./imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
+      <ul class="cmds">
+        <li><span class="name">setup</span><span class="desc">Download the three pinned models: 3.4 GB, checksum-verified, once</span></li>
+        <li><span class="name">init</span><span class="desc">Create a project</span></li>
+        <li><span class="name">index</span><span class="desc">Index as you go: new images queue, already-indexed are skipped</span></li>
+        <li><span class="name">status</span><span class="desc">Read-only progress: what finished, what failed and why</span></li>
+        <li><span class="name">search</span><span class="desc">Natural language in, ranked files with matched text out</span></li>
+      </ul>
+      <p class="quiet" style="margin-top:12px">Plus <code>add</code>, <code>stop</code>, and <code>doctor</code>. That’s the daily surface.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="eyebrow">mechanics</div>
+      <h2>How search works</h2>
+      <div class="code"><pre>index:   image ──► caption model ──► caption.txt ─┐
+               └─► OCR model ─────► ocr.txt ──────┴─► combined.md ─► embedding.json
+
+search:  query ──► embedding ──► cosine per image ──► dense ranks ─┐
+         query ──► BM25 over combined.md ───────────► keyword ranks┴─► RRF</pre></div>
+      <p class="quiet">RRF is the default because it measured better on a
+      labeled hard set. <code>imgsrch eval</code> keeps the claim checkable.</p>
+    </div>
+  </section>
+
+  <section id="files">
+    <div class="wrap">
+      <div class="eyebrow">no black box</div>
+      <h2>The index is plain files</h2>
+      <div class="code"><pre>shots/.imgsrch/
+├── artifacts/&lt;image&gt;/   <span class="c">caption.txt · ocr.txt · combined.md · embedding.json</span>
+├── index/index.tsv      <span class="c">the search index, a TSV you can read</span>
+└── workspaces/          <span class="c">the engine’s job queues, inspectable mid-flight</span></pre></div>
+      <p class="quiet">No database. If a search result surprises you, the
+      reason is a file you can open.</p>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap">
+      <div class="eyebrow">for agents</div>
+      <h2>Agents can use it</h2>
+      <p>Agents search first, read matched captions and text, and open
+      originals only for verification.</p>
+      <p class="quiet">One command, stable text output: ranked files with
+      cited paths. A small candidate set, not an image library.</p>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <div class="eyebrow">install</div>
+      <h2>One archive, no dependencies</h2>
+      <div class="code"><pre><span class="p">$</span> tar -xzf imgsrch-darwin-arm64.tar.gz
+<span class="p">$</span> cd imgsrch-darwin-arm64
+<span class="p">$</span> ./imgsrch setup   <span class="c"># fetches the pinned models, once</span></pre></div>
+      <ul class="dl">
+        <li><a href="https://github.com/sanmathigb/nrvna-ai/releases/latest/download/imgsrch-darwin-arm64.tar.gz">imgsrch-darwin-arm64.tar.gz</a><span class="plat">macOS 13.3+, Apple Silicon</span></li>
+        <li><a href="https://github.com/sanmathigb/nrvna-ai/releases/latest/download/imgsrch-darwin-x86_64.tar.gz">imgsrch-darwin-x86_64.tar.gz</a><span class="plat">macOS 13.3+, Intel</span></li>
+        <li><a href="https://github.com/sanmathigb/nrvna-ai/releases/latest/download/imgsrch-linux-x86_64.tar.gz">imgsrch-linux-x86_64.tar.gz</a><span class="plat">Linux x86-64, AVX2</span></li>
+      </ul>
+      <p class="quiet">Everything is bundled except the models. CPU-first, no
+      GPU required. SHA-256 checksums ship next to each archive. macOS builds
+      are unsigned; the first run may need approval in System Settings →
+      Privacy &amp; Security.</p>
+      <p class="quiet">imgsrch is pre-beta. It does one thing: search your
+      screenshots. It's early. If something breaks,
+      <a href="https://github.com/sanmathigb/nrvna-ai/issues">open an issue</a>;
+      every report gets read.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="credit">
+      <span class="orb" aria-hidden="true"></span>
+      <span>built with <a href="../">nrvna ai</a>, local async inference
+      primitives</span>
+    </div>
+    <div class="footlinks">
+      <span>MIT License</span>
+      <a href="https://github.com/sanmathigb/nrvna-ai/tree/main/apps/imgsrch">source &amp; readme</a>
+      <a href="https://github.com/sanmathigb/nrvna-ai/issues">issues &amp; ideas</a>
+      <a href="../">nrvna ai</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
