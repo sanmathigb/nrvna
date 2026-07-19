@@ -6,6 +6,8 @@ private final class ProcessOutputBox {
     var data = Data()
 }
 
+private struct WaitCancelled: Error {}
+
 private struct CollectedJob: Decodable {
     let status: String
     let tags: [String]?
@@ -15,13 +17,16 @@ private struct CollectedJob: Decodable {
 
 final class BckbrnrController: ObservableObject {
     @Published var isRunning = false
+    @Published private(set) var isStopping = false
     @Published var statusText = restingHint
     static let restingHint = ""   // nothing when idle; errors still surface
     @Published var modelName = "No model chosen"
     @Published var rootDisplay = ""
 
     private let queue = DispatchQueue(label: "ai.nrvna.bckbrnr.jobs")
-    private let collectQueue = DispatchQueue(label: "ai.nrvna.bckbrnr.results")
+    private let collectQueue = DispatchQueue(
+        label: "ai.nrvna.bckbrnr.results", attributes: .concurrent
+    )
     private let defaults = UserDefaults.standard
 
     private var desk: URL
@@ -33,6 +38,10 @@ final class BckbrnrController: ObservableObject {
     private var engine: EnginePaths?
     private var daemon: Process?
     private var daemonLog: FileHandle?
+    private let lifecycleLock = NSLock()
+    private let waiterLock = NSLock()
+    private var acceptingWaiters = true
+    private var waiters: [ObjectIdentifier: Process] = [:]
 
     init() {
         // bckbrnr is the umbrella; each utility is a modality-named workspace
@@ -77,6 +86,7 @@ final class BckbrnrController: ObservableObject {
     // MARK: lifecycle
 
     func start() {
+        guard !isStopping else { return }
         do {
             try ensureFolders()
             guard let model = resolveModel() else { setStatus("Choose a model to begin"); return }
@@ -90,10 +100,8 @@ final class BckbrnrController: ObservableObject {
             } else if daemon?.isRunning != true {
                 try startDaemon(model: model, engine: engine)
             }
-            DispatchQueue.main.async {
-                self.isRunning = true
-                self.statusText = "Warming up…"
-            }
+            isRunning = true
+            statusText = "Warming up…"
             awaitReadiness(launched: daemon)
             recoverCompletedResponses()
         } catch {
@@ -109,14 +117,17 @@ final class BckbrnrController: ObservableObject {
             guard let self else { return }
             let deadline = Date().addingTimeInterval(180)
             while Date() < deadline {
+                if self.stopping() { return }
                 switch self.engineStatusCode() {
                 case 0:
+                    if self.stopping() { return }
                     self.setStatus("Ready")
                     return
                 case 2:
                     break // still loading
                 default:
                     if launched == nil || launched?.isRunning != true {
+                        if self.stopping() { return }
                         DispatchQueue.main.async { self.isRunning = false }
                         self.setStatus("Engine stopped during startup — see bckbrnr-engine.log")
                         return
@@ -124,14 +135,17 @@ final class BckbrnrController: ObservableObject {
                 }
                 Thread.sleep(forTimeInterval: 1)
             }
+            if self.stopping() { return }
             self.setStatus("Engine is taking unusually long to load")
         }
     }
 
     /// Re-check whether a daemon is actually alive and flip the UI to match.
-    /// Called when the popover opens so the prompt box only shows for a live
-    /// daemon — you can never send a prompt into nothing.
+    /// Called when the popover opens so the prompt box reflects daemon state.
+    /// If the daemon disappears after a prompt is accepted, wrk still queues it
+    /// durably for the next Start.
     func refresh() {
+        guard !isStopping else { return }
         // Status is a subprocess call; keep it off the main thread so opening
         // the popover never hitches on it.
         queue.async { [weak self] in
@@ -139,6 +153,7 @@ final class BckbrnrController: ObservableObject {
             let code = self.engineStatusCode()
             let alive = Self.isLive(code)
             DispatchQueue.main.async {
+                guard !self.isStopping else { return }
                 self.isRunning = alive
                 // Always refresh the label: starting → ready flips the text even
                 // when the running boolean hasn't changed.
@@ -153,18 +168,21 @@ final class BckbrnrController: ObservableObject {
     /// stopping it. The engine identifies and stops its own process — we never
     /// signal a pid ourselves.
     func terminateWorkspaceDaemon() {
+        cancelWaiters()
         engineStop()
         daemon = nil
     }
 
     func stop() {
-        setStatus("Stopping…")
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
+        guard !isStopping else { return }
+        isStopping = true
+        statusText = "Stopping…"
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
             self.engineStop()
             DispatchQueue.main.async {
                 self.daemon = nil
                 self.isRunning = false
+                self.isStopping = false
                 self.statusText = Self.restingHint
             }
         }
@@ -179,55 +197,51 @@ final class BckbrnrController: ObservableObject {
 
     // MARK: submit
 
-    func submit(_ text: String) {
-        guard let engine else { refresh(); return }
-        setStatus("Working…")
-        queue.async { [weak self] in
-            guard let self else { return }
-            // Never send into a dead workspace: require a live daemon, not
-            // just that Start was pressed at some point. (Starting counts —
-            // the queue holds the prompt until the model finishes loading.)
-            // Checked here so the subprocess call stays off the main thread.
-            guard Self.isLive(self.engineStatusCode()) else { self.refresh(); return }
-            let stem = Naming.uniqueStem(Naming.deriveStem(from: text), in: self.promptDir, ext: "txt")
-            let promptFile = self.promptDir.appendingPathComponent("\(stem).txt")
-            let responseFile = self.responseDir.appendingPathComponent("\(stem).txt")
-            let errorFile = self.responseDir.appendingPathComponent("\(stem).error.txt")
-            let workspacePath = self.workspace.path
-            let token = "bckbrnr-" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
-            let mappingFile = self.mappingDir.appendingPathComponent(token)
-            do {
-                try text.write(to: promptFile, atomically: true, encoding: .utf8)
-                try stem.write(to: mappingFile, atomically: true, encoding: .utf8)
-                let jobId = try self.runProcess(
-                    engine.wrk,
-                    arguments: [workspacePath, "-", "--tag", "bckbrnr", "--tag", token],
-                    input: text
-                )
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                // Submission is now durable. Collect on a separate queue so
-                // the next prompt can be submitted without waiting for this
-                // model run to finish.
-                self.collectQueue.async { [weak self] in
-                    guard let self else { return }
-                    do {
-                        let result = try self.runProcess(
-                            engine.flw, arguments: [workspacePath, "-w", jobId]
-                        )
-                        try result.write(to: responseFile, atomically: true, encoding: .utf8)
-                        self.setStatus("Ready")
-                        self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
-                    } catch {
-                        self.writeFailure(
-                            stem: stem, prompt: text, error: error, errorFile: errorFile
-                        )
-                    }
-                }
-            } catch {
-                try? FileManager.default.removeItem(at: mappingFile)
-                self.writeFailure(stem: stem, prompt: text, error: error, errorFile: errorFile)
-            }
+    @discardableResult
+    func submit(_ text: String) -> Bool {
+        guard let engine = engine ?? EnginePaths.discover() else {
+            setStatus("Engine binaries not found (set BCKBRNR_ENGINE_DIR)")
+            return false
         }
+        setStatus("Working…")
+        let stem = Naming.uniqueStem(Naming.deriveStem(from: text), in: promptDir, ext: "txt")
+        let promptFile = promptDir.appendingPathComponent("\(stem).txt")
+        let responseFile = responseDir.appendingPathComponent("\(stem).txt")
+        let errorFile = responseDir.appendingPathComponent("\(stem).error.txt")
+        let workspacePath = workspace.path
+        let token = "bckbrnr-" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let mappingFile = mappingDir.appendingPathComponent(token)
+        do {
+            try text.write(to: promptFile, atomically: true, encoding: .utf8)
+            try stem.write(to: mappingFile, atomically: true, encoding: .utf8)
+            // Publish before returning so Return followed by Quit cannot lose
+            // accepted work. wrk only performs small filesystem operations.
+            let jobId = try runProcess(
+                engine.wrk,
+                arguments: [workspacePath, "-", "--tag", "bckbrnr", "--tag", token],
+                input: text
+            ).trimmingCharacters(in: .whitespacesAndNewlines)
+            collectQueue.async { [weak self] in
+                guard let self else { return }
+                do {
+                    let result = try self.runProcess(
+                        engine.flw, arguments: [workspacePath, "-w", jobId], trackWaiter: true
+                    )
+                    try result.write(to: responseFile, atomically: true, encoding: .utf8)
+                    self.setStatus("Ready")
+                    self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
+                } catch is WaitCancelled {
+                    return
+                } catch {
+                    self.writeFailure(stem: stem, prompt: text, error: error, errorFile: errorFile)
+                }
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: mappingFile)
+            writeFailure(stem: stem, prompt: text, error: error, errorFile: errorFile)
+            return false
+        }
+        return true
     }
 
     private func writeFailure(stem: String, prompt: String, error: Error, errorFile: URL) {
@@ -242,7 +256,12 @@ final class BckbrnrController: ObservableObject {
         ERROR:
         \(error.localizedDescription)
         """
-        try? body.write(to: errorFile, atomically: true, encoding: .utf8)
+        do {
+            try body.write(to: errorFile, atomically: true, encoding: .utf8)
+        } catch {
+            setStatus("Couldn’t save failure: \(error.localizedDescription)")
+            return
+        }
         // Don't claim "Ready": a dead daemon is a likely cause of the
         // failure, so re-derive the status from the engine.
         refresh()
@@ -282,7 +301,12 @@ final class BckbrnrController: ObservableObject {
                 let ext = failed ? ".error.txt" : ".txt"
                 let target = responseDir.appendingPathComponent("\(stem)\(ext)")
                 guard !FileManager.default.fileExists(atPath: target.path) else { continue }
-                try? content.write(to: target, atomically: true, encoding: .utf8)
+                do {
+                    try content.write(to: target, atomically: true, encoding: .utf8)
+                } catch {
+                    self.setStatus("Couldn’t recover answer: \(error.localizedDescription)")
+                    continue
+                }
                 self.notify(
                     title: failed ? "bckbrnr — couldn’t finish" : "bckbrnr — your answer is ready",
                     body: stem,
@@ -295,7 +319,7 @@ final class BckbrnrController: ObservableObject {
     // MARK: model
 
     func chooseModel() {
-        guard !isRunning else { setStatus("Stop before changing the model"); return }
+        guard !isRunning && !isStopping else { setStatus("Stop before changing the model"); return }
         let panel = NSOpenPanel()
         panel.title = "Choose a GGUF text model"
         panel.allowsMultipleSelection = false
@@ -314,7 +338,7 @@ final class BckbrnrController: ObservableObject {
     /// running daemon is bound to the old workspace, so changing under it
     /// would split the queue. Takes effect on the next Start.
     func chooseRoot() {
-        guard !isRunning else { setStatus("Stop before changing the root"); return }
+        guard !isRunning && !isStopping else { setStatus("Stop before changing the root"); return }
         let panel = NSOpenPanel()
         panel.title = "Choose a folder for this utility"
         panel.canChooseDirectories = true
@@ -325,7 +349,7 @@ final class BckbrnrController: ObservableObject {
     }
 
     func setRoot(_ raw: String) {
-        guard !isRunning else { setStatus("Stop before changing the root"); return }
+        guard !isRunning && !isStopping else { setStatus("Stop before changing the root"); return }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { rootDisplay = Self.collapseTilde(desk.path); return }
         let expanded = NSString(string: trimmed).expandingTildeInPath
@@ -421,23 +445,44 @@ final class BckbrnrController: ObservableObject {
     /// Graceful stop, delegated to the engine (short timeout: this runs on
     /// app-quit, where macOS gives us limited time).
     private func engineStop() {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         guard let engine = engine ?? EnginePaths.discover() else { return }
         let process = Process()
         process.executableURL = engine.nrvnad
         process.arguments = ["stop", workspace.path, "--timeout", "5"]
         process.standardOutput = Pipe()
         process.standardError = Pipe()
-        try? process.run()
+        guard (try? process.run()) != nil else {
+            try? daemonLog?.close()
+            daemonLog = nil
+            return
+        }
         process.waitUntilExit()
         try? daemonLog?.close()
         daemonLog = nil
+    }
+
+    private func stopping() -> Bool {
+        if Thread.isMainThread { return isStopping }
+        return DispatchQueue.main.sync { isStopping }
+    }
+
+    private func cancelWaiters() {
+        waiterLock.lock()
+        acceptingWaiters = false
+        let running = Array(waiters.values)
+        waiters.removeAll()
+        waiterLock.unlock()
+        for process in running where process.isRunning { process.terminate() }
     }
 
     private func runProcess(
         _ executable: URL,
         arguments: [String],
         input: String? = nil,
-        acceptedExitCodes: Set<Int32> = [0]
+        acceptedExitCodes: Set<Int32> = [0],
+        trackWaiter: Bool = false
     ) throws -> String {
         let process = Process(); let stdout = Pipe(); let stderr = Pipe(); let stdin = Pipe()
         process.executableURL = executable
@@ -446,6 +491,22 @@ final class BckbrnrController: ObservableObject {
         process.standardError = stderr
         if input != nil { process.standardInput = stdin }
         try process.run()
+
+        let waiterID = ObjectIdentifier(process)
+        if trackWaiter {
+            waiterLock.lock()
+            let cancelled = !acceptingWaiters
+            if !cancelled { waiters[waiterID] = process }
+            waiterLock.unlock()
+            if cancelled { process.terminate() }
+        }
+        defer {
+            if trackWaiter {
+                waiterLock.lock()
+                waiters.removeValue(forKey: waiterID)
+                waiterLock.unlock()
+            }
+        }
 
         // Drain both pipes while the child runs. Waiting first can deadlock if
         // either pipe fills and the child blocks before it can exit.
@@ -470,6 +531,7 @@ final class BckbrnrController: ObservableObject {
         readers.wait()
         let output = String(data: stdoutBox.data, encoding: .utf8) ?? ""
         let errOut = String(data: stderrBox.data, encoding: .utf8) ?? ""
+        if trackWaiter && process.terminationStatus == SIGTERM { throw WaitCancelled() }
         guard acceptedExitCodes.contains(process.terminationStatus) else {
             throw NSError(domain: "bckbrnr", code: Int(process.terminationStatus),
                           userInfo: [NSLocalizedDescriptionKey: errOut.isEmpty ? output : errOut])

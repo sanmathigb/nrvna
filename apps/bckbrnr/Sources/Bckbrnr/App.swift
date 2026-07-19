@@ -79,7 +79,7 @@ struct PopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            if controller.isRunning {
+            if controller.isRunning && !controller.isStopping {
                 Divider().opacity(0.4)
                 promptArea
             } else if !controller.statusText.isEmpty {
@@ -140,7 +140,7 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseModel)
                 .buttonStyle(.link)
                 .font(.caption)
-                .disabled(controller.isRunning)   // bound to a live daemon
+                .disabled(controller.isRunning || controller.isStopping)
         }
     }
 
@@ -164,19 +164,22 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseRoot)
                 .buttonStyle(.link)
                 .font(.caption)
-                .disabled(controller.isRunning)   // bound to a live daemon
+                .disabled(controller.isRunning || controller.isStopping)
         }
     }
 
     private var controls: some View {
         HStack {
-            Button(controller.isRunning ? "Stop" : "Start") {
-                if controller.isRunning {
+            Button(controller.isStopping ? "Stopping…" : (controller.isRunning ? "Stop" : "Start")) {
+                if controller.isStopping {
+                    return
+                } else if controller.isRunning {
                     controller.stop()
                 } else {
                     controller.start()
                 }
             }
+            .disabled(controller.isStopping)
             Spacer()
             Button("Quit") {
                 NSApp.terminate(nil)
@@ -189,7 +192,6 @@ struct PopoverView: View {
     private func submit() {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        controller.submit(text)
-        prompt = ""
+        if controller.submit(text) { prompt = "" }
     }
 }

@@ -96,20 +96,12 @@ jobs:
           test -x "$app/Contents/Resources/bin/nrvnad"
           test -x "$app/Contents/Resources/bin/wrk"
           test -x "$app/Contents/Resources/bin/flw"
+          test -f "$app/Contents/Resources/LICENSE"
           plutil -lint "$app/Contents/Info.plist"
           if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
             echo 'bckbrnr contains dynamically linked engine libraries' >&2
             exit 1
           fi
-
-      - name: Test bckbrnr controller journey
-        if: runner.os == 'macOS'
-        working-directory: apps/bckbrnr
-        run: |
-          model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
-          curl -fL --retry 3 -o "$model" \
-            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
-          make integration-test ENGINE_DIR=../../build MODEL="$model"
 
       - name: Package and smoke-test bckbrnr
         if: runner.os == 'macOS'
@@ -124,6 +116,7 @@ jobs:
           ditto -x -k "../../dist/$kit.zip" "../../dist/smoke-$kit"
           unpacked="../../dist/smoke-$kit/bckbrnr.app"
           plutil -lint "$unpacked/Contents/Info.plist"
+          test -f "$unpacked/Contents/Resources/LICENSE"
           test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
           vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
           expected_arch="${{ matrix.target }}"
@@ -134,6 +127,17 @@ jobs:
             vtool -show-build "$unpacked/Contents/Resources/bin/$bin" | grep -q "minos ${{ matrix.deployment_target }}"
             test "$(lipo -archs "$unpacked/Contents/Resources/bin/$bin")" = "$expected_arch"
           done
+
+      - name: Test packaged bckbrnr controller journey
+        if: runner.os == 'macOS'
+        working-directory: apps/bckbrnr
+        run: |
+          kit="bckbrnr-${{ matrix.target }}"
+          engine_dir="../../dist/smoke-$kit/bckbrnr.app/Contents/Resources/bin"
+          model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
+          curl -fL --retry 3 -o "$model" \
+            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
+          make integration-test ENGINE_DIR="$engine_dir" MODEL="$model"
 
       - name: Package
         run: |

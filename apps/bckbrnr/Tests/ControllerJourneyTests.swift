@@ -61,7 +61,39 @@ enum ControllerJourneyTests {
                     "two submitted prompts did not produce two answers")
 
         controller.stop()
-        try require(waitUntil(10) { !controller.isRunning }, "engine did not stop")
+        try require(waitUntil(10) { !controller.isRunning && !controller.isStopping },
+                    "engine did not stop")
+        try require(controller.submit("Reply briefly: queued while offline"),
+                    "offline prompt was not accepted")
+        try require(waitUntil(3) {
+            ((try? fm.contentsOfDirectory(at: mappings, includingPropertiesForKeys: nil)) ?? []).count == 3
+        }, "offline prompt was not made durable")
+        try require(answerFiles(in: responses).count == 2,
+                    "offline prompt unexpectedly completed without a daemon")
+
+        let secondRoot = root.appendingPathComponent("second-folder", isDirectory: true)
+        controller.setRoot(secondRoot.path)
+        controller.start()
+        try require(waitUntil(60) { controller.statusText == "Ready" },
+                    "engine did not start in second folder: \(controller.statusText)")
+        try require(controller.submit("Reply briefly: second folder answer"),
+                    "second-folder prompt was not accepted")
+        let secondResponses = secondRoot.appendingPathComponent("response", isDirectory: true)
+        try require(waitUntil(120) { answerFiles(in: secondResponses).count == 1 },
+                    "first folder's pending collector blocked the second folder")
+        controller.stop()
+        try require(waitUntil(10) { !controller.isRunning && !controller.isStopping },
+                    "second-folder engine did not stop")
+
+        controller.setRoot(root.path)
+        controller.start()
+        try require(waitUntil(60) { controller.statusText == "Ready" },
+                    "engine did not restart first folder: \(controller.statusText)")
+        try require(waitUntil(120) { answerFiles(in: responses).count == 3 },
+                    "queued prompt did not finish after returning to its folder")
+        controller.stop()
+        try require(waitUntil(10) { !controller.isRunning && !controller.isStopping },
+                    "first-folder engine did not stop")
 
         let removed = answerFiles(in: responses)[0]
         try fm.removeItem(at: removed)

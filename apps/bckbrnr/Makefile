@@ -41,6 +41,7 @@ bundle:
 		-o "$(MACOS)/$(APP_NAME)" \
 		Sources/Bckbrnr/*.swift
 	cp Info.plist "$(CONTENTS)/Info.plist"
+	cp ../../LICENSE "$(RESOURCES)/LICENSE"
 	plutil -lint "$(CONTENTS)/Info.plist"
 	install -m 755 "$(ENGINE_DIR)/nrvnad" "$(BIN)/nrvnad"
 	install -m 755 "$(ENGINE_DIR)/wrk" "$(BIN)/wrk"
