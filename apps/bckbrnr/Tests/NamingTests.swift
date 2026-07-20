@@ -33,6 +33,13 @@ enum NamingTests {
         expect(Naming.deriveStem(from: words),
                "abcdefghij abcdefghij abcdefghij", "cap at word boundary")
 
+        // deriveStem: leading dots would hide the answer file in Finder
+        expect(Naming.deriveStem(from: ".gitignore for a python project"),
+               "gitignore for a python project", "leading dot stripped")
+        expect(Naming.deriveStem(from: "..."), "prompt", "dots-only prompt")
+        expect(Naming.deriveStem(from: ". leading dot then words"),
+               "leading dot then words", "dot then words")
+
         // deriveStem: a single word longer than 40 characters is hard-cut
         let longWord = String(repeating: "x", count: 50)
         expect(Naming.deriveStem(from: longWord),
