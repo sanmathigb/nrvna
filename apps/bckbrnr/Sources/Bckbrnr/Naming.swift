@@ -30,6 +30,10 @@ enum Naming {
             }
             cleaned = cleaned.trimmingCharacters(in: .whitespaces)
         }
+        // A leading dot would make the answer a hidden file in response/ —
+        // delivered but invisible in Finder.
+        while cleaned.hasPrefix(".") { cleaned.removeFirst() }
+        cleaned = cleaned.trimmingCharacters(in: .whitespaces)
         return cleaned.isEmpty ? "prompt" : cleaned
     }
 
