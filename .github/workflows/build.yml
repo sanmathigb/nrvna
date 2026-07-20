@@ -117,6 +117,7 @@ jobs:
           unpacked="../../dist/smoke-$kit/bckbrnr.app"
           plutil -lint "$unpacked/Contents/Info.plist"
           test -f "$unpacked/Contents/Resources/LICENSE"
+          codesign --verify --strict "$unpacked"
           test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
           vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
           expected_arch="${{ matrix.target }}"
