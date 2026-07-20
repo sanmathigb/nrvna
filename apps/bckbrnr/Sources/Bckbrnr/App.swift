@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
 struct BckbrnrApp: App {
@@ -16,25 +17,30 @@ struct BckbrnrApp: App {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSUserNotificationCenter.default.delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func userNotificationCenter(
-        _ center: NSUserNotificationCenter,
-        didActivate notification: NSUserNotification
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if let path = notification.userInfo?["path"] as? String {
+        if let path = response.notification.request.content.userInfo["path"] as? String {
             NSWorkspace.shared.open(URL(fileURLWithPath: path))
         }
+        completionHandler()
     }
 
     func userNotificationCenter(
-        _ center: NSUserNotificationCenter,
-        shouldPresent notification: NSUserNotification
-    ) -> Bool {
-        true
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
 
@@ -73,7 +79,7 @@ struct PopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            if controller.isRunning {
+            if controller.isRunning && !controller.isStopping {
                 Divider().opacity(0.4)
                 promptArea
             } else if !controller.statusText.isEmpty {
@@ -134,14 +140,14 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseModel)
                 .buttonStyle(.link)
                 .font(.caption)
-                .disabled(controller.isRunning)   // bound to a live daemon
+                .disabled(controller.isRunning || controller.isStopping)
         }
     }
 
     private var rootRow: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("WORKSPACE")
+                Text("FOLDER")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                 Button(action: controller.openResponses) {
@@ -158,19 +164,22 @@ struct PopoverView: View {
             Button("Change", action: controller.chooseRoot)
                 .buttonStyle(.link)
                 .font(.caption)
-                .disabled(controller.isRunning)   // bound to a live daemon
+                .disabled(controller.isRunning || controller.isStopping)
         }
     }
 
     private var controls: some View {
         HStack {
-            Button(controller.isRunning ? "Stop" : "Start") {
-                if controller.isRunning {
+            Button(controller.isStopping ? "Stopping…" : (controller.isRunning ? "Stop" : "Start")) {
+                if controller.isStopping {
+                    return
+                } else if controller.isRunning {
                     controller.stop()
                 } else {
                     controller.start()
                 }
             }
+            .disabled(controller.isStopping)
             Spacer()
             Button("Quit") {
                 NSApp.terminate(nil)
@@ -183,7 +192,6 @@ struct PopoverView: View {
     private func submit() {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        controller.submit(text)
-        prompt = ""
+        if controller.submit(text) { prompt = "" }
     }
 }

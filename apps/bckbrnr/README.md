@@ -1,69 +1,76 @@
 # bckbrnr
 
-`bckbrnr` is a macOS menu-bar app for local prompt work. Type a prompt, walk
-away, and pick up the answer as a file.
+Type a prompt. Walk away. The answer is a file.
 
-It is a first-party app built on nrvna primitives. It does not call llama.cpp
-directly and does not implement a second inference path: the app bundles and
-uses `nrvnad`, `wrk`, and `flw`.
+`bckbrnr` is a macOS menu-bar app for local prompt work. It runs a GGUF model
+on your Mac and writes every answer to a folder. No account, server, or chat
+session is required.
 
-## Build
+## Install
 
-Build and launch the app:
+1. Download `bckbrnr-darwin-arm64.zip` for Apple Silicon or
+   `bckbrnr-darwin-x86_64.zip` for an Intel Mac from the
+   [latest release](https://github.com/sanmathigb/nrvna-ai/releases/latest).
+2. Unzip it and move `bckbrnr.app` to Applications.
+3. Right-click the app and choose **Open** on first launch.
+
+The developer preview is unsigned and not notarized, so a normal double-click
+may be blocked the first time. It requires macOS 13.3 or newer.
+
+## First Prompt
+
+1. Open the menu-bar circle.
+2. Choose an instruct GGUF model. For a small starting point, download
+   [`LFM2.5-1.2B-Instruct-Q4_K_M.gguf`](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/blob/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf).
+3. Press **Start** and wait for **Ready**.
+4. Type a prompt and press Return.
+5. Leave. A notification opens the answer when it is ready.
+
+Click the folder path in the popover at any time to open your answers:
+
+```text
+~/bckbrnr/text/response/
+```
+
+The app bundles `nrvnad`, `wrk`, and `flw`. The model is the only separate
+download. Inference, prompts, and answers stay on this Mac.
+
+## Files Are the Contract
+
+```text
+~/bckbrnr/text/
+├── response/          answers, readable failures, and the engine log
+├── .prompt/           copies of submitted prompts
+└── .ws/               durable nrvna jobs
+```
+
+- answers are written to `response/<prompt>.txt`
+- failures are written to `response/<prompt>.error.txt`
+- rapid prompts are submitted durably before earlier answers finish
+- completed answers are recovered when the app reopens, even without a daemon
+- unfinished jobs remain in `.ws/` and resume the next time you press Start
+
+You may change the answer folder while the utility is stopped. The app never
+uploads or deletes your model, prompts, jobs, or answers.
+
+## Build From Source
+
+From the repository root:
 
 ```bash
 cd apps/bckbrnr
-make run          # builds the .app and opens it (use `make app` to build only)
-make test         # runs the naming tests (no engine build required)
+make test
+make app
+open .build/bckbrnr.app
 ```
 
-The build creates statically linked primitive binaries and bundles them inside
-the app, so it does not depend on llama.cpp dylibs from the repository build:
-
-```text
-.build/bckbrnr.app/
-└── Contents/Resources/bin/
-    ├── nrvnad
-    ├── wrk
-    └── flw
-```
-
-## Use
-
-1. Open `bckbrnr` from the menu bar.
-2. Choose a GGUF text model.
-3. Start the text utility.
-4. Type a prompt and press Enter.
-5. Read the answer from `~/bckbrnr/text/response/`.
-
-The prompt is kept in a hidden sibling folder (you normally only look at `response/`):
-
-```text
-~/bckbrnr/text/.prompt/
-```
-
-The hidden nrvna workspace remains inspectable at:
-
-```text
-~/bckbrnr/text/.ws/
-```
-
-## Durability Contract
-
-The user-facing contract is: type a prompt, collect a file.
-
-- prompt copies are kept in hidden `.prompt/`; you normally only see `response/`
-- completed answers are written to `response/<stem>.txt`
-- failures are written to `response/<stem>.error.txt` — a durable artifact, not just a log
-- on startup (and when the popover opens to a live daemon), completed and failed nrvna outputs are reconciled into `response/`, so an answer surfaces even if bckbrnr wasn't running when the job finished
+`make app` builds portable, statically linked nrvna engine binaries and bundles
+them under `Contents/Resources/bin/`. Use `make run` to build and open in one
+command. Maintainers can run the model-backed controller journey with
+`make integration-test MODEL=/path/to/model.gguf`.
 
 ## Status
 
-MVP. Text utility only.
-
-Not yet solved:
-
-- signed and notarized distribution
-- model download/install UX
-- modern `UserNotifications` replacement for deprecated `NSUserNotification`
-- vision, embedding, TTS, and STT utilities
+Developer preview. Text prompts only. Apple Silicon and Intel releases are
+built and smoke-tested on macOS; signed and notarized distribution remains to
+be done.

@@ -16,7 +16,12 @@ struct EnginePaths {
         ].compactMap { $0 }
 
         for dir in candidates {
+            // standardizedFileURL: a URL built from a relative path keeps a
+            // relative representation that FileManager accepts but Process
+            // rejects at spawn time ("The file doesn't exist"). Standardize
+            // so a relative BCKBRNR_ENGINE_DIR (as CI passes it) is runnable.
             let root = URL(fileURLWithPath: NSString(string: dir).expandingTildeInPath)
+                .standardizedFileURL
             let paths = EnginePaths(
                 nrvnad: root.appendingPathComponent("nrvnad"),
                 wrk: root.appendingPathComponent("wrk"),

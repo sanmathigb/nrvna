@@ -1,7 +1,7 @@
 name: build
 
-# Builds the imgsrch release artifact per platform: the Go binary plus the
-# three engine binaries (nrvnad/wrk/flw) in one tarball.
+# Builds portable imgsrch archives on every platform and bckbrnr app archives
+# on macOS. Both bundle the same nrvna engine binaries (nrvnad/wrk/flw).
 #
 # llama.cpp is vendored at the pinned upstream commit (LLAMA_BASE), which now
 # matches the committed submodule gitlink — a vanilla public commit, so
@@ -88,11 +88,56 @@ jobs:
         working-directory: apps/bckbrnr
         run: |
           make test
-          make app ENGINE_DIR=../../build
+          make bundle \
+            ENGINE_DIR=../../build \
+            MACOSX_DEPLOYMENT_TARGET="${{ matrix.deployment_target }}"
+          app=.build/bckbrnr.app
+          test -x "$app/Contents/MacOS/bckbrnr"
+          test -x "$app/Contents/Resources/bin/nrvnad"
+          test -x "$app/Contents/Resources/bin/wrk"
+          test -x "$app/Contents/Resources/bin/flw"
+          test -f "$app/Contents/Resources/LICENSE"
+          plutil -lint "$app/Contents/Info.plist"
           if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
             echo 'bckbrnr contains dynamically linked engine libraries' >&2
             exit 1
           fi
+
+      - name: Package and smoke-test bckbrnr
+        if: runner.os == 'macOS'
+        working-directory: apps/bckbrnr
+        run: |
+          kit="bckbrnr-${{ matrix.target }}"
+          app=.build/bckbrnr.app
+          ditto -c -k --sequesterRsrc --keepParent "$app" "../../dist/$kit.zip"
+          shasum -a 256 "../../dist/$kit.zip" | tee "../../dist/$kit.zip.sha256"
+
+          mkdir -p "../../dist/smoke-$kit"
+          ditto -x -k "../../dist/$kit.zip" "../../dist/smoke-$kit"
+          unpacked="../../dist/smoke-$kit/bckbrnr.app"
+          plutil -lint "$unpacked/Contents/Info.plist"
+          test -f "$unpacked/Contents/Resources/LICENSE"
+          test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
+          vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
+          expected_arch="${{ matrix.target }}"
+          expected_arch="${expected_arch#darwin-}"
+          test "$(lipo -archs "$unpacked/Contents/MacOS/bckbrnr")" = "$expected_arch"
+          for bin in nrvnad wrk flw; do
+            "$unpacked/Contents/Resources/bin/$bin" --version
+            vtool -show-build "$unpacked/Contents/Resources/bin/$bin" | grep -q "minos ${{ matrix.deployment_target }}"
+            test "$(lipo -archs "$unpacked/Contents/Resources/bin/$bin")" = "$expected_arch"
+          done
+
+      - name: Test packaged bckbrnr controller journey
+        if: runner.os == 'macOS'
+        working-directory: apps/bckbrnr
+        run: |
+          kit="bckbrnr-${{ matrix.target }}"
+          engine_dir="../../dist/smoke-$kit/bckbrnr.app/Contents/Resources/bin"
+          model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
+          curl -fL --retry 3 -o "$model" \
+            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
+          make integration-test ENGINE_DIR="$engine_dir" MODEL="$model"
 
       - name: Package
         run: |
@@ -132,8 +177,16 @@ jobs:
         with:
           name: imgsrch-${{ matrix.target }}
           path: |
-            dist/*.tar.gz
-            dist/*.sha256
+            dist/imgsrch-*.tar.gz
+            dist/imgsrch-*.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: bckbrnr-${{ matrix.target }}
+          path: |
+            dist/bckbrnr-*.zip
+            dist/bckbrnr-*.zip.sha256
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -142,3 +195,4 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.sha256
+            dist/*.zip
