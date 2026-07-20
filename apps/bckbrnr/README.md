@@ -35,6 +35,11 @@ Click the folder path in the popover at any time to open your answers:
 The app bundles `nrvnad`, `wrk`, and `flw`. The model is the only separate
 download. Inference, prompts, and answers stay on this Mac.
 
+The first launch asks permission to send notifications; grant it to get the
+"your answer is ready" banner. Answers land as files either way. The build is
+ad-hoc signed so this prompt can appear at all; unsigned bundles drop
+notifications silently.
+
 ## Files Are the Contract
 
 ```text

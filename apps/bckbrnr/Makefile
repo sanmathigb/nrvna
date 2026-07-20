@@ -46,6 +46,12 @@ bundle:
 	install -m 755 "$(ENGINE_DIR)/nrvnad" "$(BIN)/nrvnad"
 	install -m 755 "$(ENGINE_DIR)/wrk" "$(BIN)/wrk"
 	install -m 755 "$(ENGINE_DIR)/flw" "$(BIN)/flw"
+	# Ad-hoc sign, nested binaries first. An unsigned bundle cannot deliver
+	# UserNotifications: authorization fails silently and no permission
+	# prompt ever appears. Ad-hoc is not Developer ID signing; Gatekeeper
+	# still applies to downloaded archives.
+	codesign --force -s - "$(BIN)/nrvnad" "$(BIN)/wrk" "$(BIN)/flw"
+	codesign --force -s - "$(APP_DIR)"
 
 run: app
 	open "$(APP_DIR)"
