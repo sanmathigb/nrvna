@@ -9,7 +9,7 @@
 
 namespace nrvnaai {
 
-enum class LogLevel : uint8_t { 
+enum class LogLevel : std::uint8_t {
     ERROR = 0, 
     WARN = 1, 
     INFO = 2, 
