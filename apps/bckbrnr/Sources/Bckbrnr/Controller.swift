@@ -415,7 +415,7 @@ final class BckbrnrController: ObservableObject {
             "NRVNA_PREDICT": "1024",
             "NRVNA_MAX_CTX": "4096",
             "NRVNA_THINKING": "0"
-        ]) { _, new in new }
+        ]) { current, _ in current }
         do {
             try process.run()
         } catch {
@@ -490,15 +490,26 @@ final class BckbrnrController: ObservableObject {
         process.standardOutput = stdout
         process.standardError = stderr
         if input != nil { process.standardInput = stdin }
-        try process.run()
 
         let waiterID = ObjectIdentifier(process)
         if trackWaiter {
             waiterLock.lock()
-            let cancelled = !acceptingWaiters
-            if !cancelled { waiters[waiterID] = process }
+            guard acceptingWaiters else {
+                waiterLock.unlock()
+                throw WaitCancelled()
+            }
+            do {
+                // Launch and registration are one operation with respect to
+                // cancelWaiters(), so quit cannot miss a newly-started waiter.
+                try process.run()
+                waiters[waiterID] = process
+            } catch {
+                waiterLock.unlock()
+                throw error
+            }
             waiterLock.unlock()
-            if cancelled { process.terminate() }
+        } else {
+            try process.run()
         }
         defer {
             if trackWaiter {

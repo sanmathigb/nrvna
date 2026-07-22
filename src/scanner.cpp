@@ -53,26 +53,6 @@ std::vector<JobId> Scanner::scan() const noexcept {
     return jobs;
 }
 
-bool Scanner::hasNewJobs() const noexcept {
-    try {
-        if (!std::filesystem::exists(readyPath_)) {
-            return false;
-        }
-
-        for (const auto& entry : std::filesystem::directory_iterator(readyPath_)) {
-            if (entry.is_directory() &&
-                Flow::isValidJobId(extractJobId(entry.path())) &&
-                isValidJobDirectory(entry.path())) {
-                return true;
-            }
-        }
-    } catch (...) {
-        // Swallow errors in this quick check
-    }
-    
-    return false;
-}
-
 std::size_t Scanner::readyJobCount() const noexcept {
     std::size_t count = 0;
     

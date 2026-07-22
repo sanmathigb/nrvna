@@ -315,7 +315,8 @@ void printHelp() {
     std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
     std::cout << "you rarely need to pass them explicitly.\n\n";
     std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
-    std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list: ADVANCED.md\n\n";
+    std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
+    std::cout << "https://github.com/sanmathigb/nrvna-ai/blob/main/ADVANCED.md\n\n";
     std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
     std::cout << "  cat doc.txt | wrk <workspace> -           text\n";
     std::cout << "  wrk <workspace> \"text\" --embed            embeddings\n";
@@ -361,13 +362,14 @@ int main(int argc, char * argv[]) {
     if (argc >= 3 && std::string(argv[1]) == "stop") {
         std::filesystem::path ws = argv[2];
         int timeout = 20;
-        for (int i = 3; i < argc; ++i) {
-            if (std::string(argv[i]) != "--timeout" || i + 1 >= argc ||
-                !parseIntStrict(argv[i + 1], 1, 3600, timeout)) {
+        if (argc == 5 && std::string(argv[3]) == "--timeout") {
+            if (!parseIntStrict(argv[4], 1, 3600, timeout)) {
                 std::cerr << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n";
                 return 1;
             }
-            ++i;
+        } else if (argc != 3) {
+            std::cerr << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n";
+            return 1;
         }
         int rc = lifecycle::stopDaemon(ws, timeout);
         if (rc == 0) std::cout << "stopped\n";

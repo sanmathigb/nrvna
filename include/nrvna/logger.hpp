@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 #pragma once
+#include <cstdint>
 #include <string>
 
 namespace nrvnaai {
@@ -37,7 +38,6 @@ private:
 
 // Thread naming for better logging context
 void setThreadName(const std::string& name);
-std::string getThreadName(int worker_id);
 
 }
 
