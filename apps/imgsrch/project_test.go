@@ -114,6 +114,20 @@ func TestCmdAddSkipsIdenticalExistingImage(t *testing.T) {
 	}
 }
 
+func TestCmdAddRejectsFilenameThatBreaksManifest(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	image := filepath.Join(t.TempDir(), "bad\tname.png")
+	if err := os.WriteFile(image, []byte("image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdAdd(project, []string{image}); err == nil {
+		t.Fatal("expected manifest-unsafe filename to be rejected")
+	}
+}
+
 func TestCopyFileNoClobberIsAtomic(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.png")
