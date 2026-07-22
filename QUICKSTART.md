@@ -13,8 +13,9 @@ cmake -S . -B build && cmake --build build -j4
 
 ## Get a Model
 
-Most llama.cpp-supported GGUF text models work. Put one in `./models/` or point to it with a full path
-(`NRVNA_MODELS_DIR` changes the search path). If you don't have one yet:
+Use a llama.cpp-compatible instruct GGUF that your current build supports. Put
+it in `./models/` or point to it with a full path (`NRVNA_MODELS_DIR` changes
+the search path). If you don't have one yet:
 
 ```bash
 mkdir -p models
