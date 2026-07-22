@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e24034e2935d",
+  "strategy": "manual-commit",
+  "branch": "harden/agent-ready-release",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "apps/bckbrnr/Sources/Bckbrnr/Controller.swift",
+    "cli/nrvnad.cpp"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e2/4034e2935d/0/metadata.json",
+      "transcript": "/e2/4034e2935d/0/full.jsonl",
+      "compact_transcript": "/e2/4034e2935d/0/transcript.jsonl",
+      "content_hash": "/e2/4034e2935d/0/content_hash.txt",
+      "prompt": "/e2/4034e2935d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36707057,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 528674432,
+    "output_tokens": 1123808,
+    "api_call_count": 3621
+  }
+}

@@ -1,0 +1,347 @@
+ok
+
+---
+
+can you continue where you left off?
+
+---
+
+so yoou conslidated this as we discussed and implemented the fixes? For imgsrch, I was mostly satisfied. For NRVNA itself, no—the CLI is
+  good, but I had to experimentally discover several fundamental
+  semantics that should have been stated upfront.
+
+  The strongest documentation was /tmp/imgsrch-fresh/INSTALL.md. It
+  worked because it was written as an operational runbook:
+
+  - Exact commands.
+  - Expected outputs.
+  - Explicit verification gates.
+  - Clear conditions for asking the user.
+  - Clear instructions not to poll background work.
+  - A concrete handoff.
+  - A real test project and source folder.
+
+  That format is excellent for a cold agent.
+
+  ## What a cold agent must understand immediately
+
+  The NRVNA README should establish this mental model within its first
+  screen:
+
+  > NRVNA is a local asynchronous inference spool. wrk writes an
+  > independent job to a workspace, nrvnad processes queued jobs with one
+  > model, and flw inspects or retrieves durable results. A daemon does
+  > not need to be running when work is submitted.
+
+  Then state the invariants explicitly:
+
+  1. Every wrk submission is an independent inference context.
+  2. Model weights may remain loaded; job context does not.
+  3. --parent records lineage only.
+  4. --parent does not transfer context or enforce dependencies.
+  5. A workspace is not permanently bound to a model.
+  6. The model is selected when nrvnad starts.
+  7. wrk selects a workspace, not a model.
+  8. Jobs and results survive the submitting process.
+  9. --drain processes queued work and exits.
+  10. Tags group jobs but do not alter execution.
+
+  Those ten statements would have prevented nearly all of my incorrect
+  early assumptions.
+
+  ## A five-minute verified quickstart
+
+  I would give agents one minimal experiment that demonstrates the
+  architecture:
+
+  workspace=$(mktemp -d /tmp/nrvna-quickstart.XXXXXX)
+
+  job1=$(wrk "$workspace" "first text" --embed --tag quickstart)
+  job2=$(wrk "$workspace" "second text" --embed --tag quickstart)
+
+  flw "$workspace" --json
+
+  NRVNA_MODELS_DIR=/path/to/models \
+    nrvnad embedding-model "$workspace" --workers 2 --drain
+
+  flw "$workspace" "$job1"
+  flw "$workspace" "$job2"
+
+  Expected lifecycle:
+
+  Before daemon:
+    queued: 2
+
+  During drain:
+    running: up to 2
+
+  After drain:
+    done: 2
+    daemon exited
+
+  This teaches more than a conceptual architecture page because it
+  proves:
+
+  - Fire-and-retrieve-later behavior.
+  - Worker independence.
+  - Queue durability.
+  - Artifact persistence.
+  - Drain lifecycle.
+
+  Then provide a second recipe for a persistent daemon.
+
+  ## The missing distinction: task lineage versus context
+
+  This deserves its own short page.
+
+  The existence of --parent strongly suggests conversation continuation
+  or workflow dependency. Both assumptions are wrong.
+
+  Document it with an explicit counterexample:
+
+  parent=$(wrk ws "The secret is ZEBRAQUARTZ")
+  child=$(wrk ws "What was the secret?" --parent "$parent")
+
+  Explain:
+
+  The child does not receive the parent prompt or result.
+  --parent only records a relationship that flw --children can query.
+
+  Then show actual context transfer:
+
+  {
+    echo "Previous result:"
+    flw ws "$parent"
+    echo
+    echo "Now perform the next task."
+  } | wrk ws - --parent "$parent"
+
+  That would set an agent up to compose NRVNA correctly without turning
+  it into a chat system.
+
+  ## Document the two intended operating modes
+
+  Persistent:
+
+  nrvnad model.gguf ws
+  wrk ws "task"
+  flw ws -w JOB
+  nrvnad stop ws
+
+  Resource-conscious:
+
+  wrk ws "task one"
+  wrk ws "task two"
+  nrvnad model.gguf ws --drain
+  flw ws JOB
+
+  Explain when to choose each:
+
+  - Persistent daemon for low latency and repeated work.
+  - Drain mode for model swapping, batch jobs, and constrained hardware.
+  - Multiple workspaces for different model roles.
+  - Sequential draining when models cannot coexist in memory.
+
+  This is central to NRVNA’s local-first value and should not be left for
+  users to infer.
+
+  ## Provide a real composition recipe
+
+  A cold agent needs one supported example of flw → wrk:
+
+  first=$(wrk ws-a "Extract the important facts from this text")
+
+  {
+    echo "Convert the following facts into JSON:"
+    flw ws-a "$first" -w
+  } | wrk ws-b - --parent "$first"
+
+  Then show fan-out/fan-in using tags.
+
+  Be explicit that NRVNA does not:
+
+  - Wait on parents automatically.
+  - Resolve cross-workspace dependencies.
+  - Assemble prompts.
+  - Parse PDFs.
+  - Build DAGs.
+  - Retry failed jobs automatically, unless it actually does.
+  - Search arbitrary artifacts semantically.
+
+  That boundary helps agents use the primitive without hallucinating a
+  workflow engine around it—as I initially did.
+
+  ## Document machine-facing contracts
+
+  For agents, CLI output is an API. I would document:
+
+  - What appears on stdout versus stderr.
+  - Whether successful wrk stdout is guaranteed to contain only the job
+    ID.
+
+  - Exact exit codes for every command.
+  - JSON schemas for flw and nrvnad status.
+  - Job ID stability and uniqueness scope.
+  - Timestamp format.
+  - Artifact names by job type.
+  - Whether fields may be added.
+  - Whether embedding vectors are included by default.
+  - How to request metadata without returning a huge vector.
+  - Behavior when a job is queued, claimed, failed, or incomplete.
+
+  flw --json returning an entire 768-dimensional vector is valid, but
+  dangerous for agents because it can flood their context. Documentation
+  should show a metadata-only retrieval pattern, or the CLI should
+  provide one.
+
+  ## Document workspace and failure semantics
+
+  The most important unanswered questions are operational:
+
+  - Are submissions atomic?
+  - How is a job claimed?
+  - What happens if a worker crashes after claiming it?
+  - Can abandoned jobs be recovered?
+  - Can two daemons target one workspace?
+  - Are partial outputs hidden until complete?
+  - Is execution at-most-once or at-least-once?
+  - How are failed jobs retried?
+  - Can a user safely move or copy a workspace?
+  - What filesystem assumptions exist?
+  - When is it safe to delete inputs or outputs?
+
+  An asynchronous primitive earns trust through these guarantees. They
+  matter more than a long model-parameter reference.
+
+  Even if some answers are currently “unsupported,” saying so is
+  valuable.
+
+  ## Fix current documentation inconsistencies
+
+  I encountered several concrete issues:
+
+  - nrvnad --help says the full environment list is in ADVANCED.md, but
+    that file is absent from the extracted release.
+
+  - The public environment documentation described macOS GPU-layer
+    defaults differently from the installed CLI, which reports CPU
+    default.
+
+  - Thinking behavior is not evident from help; the text run logged
+    thinking=on.
+
+  - The packaged imgsrch README links to ../../README.md for NRVNA, but
+    that relative target does not appear to exist in the installed
+    archive.
+
+  - imgsrch init said “initialized” even though the existing project and
+    its three indexed images were preserved.
+
+  - nrvnad stop <workspace> did not stop our persistent daemon in this
+    environment; troubleshooting documentation should explain expected
+    signaling and failure modes.
+
+  A single authoritative defaults table tied to the binary version would
+  help:
+
+  Setting             Default    Applies to       Override
+  GPU layers          0          daemon           NRVNA_GPU_LAYERS
+  Workers             4          daemon           --workers /
+  NRVNA_WORKERS
+  Maximum context     8192?      each job         NRVNA_MAX_CTX
+  Prediction limit    2048?      text jobs        NRVNA_PREDICT
+  Thinking            on/off?    text jobs        documented control
+
+  ## Give agents a dedicated runbook
+
+  I would ship an AGENTS.md or llms.txt with concise rules:
+
+  Before acting:
+  - Run each binary with --version.
+  - Use an isolated workspace for experiments.
+  - Treat every wrk as independent.
+  - Do not infer context from --parent.
+  - Use a unique tag for each logical batch.
+  - Save workspace path and job IDs.
+  - Use flw status before waiting.
+  - Avoid printing full embedding vectors.
+  - Use --drain for bounded batch execution.
+  - Do not start multiple daemons on one workspace unless documented
+  safe.
+  - Verify failed counts before consuming results.
+  - Preserve source references when composing outputs.
+
+  Then provide recipes for:
+
+  - One-shot text.
+  - Embedding.
+  - Vision.
+  - STT and TTS.
+  - Persistent daemon.
+  - Drain mode.
+  - Tagged batch.
+  - Parent/children lineage.
+  - Explicit context transfer.
+  - Multiple model workspaces.
+  - Failure inspection.
+
+  ## For imgsrch specifically
+
+  The imgsrch documentation is already much closer to agent-ready. I
+  would tighten only a few points:
+
+  - Say what happens when init targets an existing project.
+  - Let the handoff reflect either “indexing running” or “indexing
+    complete.”
+
+  - Remind the user which directory contains ./imgsrch.
+  - Clarify “three models” versus the five physical GGUF files including
+    multimodal projectors.
+
+  - Document whether directory recursion is supported; the current
+    examples use shell globs.
+
+  - State that the test project may already contain indexed data.
+  - Include exact JSON output examples if agents are an intended
+    consumer.
+
+  ## What would set me up for success
+
+  The most useful package would be:
+
+  README.md
+    one-screen mental model and quickstart
+
+  AGENTS.md
+    precise operational contract for agents
+
+  WORKSPACES.md
+    state machine, file layout, atomicity, recovery
+
+  COMPOSITION.md
+    tags, parents, piping, batches, multiple workspaces
+
+  CONFIGURATION.md
+    authoritative defaults and environment variables
+
+  RECIPES.md
+    copy-paste real-world patterns
+
+  It does not need extensive prose. Precision matters more than volume.
+
+  The single highest-value improvement is to state plainly:
+
+  > wrk submits an independent durable task. Context does not carry
+  > between jobs. --parent is lineage only. The workspace remembers; the
+  > model does not.
+
+  That sentence would orient a cold agent correctly before it invents
+  chat, memory, DAG, or dependency semantics that NRVNA does not have.
+
+---
+
+so where are these? and what gets shared with a cold agent now? what changed?
+
+---
+
+what next?
