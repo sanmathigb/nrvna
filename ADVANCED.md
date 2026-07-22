@@ -229,13 +229,15 @@ wrk "$ws" "Process this: $input"
 | `NRVNA_PREDICT` | `2048` | Max tokens to generate |
 | `NRVNA_MAX_CTX` | `8192` | Context window size |
 | `NRVNA_BATCH` | `2048` | Batch size |
-| `NRVNA_TEMP` | `0.8` | Sampling temperature |
+| `NRVNA_TEMP` | GGUF hint or `0.8` | Sampling temperature |
 | `NRVNA_VISION_TEMP` | `0.3` | Vision sampling temperature |
-| `NRVNA_TOP_K` | `40` | Top-K sampling |
-| `NRVNA_TOP_P` | `0.9` | Top-P (nucleus) sampling |
-| `NRVNA_MIN_P` | `0.05` | Min-P sampling |
-| `NRVNA_REPEAT_PENALTY` | `1.1` | Repetition penalty |
+| `NRVNA_TOP_K` | GGUF hint or `40` | Top-K sampling |
+| `NRVNA_TOP_P` | GGUF hint or `0.9` | Top-P (nucleus) sampling |
+| `NRVNA_MIN_P` | GGUF hint or `0.05` | Min-P sampling |
+| `NRVNA_REPEAT_PENALTY` | GGUF hint or `1.1` | Repetition penalty |
 | `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to GPU (default CPU; set >0 to offload, e.g. `99` on Apple Silicon) |
+| `NRVNA_UBATCH` | `NRVNA_BATCH` | Physical batch size; lower it when memory is constrained |
+| `NRVNA_THINKING` | enabled | Set `0` to disable thinking in templates that support it |
 | `NRVNA_MODELS_DIR` | `./models/` | Model search path |
 | `NRVNA_LOG_LEVEL` | `info` | Logging: error, warn, info, debug, trace |
 

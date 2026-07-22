@@ -22,15 +22,18 @@ cd imgsrch-darwin-arm64
 ./imgsrch setup
 ```
 
-`setup` downloads the pinned caption, OCR, and embedding models into
-`~/.imgsrch/models`: about 3.4 GB, checksum-verified, one time. Everything
-else ships in the archive: the `imgsrch` binary and the engine binaries in
-`bin/`. Keep them together.
+`setup` downloads three logical models (five GGUF files, including the two
+vision projectors) into `~/.imgsrch/models`: about 3.4 GB,
+checksum-verified, one time. Everything else ships in the archive: the
+`imgsrch` binary and the engine binaries in `bin/`. Keep them together.
 
 Platforms: macOS 13.3+ (Apple Silicon and Intel) and x86-64 Linux with AVX2
 (Ubuntu 22.04 compatible). CPU-first, no GPU required. The macOS archives
 are not yet signed or notarized; the first run may need approval under
 **System Settings → Privacy & Security**.
+
+For agent-led setup, paste the instructions from [`INSTALL.md`](INSTALL.md)
+into a fresh coding-agent session.
 
 ## Use
 
@@ -173,4 +176,5 @@ primitives directly.
 
 ---
 
-Built with [nrvna](../../README.md), local async inference primitives.
+Built with [nrvna](https://github.com/sanmathigb/nrvna-ai), local async
+inference primitives.
