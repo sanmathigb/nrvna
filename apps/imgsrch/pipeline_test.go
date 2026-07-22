@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestSubmitMissingImageJobsPersistsCaptionBeforeOCR(t *testing.T) {
@@ -194,5 +195,15 @@ func TestReadProgressObservesArtifactsAndFailures(t *testing.T) {
 	}
 	if len(got.Failures) != 1 || got.Failures[0].Stage != "caption" || got.Failures[0].Reason != "vision failed" {
 		t.Fatalf("unexpected failures: %+v", got.Failures)
+	}
+}
+
+func TestTruncateAtWordPreservesUTF8(t *testing.T) {
+	got := truncateAtWord("alpha हिन्दी omega", 10)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncateAtWord returned invalid UTF-8: %q", got)
+	}
+	if got != "alpha..." {
+		t.Fatalf("truncateAtWord = %q, want %q", got, "alpha...")
 	}
 }

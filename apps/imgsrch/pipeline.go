@@ -510,7 +510,7 @@ func readProgress(project string) (progress, error) {
 }
 
 // writeCombined merges caption + OCR into the embedding source document.
-// Caption is whitespace-collapsed and capped at 900 chars on a word boundary
+// Caption is whitespace-collapsed and capped at 900 characters on a word boundary
 // (verbose captions dilute embeddings — proven by A/B in the spec's history).
 func writeCombined(capFile, ocrFile, outFile string) error {
 	capData, err := os.ReadFile(capFile)
@@ -522,19 +522,25 @@ func writeCombined(capFile, ocrFile, outFile string) error {
 		return err
 	}
 	cap := strings.Join(strings.Fields(string(capData)), " ")
-	if len(cap) > 900 {
-		cut := cap[:900]
-		if i := strings.LastIndex(cut, " "); i > 0 {
-			cut = cut[:i]
-		}
-		cap = cut + "..."
-	}
+	cap = truncateAtWord(cap, 900)
 	text := cap
 	ocr := strings.TrimSpace(string(ocrData))
 	if ocr != "" {
 		text += "\n\nVisible text:\n" + ocr
 	}
 	return atomicWriteFile(outFile, []byte(strings.TrimSpace(text)+"\n"), 0o644)
+}
+
+func truncateAtWord(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	cut := string(runes[:maxRunes])
+	if i := strings.LastIndex(cut, " "); i > 0 {
+		cut = cut[:i]
+	}
+	return cut + "..."
 }
 
 func cmdStatus(project string) error {

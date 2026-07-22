@@ -8,6 +8,10 @@ and `flw` collects results. The filesystem is the queue.
 
 Models get wrk. Humans get back flw.
 
+Every `wrk` submission is an independent durable task. Context does not carry
+between jobs, and `--parent` records lineage only. The workspace remembers;
+the model does not.
+
 ## Quick Start
 
 Build the primitives from source:
@@ -62,15 +66,16 @@ not expire. It is still there tomorrow.
 
 ## Submit, Walk Away, Collect
 
-`wrk` returns a job ID in milliseconds; the work happens in the background.
-Queue everything, then leave:
+`wrk` returns a job ID in milliseconds. Execution is independent: a running
+daemon processes the queue, and without one the jobs wait durably. Queue
+everything, then leave:
 
 ```bash
 for f in *.md; do
   { echo "Summarize in three bullets:"; cat "$f"; } | ./build/wrk /tmp/ws -
 done
 
-# close the terminal. sleep the laptop. the queue is on disk.
+# close the submitting terminal. if the daemon stops, the queue stays on disk.
 
 ./build/flw /tmp/ws                  # later: counts and recent jobs
 ./build/flw /tmp/ws --json           # same, for scripts
@@ -186,6 +191,7 @@ whole framework.
 - [ADVANCED.md](ADVANCED.md) — batch, fan-out, chaining, multi-model patterns
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together
 - [CONTEXT.md](CONTEXT.md) — the domain language and contracts
+- [AGENTS.md](AGENTS.md) — the operational contract for agents
 
 ## Platform
 

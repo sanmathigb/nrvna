@@ -3,12 +3,11 @@ name: build
 # Builds portable imgsrch archives on every platform and bckbrnr app archives
 # on macOS. Both bundle the same nrvna engine binaries (nrvnad/wrk/flw).
 #
-# llama.cpp is vendored at the pinned upstream commit (LLAMA_BASE), which now
-# matches the committed submodule gitlink — a vanilla public commit, so
-# `git clone --recursive` also works. The Metal discrete-GPU patch in patches/
-# is NOT applied here: it only helps Intel Macs with a discrete GPU doing GPU
-# offload, is a no-op (and a slight pessimization) on Apple Silicon's unified
-# memory, and is unused on Linux. It stays an opt-in local overlay for dev.
+# llama.cpp is vendored at the committed submodule revision. The Metal
+# discrete-GPU patch in patches/ is NOT applied here: it only helps Intel Macs
+# with a discrete GPU doing offload. It is a no-op (and a slight pessimization)
+# on Apple Silicon's unified memory, and is unused on Linux. It stays an opt-in
+# local overlay for dev.
 
 on:
   workflow_dispatch:
@@ -17,9 +16,6 @@ on:
   push:
     tags: ['v*']
     branches: ['main']
-
-env:
-  LLAMA_BASE: 00fa7cb284cbf133fc426733bd64238a3588a33e
 
 jobs:
   build:
@@ -40,13 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: false
-
-      - name: Vendor llama.cpp at pinned upstream base
-        run: |
-          rm -rf third_party/llama.cpp
-          git clone --no-checkout https://github.com/ggml-org/llama.cpp third_party/llama.cpp
-          git -C third_party/llama.cpp checkout "$LLAMA_BASE"
+          submodules: recursive
+          persist-credentials: false
 
       - name: Build engine
         run: |
@@ -97,6 +88,8 @@ jobs:
           test -x "$app/Contents/Resources/bin/wrk"
           test -x "$app/Contents/Resources/bin/flw"
           test -f "$app/Contents/Resources/LICENSE"
+          test -f "$app/Contents/Resources/NRVNA.md"
+          grep -q "The workspace remembers" "$app/Contents/Resources/NRVNA.md"
           plutil -lint "$app/Contents/Info.plist"
           if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
             echo 'bckbrnr contains dynamically linked engine libraries' >&2
@@ -117,6 +110,8 @@ jobs:
           unpacked="../../dist/smoke-$kit/bckbrnr.app"
           plutil -lint "$unpacked/Contents/Info.plist"
           test -f "$unpacked/Contents/Resources/LICENSE"
+          test -f "$unpacked/Contents/Resources/NRVNA.md"
+          grep -q "The workspace remembers" "$unpacked/Contents/Resources/NRVNA.md"
           codesign --verify --strict "$unpacked"
           test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
           vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
@@ -143,10 +138,12 @@ jobs:
       - name: Package
         run: |
           kit="imgsrch-${{ matrix.target }}"
-          mkdir -p "dist/$kit/bin"
+          mkdir -p "dist/$kit/bin" "dist/$kit/docs"
           mv dist/stage/imgsrch "dist/$kit/"
           cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
           cp apps/imgsrch/README.md "dist/$kit/README.md"
+          cp apps/imgsrch/INSTALL.md "dist/$kit/INSTALL.md"
+          cp AGENTS.md "dist/$kit/docs/NRVNA.md"
           cp LICENSE "dist/$kit/"
           tar -C dist -czf "dist/$kit.tar.gz" "$kit"
           shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
@@ -157,6 +154,9 @@ jobs:
           mkdir -p dist/smoke
           tar -C dist/smoke -xzf "dist/$kit.tar.gz"
           test -f "dist/smoke/$kit/README.md"
+          test -f "dist/smoke/$kit/INSTALL.md"
+          test -f "dist/smoke/$kit/docs/NRVNA.md"
+          grep -q "The workspace remembers" "dist/smoke/$kit/docs/NRVNA.md"
           export NRVNA_BUILD_DIR="$PWD/dist/smoke/$kit/bin"
           export CAPTION_MODEL="$PWD/dist/smoke/$kit/LICENSE"
           export CAPTION_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"

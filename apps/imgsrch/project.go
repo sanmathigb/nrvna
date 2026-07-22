@@ -111,8 +111,8 @@ func readIndexKeys(project string) (map[string]bool, error) {
 }
 
 // lockProject takes an exclusive flock on .imgsrch/.lock and returns an unlock
-// func. It serializes manifest mutations so a concurrent `index` and
-// `status`/`search` can't clobber each other's job ids. The lock auto-releases
+// func. It serializes manifest mutations by concurrent index/finisher
+// processes. The lock auto-releases
 // if the process dies (flock semantics), so a crash never deadlocks the next run.
 func lockProject(project string) (func(), error) {
 	f, err := os.OpenFile(filepath.Join(rootDir(project), ".lock"), os.O_RDWR|os.O_CREATE, 0o644)
@@ -164,7 +164,10 @@ func contentKey(path string) (string, error) {
 func collectImages(project string) (accepted, skipped []string, err error) {
 	dir := imgDir(project)
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, werr error) error {
-		if werr != nil || info.IsDir() {
+		if werr != nil {
+			return werr
+		}
+		if info.IsDir() {
 			return nil
 		}
 		if acceptExt[strings.ToLower(filepath.Ext(path))] {
@@ -180,6 +183,8 @@ func collectImages(project string) (accepted, skipped []string, err error) {
 }
 
 func cmdInit(project string) error {
+	_, statErr := os.Stat(rootDir(project))
+	reusing := statErr == nil
 	if err := os.MkdirAll(project, 0o755); err != nil {
 		return err
 	}
@@ -189,7 +194,11 @@ func cmdInit(project string) error {
 	if err := writeDefaultConfig(project); err != nil {
 		return err
 	}
-	note("initialized %s", project)
+	if reusing {
+		note("project already exists; reusing %s", project)
+	} else {
+		note("initialized %s", project)
+	}
 	return nil
 }
 
@@ -217,7 +226,11 @@ func addImages(project string, images []string) error {
 			skipped++
 			continue
 		}
-		dst := filepath.Join(imgDir(project), filepath.Base(img))
+		base := filepath.Base(img)
+		if strings.ContainsAny(base, "\t\r\n") {
+			return fmt.Errorf("unsupported tab or newline in image filename %q", base)
+		}
+		dst := filepath.Join(imgDir(project), base)
 		if err := copyFileNoClobber(img, dst); err != nil {
 			if os.IsExist(err) {
 				srcKey, srcErr := contentKey(img)

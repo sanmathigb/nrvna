@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestScoreHitsRRFUsesRanksInsteadOfRawScoreScale(t *testing.T) {
 	hits := []hit{
@@ -61,5 +65,19 @@ func TestDenseHitsRejectsMixedEmbeddingDimensions(t *testing.T) {
 	corpus := []hit{{Path: "images/old.png", Vec: []float64{1, 2}}}
 	if _, err := denseHits(corpus, []float64{1, 2, 3}); err == nil {
 		t.Fatal("dimension mismatch should require a reindex")
+	}
+}
+
+func TestLoadCorpusReportsBrokenIndexEntry(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendIndexRows(project, []string{"missing\timages/missing.png\tmissing.json\n"}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadCorpus(project)
+	if err == nil || !strings.Contains(err.Error(), "images/missing.png") {
+		t.Fatalf("loadCorpus error = %v, want broken image path", err)
 	}
 }

@@ -198,11 +198,11 @@ func loadCorpus(project string) ([]hit, error) {
 		embFile := filepath.Join(artifactsDir(project), key, "embedding.json")
 		text, err := os.ReadFile(combined)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("reading indexed text for %s: %w", path, err)
 		}
 		vec, err := loadVector(embFile)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("reading indexed embedding for %s: %w", path, err)
 		}
 		hits = append(hits, hit{Key: key, Path: path, Text: string(text), Vec: vec})
 	}
@@ -393,18 +393,12 @@ func cmdSearch(project, query string, topN int, sc scorer) error {
 	fmt.Fprintf(&md, "# Search: %s\n\nScorer: `%s`\n\n", query, sc)
 	for i, h := range hits {
 		snippet := strings.Join(strings.Fields(h.Text), " ")
-		if len(snippet) > 320 {
-			cut := snippet[:320]
-			if j := strings.LastIndex(cut, " "); j > 0 {
-				cut = cut[:j]
-			}
-			snippet = cut + "..."
-		}
+		snippet = truncateAtWord(snippet, 320)
 		// Terminal shows what the user acts on: rank, path, evidence.
 		// Scores and per-channel ranks stay in search-results.md below.
 		fmt.Printf("%d  %s\n   %s\n\n", i+1, h.Path, snippet)
-		fmt.Fprintf(&md, "## %d. %s\n\nScore: `%.3f`  Dense: `%.3f`  Dense rank: `%d`  BM25: `%.3f`  BM25 rank: `%d`\n\nImage: `%s`\n\n![](%s)\n\n> %s\n\n",
-			i+1, filepath.Base(h.Path), h.Score, h.Dense, h.DenseRank, h.B25, h.B25Rank, h.Path, h.Path, snippet)
+		fmt.Fprintf(&md, "## %d. %s\n\nScore: `%.3f`  Dense: `%.3f`  Dense rank: `%d`  BM25: `%.3f`  BM25 rank: `%d`\n\nImage: `%s`\n\n[![](%s)](%s)\n\n> %s\n\n",
+			i+1, filepath.Base(h.Path), h.Score, h.Dense, h.DenseRank, h.B25, h.B25Rank, h.Path, h.Path, h.Path, snippet)
 	}
 	outMd := filepath.Join(project, "search-results.md")
 	if err := os.WriteFile(outMd, []byte(md.String()), 0o644); err != nil {

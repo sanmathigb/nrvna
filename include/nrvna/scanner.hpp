@@ -21,7 +21,6 @@ public:
     Scanner& operator=(Scanner&&) noexcept = default;
 
     [[nodiscard]] std::vector<JobId> scan() const noexcept;
-    [[nodiscard]] bool hasNewJobs() const noexcept;
     [[nodiscard]] std::size_t readyJobCount() const noexcept;
 
 private:

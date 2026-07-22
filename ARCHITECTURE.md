@@ -94,10 +94,10 @@ Client calls Flow::status(job_id)
          |
          v
 Check directories in order:
+  - input/ready/<job_id> -> Status::Queued
   - processing/<job_id>  -> Status::Running
   - output/<job_id>      -> Status::Done
   - failed/<job_id>      -> Status::Failed
-  - input/ready/<job_id> -> Status::Queued
   - none found           -> Status::Missing
 
 Client calls Flow::get(job_id)

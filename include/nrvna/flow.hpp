@@ -44,7 +44,6 @@ public:
     [[nodiscard]] std::vector<Job> list(std::size_t max = 10) const noexcept;
     [[nodiscard]] Status status(const JobId& id) const noexcept;
     [[nodiscard]] WorkspaceCounts counts() const noexcept;
-    [[nodiscard]] std::optional<Job> latestInDir(const std::filesystem::path& dir) const noexcept;
 
     [[nodiscard]] static bool isValidJobId(const JobId& id) noexcept;
     [[nodiscard]] bool exists(const JobId& id) const noexcept;
@@ -54,13 +53,9 @@ public:
 
 private:
     std::filesystem::path workspace_;
-    
+
+    [[nodiscard]] std::optional<Job> latestInDir(const std::filesystem::path& dir) const noexcept;
     [[nodiscard]] std::string readResultContent(const JobId& id) const;
 };
 
 }
-
-
-
-
-

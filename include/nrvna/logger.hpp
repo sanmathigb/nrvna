@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: MIT
  */
 #pragma once
+#include <cstdint>
 #include <string>
 
 namespace nrvnaai {
 
-enum class LogLevel : uint8_t { 
+enum class LogLevel : std::uint8_t {
     ERROR = 0, 
     WARN = 1, 
     INFO = 2, 
@@ -37,7 +38,6 @@ private:
 
 // Thread naming for better logging context
 void setThreadName(const std::string& name);
-std::string getThreadName(int worker_id);
 
 }
 

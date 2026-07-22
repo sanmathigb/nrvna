@@ -129,8 +129,4 @@ void setThreadName(const std::string& name) {
     g_thread_name = name;
 }
 
-std::string getThreadName(int worker_id) {
-    return "Worker-" + std::to_string(worker_id);
-}
-
 }
