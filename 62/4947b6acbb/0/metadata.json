@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "624947b6acbb",
+  "session_id": "019eb351-1e52-77b2-bf34-6000e6f1cd12",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-22T04:06:19.377905Z",
+  "branch": "harden/agent-ready-release",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    ".github/workflows/build.yml",
+    "ADVANCED.md",
+    "AGENTS.md",
+    "README.md",
+    "apps/bckbrnr/Makefile",
+    "apps/imgsrch/INSTALL.md",
+    "apps/imgsrch/README.md"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "c6ad91edd989",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 36783132,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 535065984,
+    "output_tokens": 1129221,
+    "api_call_count": 3682
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-22T04:05:59.628985Z",
+    "agent_lines": 189,
+    "agent_removed": 39,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 189,
+    "total_lines_changed": 228,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}

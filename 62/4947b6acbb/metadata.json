@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "624947b6acbb",
+  "strategy": "manual-commit",
+  "branch": "harden/agent-ready-release",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/build.yml",
+    "ADVANCED.md",
+    "AGENTS.md",
+    "README.md",
+    "apps/bckbrnr/Makefile",
+    "apps/imgsrch/INSTALL.md",
+    "apps/imgsrch/README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/62/4947b6acbb/0/metadata.json",
+      "transcript": "/62/4947b6acbb/0/full.jsonl",
+      "compact_transcript": "/62/4947b6acbb/0/transcript.jsonl",
+      "content_hash": "/62/4947b6acbb/0/content_hash.txt",
+      "prompt": "/62/4947b6acbb/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36783132,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 535065984,
+    "output_tokens": 1129221,
+    "api_call_count": 3682
+  }
+}
