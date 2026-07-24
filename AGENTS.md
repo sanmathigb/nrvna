@@ -29,9 +29,9 @@ JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 
 `wrk` creates the workspace when needed and prints only the job ID on stdout.
 Before the daemon starts, status shows two queued jobs. `--drain` loads the
-model, lets up to two workers process the queue, and exits at observed idle. A
-nonzero drain exit means the run did not complete cleanly; inspect the workspace
-with `flw`. Nothing needs to remain running.
+model, uses the two workers configured in this example, and exits at observed
+idle. A nonzero drain exit means the run did not complete cleanly; inspect the
+workspace with `flw`. Nothing needs to remain running.
 
 Use `--drain` for bounded batches, model swapping, and constrained hardware.
 For repeated low-latency work, keep one daemon on the workspace:

@@ -3,7 +3,7 @@
 [![CI](https://github.com/sanmathigb/nrvna-ai/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna-ai/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Local async inference primitives. `nrvnad` runs models, `wrk` submits jobs,
+Durable local inference primitives. `nrvnad` runs models, `wrk` submits jobs,
 and `flw` collects results. The filesystem is the queue.
 
 Models get wrk. Humans get back flw.
