@@ -67,16 +67,16 @@ void printJobStatus(const nrvna::JobId& id, const std::string& status, double el
     if (status == nrvna::contract::toString(nrvna::Status::Done))   color = kColorDone;
     if (status == nrvna::contract::toString(nrvna::Status::Failed)) color = kColorFailed;
 
-    std::cout << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
+    std::cerr << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
     if (elapsed >= 0.0) {
         char buf[16];
         std::snprintf(buf, sizeof(buf), "  %5.1fs", elapsed);
-        std::cout << buf;
+        std::cerr << buf;
     }
     if (!detail.empty()) {
-        std::cout << "  " << detail;
+        std::cerr << "  " << detail;
     }
-    std::cout << "\n" << std::flush;
+    std::cerr << "\n" << std::flush;
 }
 
 void completeJob(const std::filesystem::path& jobPath,

@@ -30,19 +30,26 @@ cmake --build build -j4 --target nrvnad wrk flw
 ```
 
 Download a small llama.cpp-compatible instruct model (about 1 GB,
-Apache-2.0):
+Apache-2.0) from an immutable Hugging Face revision, then verify it:
 
 ```bash
 mkdir -p models
 curl -fL --continue-at - -o models/smollm2-1.7b.gguf \
-  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf
+  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
+
+MODEL_SHA256=decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
+if command -v sha256sum >/dev/null; then
+  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | sha256sum -c -
+else
+  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | shasum -a 256 -c -
+fi
 ```
 
 Submit two jobs before any model process exists:
 
 ```bash
 BIN=./build
-WS=/tmp/nrvna-demo
+WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
 MODEL=./models/smollm2-1.7b.gguf
 
 JOB1=$("$BIN/wrk" "$WS" "Reply with exactly: first" --tag demo)
@@ -58,8 +65,7 @@ and exit:
 "$BIN/flw" "$WS" --tag demo --json
 ```
 
-Results remain under `/tmp/nrvna-demo/output/<job-id>/`. Nothing needs to stay
-running.
+Results remain under `$WS/output/<job-id>/`. Nothing needs to stay running.
 
 ## Three primitives
 
