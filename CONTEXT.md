@@ -1,4 +1,4 @@
-# nrvna-ai Domain Language
+# nrvna Domain Language
 
 Terms used consistently across code, docs, and reviews. If code and this
 file disagree, one of them has a bug.

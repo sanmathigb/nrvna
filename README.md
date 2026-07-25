@@ -1,6 +1,6 @@
-# nrvna-ai
+# nrvna
 
-[![CI](https://github.com/sanmathigb/nrvna-ai/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna-ai/actions/workflows/build.yml)
+[![CI](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Durable local inference primitives. `nrvnad` runs models, `wrk` submits jobs,
@@ -17,8 +17,8 @@ the model does not.
 Build the primitives from source:
 
 ```bash
-git clone --recursive https://github.com/sanmathigb/nrvna-ai.git
-cd nrvna-ai
+git clone --recursive https://github.com/sanmathigb/nrvna.git
+cd nrvna
 cmake -S . -B build
 cmake --build build -j4 --target nrvnad wrk flw
 ```

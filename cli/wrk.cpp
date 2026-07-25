@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Work submission tool (wrk)
+ * nrvna - Work submission tool (wrk)
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -13,7 +13,7 @@
 #include <iterator>
 #include <unistd.h>
 
-using namespace nrvnaai;
+using namespace nrvna;
 
 constexpr const char* VERSION = NRVNA_VERSION;
 

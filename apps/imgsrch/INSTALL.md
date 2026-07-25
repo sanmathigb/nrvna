@@ -7,7 +7,7 @@ to. Everything runs locally; do not ask for an account, API key, or secret.
 ## 1. Install
 
 Detect the platform with `uname -sm`, then download the matching archive from
-the [latest release](https://github.com/sanmathigb/nrvna-ai/releases/latest):
+the [latest release](https://github.com/sanmathigb/nrvna/releases/latest):
 
 - `Darwin arm64`: `imgsrch-darwin-arm64.tar.gz`
 - `Darwin x86_64`: `imgsrch-darwin-x86_64.tar.gz`
@@ -17,7 +17,7 @@ the [latest release](https://github.com/sanmathigb/nrvna-ai/releases/latest):
 mkdir -p ~/imgsrch-app
 cd ~/imgsrch-app
 curl -fL -o imgsrch.tar.gz \
-  https://github.com/sanmathigb/nrvna-ai/releases/latest/download/<archive>
+  https://github.com/sanmathigb/nrvna/releases/latest/download/<archive>
 tar -xzf imgsrch.tar.gz
 cd imgsrch-*/
 ```

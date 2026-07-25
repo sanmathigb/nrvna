@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace nrvnaai {
+namespace nrvna {
 
 struct JobMeta {
     // Submission phase (written by Work)
@@ -32,4 +32,4 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir);
 std::string formatTimestamp();
 std::string escapeJson(const std::string& s);
 
-} // namespace nrvnaai
+} // namespace nrvna

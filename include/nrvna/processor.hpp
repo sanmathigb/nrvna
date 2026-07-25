@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <mutex>
 
-namespace nrvnaai {
+namespace nrvna {
 
 class Runner;
 class TtsRunner;

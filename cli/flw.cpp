@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Flow retrieval tool (flw)
+ * nrvna - Flow retrieval tool (flw)
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -19,7 +19,7 @@
 #include <vector>
 #include <unistd.h>
 
-using namespace nrvnaai;
+using namespace nrvna;
 
 constexpr const char* VERSION = NRVNA_VERSION;
 

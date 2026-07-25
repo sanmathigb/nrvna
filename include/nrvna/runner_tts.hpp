@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -11,7 +11,7 @@
 
 struct llama_model;
 
-namespace nrvnaai {
+namespace nrvna {
 
 enum class TtsVersion { V0_2, V0_3 };
 
@@ -46,4 +46,4 @@ private:
     static std::string v3_audio_data_;
 };
 
-} // namespace nrvnaai
+} // namespace nrvna

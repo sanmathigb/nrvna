@@ -10,7 +10,7 @@ session is required.
 
 1. Download `bckbrnr-darwin-arm64.zip` for Apple Silicon or
    `bckbrnr-darwin-x86_64.zip` for an Intel Mac from the
-   [latest release](https://github.com/sanmathigb/nrvna-ai/releases/latest).
+   [latest release](https://github.com/sanmathigb/nrvna/releases/latest).
 2. Unzip it and move `bckbrnr.app` to Applications.
 3. Right-click the app and choose **Open** on first launch.
 

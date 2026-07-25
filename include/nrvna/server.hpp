@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -9,7 +9,7 @@
 #include <memory>
 #include <thread>
 
-namespace nrvnaai {
+namespace nrvna {
 
 class Scanner;
 class Pool;

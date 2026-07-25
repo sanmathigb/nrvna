@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace nrvnaai {
+namespace nrvna {
 
 enum class LogLevel : std::uint8_t {
     ERROR = 0, 
@@ -42,8 +42,8 @@ void setThreadName(const std::string& name);
 }
 
 // Convenience macros for common usage
-#define LOG_ERROR(msg) do { ::nrvnaai::Logger::error(msg); } while(0)
-#define LOG_WARN(msg)  do { ::nrvnaai::Logger::warn(msg); } while(0)
-#define LOG_INFO(msg)  do { ::nrvnaai::Logger::info(msg); } while(0)
-#define LOG_DEBUG(msg) do { ::nrvnaai::Logger::debug(msg); } while(0)
-#define LOG_TRACE(msg) do { ::nrvnaai::Logger::trace(msg); } while(0)
+#define LOG_ERROR(msg) do { ::nrvna::Logger::error(msg); } while(0)
+#define LOG_WARN(msg)  do { ::nrvna::Logger::warn(msg); } while(0)
+#define LOG_INFO(msg)  do { ::nrvna::Logger::info(msg); } while(0)
+#define LOG_DEBUG(msg) do { ::nrvna::Logger::debug(msg); } while(0)
+#define LOG_TRACE(msg) do { ::nrvna::Logger::trace(msg); } while(0)

@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -19,7 +19,7 @@
 #include <sys/param.h>
 #endif
 
-namespace nrvnaai::lifecycle {
+namespace nrvna::lifecycle {
 
 namespace {
 
@@ -223,4 +223,4 @@ void removeRuntimeFiles(const std::filesystem::path& ws) {
     std::filesystem::remove(ws / kInfoFile, ec);
 }
 
-} // namespace nrvnaai::lifecycle
+} // namespace nrvna::lifecycle

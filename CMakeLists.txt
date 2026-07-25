@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(nrvna_ai VERSION 0.1.0 LANGUAGES CXX C)
+project(nrvna VERSION 0.1.0 LANGUAGES CXX C)
 
 include(CTest)
 

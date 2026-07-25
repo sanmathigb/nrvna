@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Server daemon (nrvnad)
+ * nrvna - Model daemon (nrvnad)
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <optional>
 
-using namespace nrvnaai;
+using namespace nrvna;
 
 constexpr const char * VERSION = NRVNA_VERSION;
 
@@ -316,7 +316,7 @@ void printHelp() {
     std::cout << "you rarely need to pass them explicitly.\n\n";
     std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
     std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
-    std::cout << "https://github.com/sanmathigb/nrvna-ai/blob/main/ADVANCED.md\n\n";
+    std::cout << "https://github.com/sanmathigb/nrvna/blob/main/ADVANCED.md\n\n";
     std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
     std::cout << "  cat doc.txt | wrk <workspace> -           text\n";
     std::cout << "  wrk <workspace> \"text\" --embed            embeddings\n";
@@ -636,7 +636,7 @@ int main(int argc, char * argv[]) {
         releaseWorkspaceLock();
 
         if (drainMode) {
-            LOG_DEBUG("nrvna-ai daemon drained and stopped");
+            LOG_DEBUG("nrvna daemon drained and stopped");
             return drainExit;
         }
 
@@ -650,6 +650,6 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
-    LOG_DEBUG("nrvna-ai daemon stopped");
+    LOG_DEBUG("nrvna daemon stopped");
     return 0;
 }

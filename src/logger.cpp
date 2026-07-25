@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -15,7 +15,7 @@
 #include <thread>
 #include <ctime>
 
-namespace nrvnaai {
+namespace nrvna {
 
 static LogLevel g_level = LogLevel::INFO;
 static std::mutex g_log_mutex;

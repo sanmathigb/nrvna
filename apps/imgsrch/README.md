@@ -8,12 +8,12 @@ keyword. Indexing runs in the background; search is offline. Humans get
 ranked originals. Agents get a small, cited candidate set.
 
 It is the first application built on
-[nrvna](https://github.com/sanmathigb/nrvna-ai), durable local inference
+[nrvna](https://github.com/sanmathigb/nrvna), durable local inference
 primitives.
 
 **Status: pre-beta.** It does one thing: search your screenshots. It's
 early. If something breaks or you have an idea,
-[open an issue](https://github.com/sanmathigb/nrvna-ai/issues); every report
+[open an issue](https://github.com/sanmathigb/nrvna/issues); every report
 gets read.
 
 ## Install
@@ -40,7 +40,7 @@ For agent-led setup, start a fresh coding-agent session and paste:
 
 ```text
 Set up imgsrch for me by following
-https://raw.githubusercontent.com/sanmathigb/nrvna-ai/main/apps/imgsrch/INSTALL.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/INSTALL.md
 exactly. Run the steps yourself, verify each step, and ask me only where the
 guide says to.
 ```
@@ -186,5 +186,5 @@ primitives directly.
 
 ---
 
-Built with [nrvna](https://github.com/sanmathigb/nrvna-ai), durable local
+Built with [nrvna](https://github.com/sanmathigb/nrvna), durable local
 inference primitives.
