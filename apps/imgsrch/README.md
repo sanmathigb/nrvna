@@ -7,6 +7,10 @@ it shows and OCR of what it says, then searches those words by meaning and by
 keyword. Indexing runs in the background; search is offline. Humans get
 ranked originals. Agents get a small, cited candidate set.
 
+It is the first application built on
+[nrvna](https://github.com/sanmathigb/nrvna-ai), durable local inference
+primitives.
+
 **Status: pre-beta.** It does one thing: search your screenshots. It's
 early. If something breaks or you have an idea,
 [open an issue](https://github.com/sanmathigb/nrvna-ai/issues); every report
@@ -32,8 +36,14 @@ Platforms: macOS 13.3+ (Apple Silicon and Intel) and x86-64 Linux with AVX2
 are not yet signed or notarized; the first run may need approval under
 **System Settings → Privacy & Security**.
 
-For agent-led setup, paste the instructions from [`INSTALL.md`](INSTALL.md)
-into a fresh coding-agent session.
+For agent-led setup, start a fresh coding-agent session and paste:
+
+```text
+Set up imgsrch for me by following
+https://raw.githubusercontent.com/sanmathigb/nrvna-ai/main/apps/imgsrch/INSTALL.md
+exactly. Run the steps yourself, verify each step, and ask me only where the
+guide says to.
+```
 
 ## Use
 
@@ -176,5 +186,5 @@ primitives directly.
 
 ---
 
-Built with [nrvna](https://github.com/sanmathigb/nrvna-ai), local async
+Built with [nrvna](https://github.com/sanmathigb/nrvna-ai), durable local
 inference primitives.
