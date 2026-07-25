@@ -545,7 +545,7 @@ int main(int argc, char * argv[]) {
              " gpu_layers=" + std::to_string(daemonGpuLayers()));
 
     std::cout << "\n";
-    std::cout << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90masync · inference · primitive\033[0m\n";
+    std::cout << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90mdurable · local · inference\033[0m\n";
     std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
     {
