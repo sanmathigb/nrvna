@@ -6,8 +6,8 @@ packaged image-search product, start with [apps/imgsrch/README.md](apps/imgsrch/
 ## Build
 
 ```bash
-git clone --recursive https://github.com/sanmathigb/nrvna-ai.git
-cd nrvna-ai
+git clone --recursive https://github.com/sanmathigb/nrvna.git
+cd nrvna
 cmake -S . -B build && cmake --build build -j4
 ```
 

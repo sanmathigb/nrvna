@@ -1,6 +1,6 @@
 // imgsrch — search your screenshots and images by what's in them. Fully local.
 //
-// Built with nrvna ai: three background workers (caption, OCR, embedding)
+// Built with nrvna: three background workers (caption, OCR, embedding)
 // process images as durable jobs; every artifact is a plain file you can read.
 package main
 

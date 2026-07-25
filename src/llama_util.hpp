@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Shared llama.cpp utilities (internal)
+ * nrvna - Shared llama.cpp utilities (internal)
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -14,7 +14,7 @@
 #include <limits>
 #include <string>
 
-namespace nrvnaai {
+namespace nrvna {
 
 inline void warn_invalid_env(const char* name, const char* value, const char* type, const std::string& fallback) {
     std::fprintf(stderr, "nrvna: invalid %s for %s='%s', using default %s\n", type, name, value, fallback.c_str());
@@ -88,4 +88,4 @@ inline void filtered_llama_log(enum ggml_log_level level, const char* text, void
     }
 }
 
-} // namespace nrvnaai
+} // namespace nrvna

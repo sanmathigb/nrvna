@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -37,22 +37,22 @@ void writeCompletionMeta(const std::filesystem::path& jobPath,
                          double elapsed_s,
                          const std::vector<std::string>& artifacts,
                          const std::string& status) {
-    auto parsed = nrvnaai::readMetaJson(jobPath);
+    auto parsed = nrvna::readMetaJson(jobPath);
     if (!parsed) {
         LOG_WARN("Missing or invalid job metadata at completion: " + jobPath.string());
     }
-    auto meta = parsed.value_or(nrvnaai::JobMeta{});
+    auto meta = parsed.value_or(nrvna::JobMeta{});
     if (meta.submitted_at.empty()) {
-        meta.submitted_at = nrvnaai::formatTimestamp();
+        meta.submitted_at = nrvna::formatTimestamp();
     }
     if (meta.mode.empty()) {
-        meta.mode = nrvnaai::contract::toString(nrvnaai::JobType::Text);
+        meta.mode = nrvna::contract::toString(nrvna::JobType::Text);
     }
-    meta.completed_at = nrvnaai::formatTimestamp();
+    meta.completed_at = nrvna::formatTimestamp();
     meta.duration_s = elapsed_s;
     meta.artifacts = artifacts;
     meta.status = status;
-    if (!nrvnaai::writeMetaJson(jobPath, meta)) {
+    if (!nrvna::writeMetaJson(jobPath, meta)) {
         LOG_ERROR("Failed to write completion metadata: " + jobPath.string());
     }
 }
@@ -61,11 +61,11 @@ static const char* kColorRunning  = "\033[33m"; // yellow
 static const char* kColorDone     = "\033[32m"; // green
 static const char* kColorFailed   = "\033[31m"; // red
 
-void printJobStatus(const nrvnaai::JobId& id, const std::string& status, double elapsed = -1.0, const std::string& detail = "") {
+void printJobStatus(const nrvna::JobId& id, const std::string& status, double elapsed = -1.0, const std::string& detail = "") {
     std::lock_guard<std::mutex> lock(g_output_mutex);
     const char* color = kColorRunning;
-    if (status == nrvnaai::contract::toString(nrvnaai::Status::Done))   color = kColorDone;
-    if (status == nrvnaai::contract::toString(nrvnaai::Status::Failed)) color = kColorFailed;
+    if (status == nrvna::contract::toString(nrvna::Status::Done))   color = kColorDone;
+    if (status == nrvna::contract::toString(nrvna::Status::Failed)) color = kColorFailed;
 
     std::cout << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
     if (elapsed >= 0.0) {
@@ -88,7 +88,7 @@ void completeJob(const std::filesystem::path& jobPath,
 
 }
 
-namespace nrvnaai {
+namespace nrvna {
 
 Processor::Processor(const std::filesystem::path& workspace, const std::string& modelPath, const std::string& mmprojPath, const std::string& vocoderPath)
     : workspace_(workspace), modelPath_(modelPath), mmprojPath_(mmprojPath), vocoderPath_(vocoderPath) {

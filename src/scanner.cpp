@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <fstream>
 
-namespace nrvnaai {
+namespace nrvna {
 
 Scanner::Scanner(const std::filesystem::path& workspace) noexcept 
     : workspace_(workspace), readyPath_(workspace / contract::kReadyDir) {

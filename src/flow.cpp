@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace nrvnaai {
+namespace nrvna {
 
 // Convert filesystem time to system time with minimal race window
 static std::chrono::system_clock::time_point toSystemTime(

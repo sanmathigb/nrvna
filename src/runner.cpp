@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -18,7 +18,7 @@
 #include <fstream>
 #include <memory>
 
-namespace nrvnaai {
+namespace nrvna {
 
 // Static member definitions (model is shared, mtmd context is per-worker)
 std::shared_ptr<llama_model> Runner::shared_model_ = nullptr;

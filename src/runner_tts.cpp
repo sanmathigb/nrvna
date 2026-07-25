@@ -1,5 +1,5 @@
 /*
- * nrvna ai - TTS Runner (OuteTTS + WavTokenizer)
+ * nrvna - TTS Runner (OuteTTS + WavTokenizer)
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  *
@@ -20,7 +20,7 @@
 #include <regex>
 #include <thread>
 
-namespace nrvnaai {
+namespace nrvna {
 
 // Static member definitions — TTS model is separate from text/vision model
 std::shared_ptr<llama_model> TtsRunner::shared_tts_model_ = nullptr;
@@ -764,4 +764,4 @@ TtsResult TtsRunner::run(const std::string& text) {
     }
 }
 
-} // namespace nrvnaai
+} // namespace nrvna

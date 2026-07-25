@@ -1,8 +1,10 @@
-# nrvna-ai Architecture
+# nrvna Architecture
 
 ## Overview
 
-nrvna-ai is an **asynchronous inference primitive** - a directory-based job queue for LLM inference using llama.cpp. Jobs are represented as filesystem directories that move through states via atomic renames.
+nrvna provides **durable local inference primitives**: a directory-based job
+queue for llama.cpp inference. Jobs are filesystem directories that move
+through states via atomic renames.
 
 ## Directory Structure
 

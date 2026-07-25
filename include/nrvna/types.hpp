@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-namespace nrvnaai {
+namespace nrvna {
 
 // Core job lifecycle states.
 enum class Status : std::uint8_t { Queued, Running, Done, Failed, Missing };
@@ -19,4 +19,4 @@ enum class JobType : std::uint8_t {
 // Opaque job identifier (string-based for now; can evolve to strong type).
 using JobId = std::string;
 
-} // namespace nrvnaai
+} // namespace nrvna

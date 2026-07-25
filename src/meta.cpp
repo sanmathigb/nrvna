@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace nrvnaai {
+namespace nrvna {
 
 std::string escapeJson(const std::string& s) {
     std::string out;
@@ -246,4 +246,4 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
     }
 }
 
-} // namespace nrvnaai
+} // namespace nrvna

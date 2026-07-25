@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <fstream>
 
-using namespace nrvnaai;
+using namespace nrvna;
 namespace fs = std::filesystem;
 
 int main() {

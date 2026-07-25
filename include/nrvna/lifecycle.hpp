@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  *
@@ -13,7 +13,7 @@
 #include <filesystem>
 #include <string>
 
-namespace nrvnaai::lifecycle {
+namespace nrvna::lifecycle {
 
 inline constexpr const char* kLockFile  = ".nrvnad.lock";
 inline constexpr const char* kPidFile   = ".nrvnad.pid";
@@ -51,4 +51,4 @@ struct DaemonInfo {
 [[nodiscard]] bool writeRuntimeFiles(const std::filesystem::path& ws, const DaemonInfo& info);
 void removeRuntimeFiles(const std::filesystem::path& ws);
 
-} // namespace nrvnaai::lifecycle
+} // namespace nrvna::lifecycle

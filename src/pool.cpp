@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -8,7 +8,7 @@
 #include "nrvna/logger.hpp"
 #include <chrono>
 
-namespace nrvnaai {
+namespace nrvna {
 
 Pool::Pool(int workers) noexcept : workers_(workers) {
     LOG_DEBUG("Pool created with " + std::to_string(workers) + " workers");

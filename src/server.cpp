@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace nrvnaai {
+namespace nrvna {
 
 // Note: Signal handling is done by the CLI (nrvnad.cpp), not by Server class
 
@@ -38,7 +38,7 @@ bool Server::start() {
         return false;
     }
 
-    LOG_INFO("Starting nrvna-ai server...");
+    LOG_INFO("Starting nrvna server...");
 
     // Reset shutdown flag so server is restartable after shutdown()
     shutdown_.store(false);
@@ -59,7 +59,7 @@ bool Server::start() {
 
     // Log startup banner
     LOG_DEBUG("========================================");
-    LOG_DEBUG("nrvna-ai Server Starting");
+    LOG_DEBUG("nrvna Server Starting");
     LOG_DEBUG("========================================");
     LOG_DEBUG("Model: " + modelPath_);
     if (!mmprojPath_.empty()) {

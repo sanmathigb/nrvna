@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string>
 
-using namespace nrvnaai;
+using namespace nrvna;
 namespace fs = std::filesystem;
 
 static int failures = 0;

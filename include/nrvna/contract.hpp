@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  *
@@ -15,7 +15,7 @@
 #include <string>
 #include <utility>
 
-namespace nrvnaai::contract {
+namespace nrvna::contract {
 
 // ── State directories, relative to the workspace root ──────────────────
 inline constexpr const char* kWritingDir    = "input/writing";  // staging, invisible
@@ -151,4 +151,4 @@ inline std::optional<Artifact> findOutputArtifact(const std::filesystem::path& j
     return std::nullopt;
 }
 
-} // namespace nrvnaai::contract
+} // namespace nrvna::contract

@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -20,7 +20,7 @@ struct mtmd_context;
 struct mtmd_bitmap;
 struct common_chat_templates;
 
-namespace nrvnaai {
+namespace nrvna {
 
 struct ModelInfo {
     bool        valid = false;

@@ -1,5 +1,5 @@
 /*
- * nrvna ai - Asynchronous Inference Primitive
+ * nrvna - Durable Local Inference Primitives
  * Copyright (c) 2025 Sanmathi Bharamgouda
  * SPDX-License-Identifier: MIT
  */
@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace nrvnaai {
+namespace nrvna {
 
 namespace {
 std::size_t env_size(const char* name, std::size_t defv) {
