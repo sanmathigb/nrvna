@@ -15,37 +15,28 @@ cmake -S . -B build && cmake --build build -j4
 
 Use a llama.cpp-compatible instruct GGUF that your current build supports. Put
 it in `./models/` or point to it with a full path (`NRVNA_MODELS_DIR` changes
-the search path). If you don't have one yet:
-
-```bash
-mkdir -p models
-curl -L -o models/smollm2-1.7b.gguf \
-  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf
-```
+the search path). If you don't have one yet, use the pinned, checksum-verified
+model in the [README quick start](README.md#quick-start).
 
 ## First Job
 
-Submit before starting anything. This is not a trick — the queue is a folder,
-so a daemon doesn't need to exist yet:
+Submit work and keep the returned job ID:
 
 ```bash
-JOB=$({ echo "Summarize this document in five bullets:"; cat ARCHITECTURE.md; } | ./build/wrk /tmp/ws -)
-./build/flw /tmp/ws        # shows: queued: 1
+WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-quickstart.XXXXXX")
+MODEL=./models/smollm2-1.7b.gguf
+JOB=$(./build/wrk "$WS" "Reply with exactly: hello")
 ```
 
-The prompt is whatever arrives on stdin — compose it however you like. The
-`{ echo "instruction"; cat file; }` idiom is the standard way to pair an
-instruction with a document.
-
-Now bring a worker to the queue and collect:
+Run the model against the queued work, then retrieve the answer:
 
 ```bash
-./build/nrvnad models/smollm2-1.7b.gguf /tmp/ws -w 1 &
-./build/flw /tmp/ws -w "$JOB"     # blocks until done, prints the result
+./build/nrvnad "$MODEL" "$WS" --drain
+./build/flw "$WS" "$JOB"
 ```
 
-The answer also lives at `/tmp/ws/output/<job-id>/result.txt` — a plain file,
-still there tomorrow.
+The answer also lives at `$WS/output/<job-id>/result.txt` as a plain file.
+`wrk` did not need a running daemon; the job was already durable on disk.
 
 ## Workspace Status
 
