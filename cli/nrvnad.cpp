@@ -544,14 +544,14 @@ int main(int argc, char * argv[]) {
              " vocoder=" + (vocoderPath.empty() ? std::string("none") : vocoderPath) +
              " gpu_layers=" + std::to_string(daemonGpuLayers()));
 
-    std::cout << "\n";
-    std::cout << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90masync · inference · primitive\033[0m\n";
-    std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
+    std::cerr << "\n";
+    std::cerr << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90mdurable · local · inference\033[0m\n";
+    std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
     {
         double gb = static_cast<double>(probeInfo.model_size_bytes) / (1024.0 * 1024.0 * 1024.0);
         std::string sizeStr = std::to_string(gb).substr(0, 3) + " GB";
-        std::cout << "  \033[90mModel: " << probeInfo.desc
+        std::cerr << "  \033[90mModel: " << probeInfo.desc
                   << ", ctx=" << probeInfo.n_ctx_train
                   << ", " << sizeStr
                   << ", template=" << (probeInfo.has_chat_template ? "yes" : "no")
@@ -560,7 +560,7 @@ int main(int argc, char * argv[]) {
     }
 
     std::string modelName = std::filesystem::path(modelPath).filename().string();
-    std::cout << "  Loading " << modelName << "\n" << std::flush;
+    std::cerr << "  Loading " << modelName << "\n" << std::flush;
 
     try {
         // Baseline before workers can touch anything: failures that predate
@@ -571,7 +571,7 @@ int main(int argc, char * argv[]) {
         auto server = std::make_unique<Server>(modelPath, workspace, workers, mmprojPath, vocoderPath);
 
         if (!server->start()) {
-            std::cout << "  \033[31mFailed to start\033[0m\n";
+            std::cerr << "  \033[31mFailed to start\033[0m\n";
             releaseWorkspaceLock();
             return 1;
         }
@@ -587,28 +587,28 @@ int main(int argc, char * argv[]) {
             LOG_WARN("Failed to write lifecycle runtime files (status will report starting)");
         }
 
-        std::cout << "\n";
-        std::cout << "  \033[1mRUNNING\033[0m\n\n";
-        std::cout << "    Model      " << modelName << "\n";
-        std::cout << "    Workers    " << workers << "\n";
-        std::cout << "    Workspace  " << workspace << "\n";
+        std::cerr << "\n";
+        std::cerr << "  \033[1mRUNNING\033[0m\n\n";
+        std::cerr << "    Model      " << modelName << "\n";
+        std::cerr << "    Workers    " << workers << "\n";
+        std::cerr << "    Workspace  " << workspace << "\n";
         if (!mmprojPath.empty()) {
-            std::cout << "    MMProj     " << mmprojPath << "\n";
+            std::cerr << "    MMProj     " << mmprojPath << "\n";
         }
         if (!vocoderPath.empty()) {
-            std::cout << "    Vocoder    " << vocoderPath << "\n";
+            std::cerr << "    Vocoder    " << vocoderPath << "\n";
         }
-        std::cout << "\n";
-        std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
-        std::cout << "  Submit:  ./wrk " << workspace << " \"prompt\"\n";
-        std::cout << "  Results: ./flw " << workspace << " <job-id>\n\n";
-        std::cout << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
+        std::cerr << "\n";
+        std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
+        std::cerr << "  Submit:  ./wrk " << workspace << " \"prompt\"\n";
+        std::cerr << "  Results: ./flw " << workspace << " <job-id>\n\n";
+        std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
 
         // Pessimistic: only an observed-idle queue earns drain success. An
         // interrupted drain (signal, server death) must not report 0.
         int drainExit = drainMode ? 1 : 0;
         if (drainMode) {
-            std::cout << "  Draining queue; will exit when idle.\n\n";
+            std::cerr << "  Draining queue; will exit when idle.\n\n";
             while (!g_shutdown_requested && server->isRunning()) {
                 auto c = drainFlow.counts();
                 if (c.queued == 0 && c.running == 0) {
@@ -624,7 +624,7 @@ int main(int argc, char * argv[]) {
         }
 
         if (g_shutdown_requested) {
-            std::cout << "\nShutdown requested, stopping server..." << std::endl;
+            std::cerr << "\nShutdown requested, stopping server..." << std::endl;
         }
         LOG_DEBUG("Shutdown requested, stopping server...");
         {
