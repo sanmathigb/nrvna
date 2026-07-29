@@ -9,6 +9,7 @@
 #include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"
 #include "nrvna/server.hpp"
+#include "nrvna/terminal.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -544,19 +545,33 @@ int main(int argc, char * argv[]) {
              " vocoder=" + (vocoderPath.empty() ? std::string("none") : vocoderPath) +
              " gpu_layers=" + std::to_string(daemonGpuLayers()));
 
+    const bool interactive = terminal::stderrIsTerminal();
+    const bool useColor = terminal::colorEnabled(interactive, std::getenv("NO_COLOR"));
+    const auto ansi = [useColor](const char* sequence) {
+        return terminal::ansi(useColor, sequence);
+    };
+
     std::cerr << "\n";
-    std::cerr << "  \033[1mnrvna\033[0m " << VERSION << "                        \033[90mdurable · local · inference\033[0m\n";
-    std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
+    if (interactive) {
+        std::cerr << "  " << ansi("\033[1m") << "nrvna" << ansi("\033[0m") << " " << VERSION
+                  << "                        " << ansi("\033[90m")
+                  << "durable · local · inference" << ansi("\033[0m") << "\n";
+        std::cerr << "  " << ansi("\033[90m")
+                  << "─────────────────────────────────────────────────────────────────"
+                  << ansi("\033[0m") << "\n\n";
+    } else {
+        std::cerr << "nrvna " << VERSION << " - durable local inference\n";
+    }
 
     {
         double gb = static_cast<double>(probeInfo.model_size_bytes) / (1024.0 * 1024.0 * 1024.0);
         std::string sizeStr = std::to_string(gb).substr(0, 3) + " GB";
-        std::cerr << "  \033[90mModel: " << probeInfo.desc
+        std::cerr << "  " << ansi("\033[90m") << "Model: " << probeInfo.desc
                   << ", ctx=" << probeInfo.n_ctx_train
                   << ", " << sizeStr
                   << ", template=" << (probeInfo.has_chat_template ? "yes" : "no")
                   << ", encoder=" << (probeInfo.has_encoder ? "yes" : "no")
-                  << "\033[0m\n";
+                  << ansi("\033[0m") << "\n";
     }
 
     std::string modelName = std::filesystem::path(modelPath).filename().string();
@@ -571,7 +586,7 @@ int main(int argc, char * argv[]) {
         auto server = std::make_unique<Server>(modelPath, workspace, workers, mmprojPath, vocoderPath);
 
         if (!server->start()) {
-            std::cerr << "  \033[31mFailed to start\033[0m\n";
+            std::cerr << "  " << ansi("\033[31m") << "Failed to start" << ansi("\033[0m") << "\n";
             releaseWorkspaceLock();
             return 1;
         }
@@ -588,7 +603,7 @@ int main(int argc, char * argv[]) {
         }
 
         std::cerr << "\n";
-        std::cerr << "  \033[1mRUNNING\033[0m\n\n";
+        std::cerr << "  " << ansi("\033[1m") << "RUNNING" << ansi("\033[0m") << "\n\n";
         std::cerr << "    Model      " << modelName << "\n";
         std::cerr << "    Workers    " << workers << "\n";
         std::cerr << "    Workspace  " << workspace << "\n";
@@ -599,10 +614,16 @@ int main(int argc, char * argv[]) {
             std::cerr << "    Vocoder    " << vocoderPath << "\n";
         }
         std::cerr << "\n";
-        std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
-        std::cerr << "  Submit:  ./wrk " << workspace << " \"prompt\"\n";
-        std::cerr << "  Results: ./flw " << workspace << " <job-id>\n\n";
-        std::cerr << "  \033[90m─────────────────────────────────────────────────────────────────\033[0m\n\n";
+        if (interactive) {
+            std::cerr << "  " << ansi("\033[90m")
+                      << "─────────────────────────────────────────────────────────────────"
+                      << ansi("\033[0m") << "\n\n";
+            std::cerr << "  Submit:  ./wrk " << workspace << " \"prompt\"\n";
+            std::cerr << "  Results: ./flw " << workspace << " <job-id>\n\n";
+            std::cerr << "  " << ansi("\033[90m")
+                      << "─────────────────────────────────────────────────────────────────"
+                      << ansi("\033[0m") << "\n\n";
+        }
 
         // Pessimistic: only an observed-idle queue earns drain success. An
         // interrupted drain (signal, server death) must not report 0.

@@ -1,5 +1,6 @@
 // Unit tests for the job contract. Plain asserts, no framework, no llama.
 #include "nrvna/contract.hpp"
+#include "nrvna/terminal.hpp"
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -49,6 +50,11 @@ int main() {
     CHECK(!contract::isValidJobId("12__34"));
     CHECK(!contract::isValidJobId("abc"));
     CHECK(!contract::isValidJobId(std::string(129, '1')));
+
+    // Terminal color: only interactive stderr without NO_COLOR.
+    CHECK(terminal::colorEnabled(true, nullptr));
+    CHECK(!terminal::colorEnabled(false, nullptr));
+    CHECK(!terminal::colorEnabled(true, ""));
 
     // Output artifact rule: result > transcript > audio > embedding
     {

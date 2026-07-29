@@ -10,6 +10,7 @@
 #include "nrvna/runner.hpp"
 #include "nrvna/runner_tts.hpp"
 #include "nrvna/logger.hpp"
+#include "nrvna/terminal.hpp"
 #include "llama_util.hpp"
 #include <chrono>
 #include <cstdio>
@@ -63,11 +64,15 @@ static const char* kColorFailed   = "\033[31m"; // red
 
 void printJobStatus(const nrvna::JobId& id, const std::string& status, double elapsed = -1.0, const std::string& detail = "") {
     std::lock_guard<std::mutex> lock(g_output_mutex);
+    const bool useColor = nrvna::terminal::stderrColorEnabled();
     const char* color = kColorRunning;
     if (status == nrvna::contract::toString(nrvna::Status::Done))   color = kColorDone;
     if (status == nrvna::contract::toString(nrvna::Status::Failed)) color = kColorFailed;
 
-    std::cerr << "    \033[90m" << timestamp() << "\033[0m  " << id << "  " << color << status << "\033[0m";
+    std::cerr << "    " << nrvna::terminal::ansi(useColor, "\033[90m")
+              << timestamp() << nrvna::terminal::ansi(useColor, "\033[0m")
+              << "  " << id << "  " << nrvna::terminal::ansi(useColor, color)
+              << status << nrvna::terminal::ansi(useColor, "\033[0m");
     if (elapsed >= 0.0) {
         char buf[16];
         std::snprintf(buf, sizeof(buf), "  %5.1fs", elapsed);
