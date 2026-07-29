@@ -1,0 +1,223 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "ec1350158c6f",
+  "session_id": "ec6fefd3-a75d-417b-9e88-e33b0a185304",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-29T23:31:38.582385Z",
+  "branch": "agent/tty-aware-daemon-output",
+  "checkpoints_count": 9,
+  "save_step_count": 1,
+  "files_touched": [
+    "cli/nrvnad.cpp",
+    "src/processor.cpp",
+    "tests/contract_test.cpp"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5",
+  "turn_id": "152479114655",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 61045,
+    "cache_creation_tokens": 13486547,
+    "cache_read_tokens": 101227503,
+    "output_tokens": 463064,
+    "api_call_count": 383
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01GUPFT4BafiRYAz87TEx32M",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "frontend-design:frontend-design"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "152479114655",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 146,
+        "end": 147,
+        "entry_ids": [
+          "ebc38725-1eee-49a0-8304-82d256c591a8"
+        ],
+        "tool_use_id": "toolu_01GUPFT4BafiRYAz87TEx32M"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01GUPFT4BafiRYAz87TEx32M"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: frontend-design:frontend-design",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_018bdLQeedkFexijG1McBkYK",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "write-a-skill"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "152479114655",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 1563,
+        "end": 1564,
+        "entry_ids": [
+          "a8f7f1ab-45b7-4304-b237-dc5ada87b7ac"
+        ],
+        "tool_use_id": "toolu_018bdLQeedkFexijG1McBkYK"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_018bdLQeedkFexijG1McBkYK"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: write-a-skill",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-29T23:31:37.779837Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 11,
+    "total_committed": 0,
+    "total_lines_changed": 11,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 19924,
+      "user_lines_removed": 11,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".agents/skills/caveman/SKILL.md": 49,
+        ".agents/skills/design-an-interface/SKILL.md": 94,
+        ".agents/skills/diagnose/SKILL.md": 117,
+        ".agents/skills/diagnose/scripts/hitl-loop.template.sh": 41,
+        ".agents/skills/edit-article/SKILL.md": 14,
+        ".agents/skills/git-guardrails-claude-code/SKILL.md": 95,
+        ".agents/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh": 25,
+        ".agents/skills/grill-me/SKILL.md": 10,
+        ".agents/skills/grill-with-docs/ADR-FORMAT.md": 47,
+        ".agents/skills/grill-with-docs/CONTEXT-FORMAT.md": 60,
+        ".agents/skills/grill-with-docs/SKILL.md": 88,
+        ".agents/skills/handoff/SKILL.md": 15,
+        ".agents/skills/improve-codebase-architecture/DEEPENING.md": 37,
+        ".agents/skills/improve-codebase-architecture/HTML-REPORT.md": 123,
+        ".agents/skills/improve-codebase-architecture/INTERFACE-DESIGN.md": 44,
+        ".agents/skills/improve-codebase-architecture/LANGUAGE.md": 53,
+        ".agents/skills/improve-codebase-architecture/SKILL.md": 81,
+        ".agents/skills/migrate-to-shoehorn/SKILL.md": 118,
+        ".agents/skills/obsidian-vault/SKILL.md": 59,
+        ".agents/skills/prototype/LOGIC.md": 79,
+        ".agents/skills/prototype/SKILL.md": 30,
+        ".agents/skills/prototype/UI.md": 112,
+        ".agents/skills/qa/SKILL.md": 130,
+        ".agents/skills/request-refactor-plan/SKILL.md": 68,
+        ".agents/skills/review/SKILL.md": 78,
+        ".agents/skills/scaffold-exercises/SKILL.md": 106,
+        ".agents/skills/setup-matt-pocock-skills/SKILL.md": 121,
+        ".agents/skills/setup-matt-pocock-skills/domain.md": 51,
+        ".agents/skills/setup-matt-pocock-skills/issue-tracker-github.md": 22,
+        ".agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md": 23,
+        ".agents/skills/setup-matt-pocock-skills/issue-tracker-local.md": 19,
+        ".agents/skills/setup-matt-pocock-skills/triage-labels.md": 15,
+        ".agents/skills/setup-pre-commit/SKILL.md": 91,
+        ".agents/skills/tdd/SKILL.md": 109,
+        ".agents/skills/tdd/deep-modules.md": 33,
+        ".agents/skills/tdd/interface-design.md": 31,
+        ".agents/skills/tdd/mocking.md": 59,
+        ".agents/skills/tdd/refactoring.md": 10,
+        ".agents/skills/tdd/tests.md": 61,
+        ".agents/skills/teach/GLOSSARY-FORMAT.md": 35,
+        ".agents/skills/teach/LEARNING-RECORD-FORMAT.md": 46,
+        ".agents/skills/teach/MISSION-FORMAT.md": 31,
+        ".agents/skills/teach/RESOURCES-FORMAT.md": 32,
+        ".agents/skills/teach/SKILL.md": 113,
+        ".agents/skills/to-issues/SKILL.md": 83,
+        ".agents/skills/to-prd/SKILL.md": 74,
+        ".agents/skills/triage/AGENT-BRIEF.md": 168,
+        ".agents/skills/triage/OUT-OF-SCOPE.md": 101,
+        ".agents/skills/triage/SKILL.md": 103,
+        ".agents/skills/ubiquitous-language/SKILL.md": 93,
+        ".agents/skills/write-a-skill/SKILL.md": 117,
+        ".agents/skills/writing-beats/SKILL.md": 52,
+        ".agents/skills/writing-fragments/SKILL.md": 75,
+        ".agents/skills/writing-shape/SKILL.md": 64,
+        ".agents/skills/zoom-out/SKILL.md": 7,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".pi/extensions/entire/index.ts": 127,
+        ".superpowers/brainstorm/42580-1781590860/state/server.pid": 1,
+        ".superpowers/brainstorm/45985-1781593872/content/bckbrnr-name.html": 74,
+        ".superpowers/brainstorm/45985-1781593872/content/bckbrnr.html": 122,
+        ".superpowers/brainstorm/45985-1781593872/content/calm-instrument-v2.html": 127,
+        ".superpowers/brainstorm/45985-1781593872/content/calm-instrument.html": 142,
+        ".superpowers/brainstorm/45985-1781593872/content/control-panel.html": 140,
+        ".superpowers/brainstorm/45985-1781593872/content/menubar.html": 140,
+        ".superpowers/brainstorm/45985-1781593872/content/minimal-drop-v2.html": 130,
+        ".superpowers/brainstorm/45985-1781593872/content/minimal-drop-v3.html": 135,
+        ".superpowers/brainstorm/45985-1781593872/content/minimal-drop.html": 131,
+        ".superpowers/brainstorm/45985-1781593872/content/notification.html": 70,
+        ".superpowers/brainstorm/45985-1781593872/content/queue.html": 123,
+        ".superpowers/brainstorm/45985-1781593872/content/textbox.html": 154,
+        ".superpowers/brainstorm/45985-1781593872/content/visual-style.html": 113,
+        ".superpowers/brainstorm/45985-1781593872/content/waiting-2.html": 3,
+        ".superpowers/brainstorm/45985-1781593872/content/waiting.html": 3,
+        ".superpowers/brainstorm/45985-1781593872/content/welcome.html": 12,
+        ".superpowers/brainstorm/45985-1781593872/state/server-stopped": 1,
+        "cli/nrvnad.cpp": 31,
+        "include/nrvna/terminal.hpp": 30,
+        "logs/2026-07-10T04-17-41-354_anthropic.md": 70,
+        "logs/2026-07-10T04-17-41-354_anthropic.request.txt": 1,
+        "logs/2026-07-10T04-18-34-514_anthropic.md": 8640,
+        "logs/2026-07-10T04-18-34-514_anthropic.request.txt": 1,
+        "logs/2026-07-10T04-28-52-384_anthropic.md": 70,
+        "logs/2026-07-10T04-28-52-384_anthropic.request.txt": 1,
+        "logs/2026-07-10T04-29-41-515_anthropic.md": 3144,
+        "logs/2026-07-10T04-29-41-515_anthropic.request.txt": 1,
+        "logs/2026-07-15T19-09-54-838_anthropic.md": 101,
+        "logs/2026-07-15T19-09-54-838_anthropic.request.txt": 1,
+        "logs/2026-07-15T19-09-54-840_anthropic.md": 425,
+        "logs/2026-07-15T19-09-54-840_anthropic.request.txt": 1,
+        "proxy.mjs": 298,
+        "site/bckbrnr/index.html": 255,
+        "site/imgsrch/index.html.old-prototype": 244,
+        "site/index.html": 308,
+        "site/prototype.html": 300,
+        "skills-lock.json": 179,
+        "src/processor.cpp": 6,
+        "teach/MISSION.md": 23,
+        "teach/NOTES.md": 13,
+        "teach/RESOURCES.md": 59,
+        "teach/lessons/0001-job-lifecycle.html": 301,
+        "tests/contract_test.cpp": 6
+      },
+      "user_removed_per_file": {
+        "cli/nrvnad.cpp": 10,
+        "src/processor.cpp": 1
+      }
+    }
+  ]
+}
