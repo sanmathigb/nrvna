@@ -155,6 +155,9 @@ inspect files elsewhere on this machine yet. Use only the public repository
 documentation. Clearly separate documented facts from your own inferences.
 
 Return a short onboarding report containing:
+- agent, harness version, model if known, date, and working directory;
+- token usage, wall time, tool calls, and images opened when exposed;
+- the constraints you followed;
 - what you discovered first and why;
 - the commands you expect a human to use;
 - the workflow you expect an agent to use;
@@ -169,6 +172,28 @@ directory. Do not write anywhere else on the machine.
 This phase should reveal whether the repository naturally leads from a real
 problem (`imgsrch`) to the underlying primitives (`wrk`, `nrvnad`, and `flw`).
 Do not tell the agent that answer in advance.
+
+Treat repository discovery and documentation comprehension as separate gates.
+If the agent says the repository has no README, cannot read the landing page,
+or starts inventing command syntax, preserve that report as a discovery
+failure. Then continue the same session with this control prompt:
+
+```text
+The public repository does have a README. Your browsing path did not retrieve
+it. Record that as a discovery failure, then read these public raw documents:
+
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/DOCUMENTATION.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md
+
+Do not inspect local files or implementation code. Correct every unsupported
+claim and placeholder command in AGENT_REPORT.md using only those documents.
+Keep the original discovery failure in its own section so it is not erased.
+```
+
+If the control succeeds, the documentation is comprehensible but natural
+repository discovery failed. If it still fails, record the agent harness's
+public-web limitation; do not misclassify that as missing repository content.
 
 For normal use, an agent should run `status` once and then `search`. It should
 not run `eval` without a labeled hard set, use `add` when `index` is intended,
