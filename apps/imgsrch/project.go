@@ -4,6 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +20,11 @@ import (
 // actually decode, intersected with what screenshots are. Everything else is
 // loudly skipped — never silently dropped, never accepted-then-failed.
 var acceptExt = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true}
+
+// A 64MP ceiling admits current 48MP phone photos and long screenshots while
+// preventing small compressed files from expanding into multi-gigabyte
+// bitmaps before the vision model can apply its own token budget.
+const maxDecodedImagePixels int64 = 64_000_000
 
 func imgDir(p string) string       { return filepath.Join(p, "images") }
 func rootDir(p string) string      { return filepath.Join(p, ".imgsrch") }
@@ -144,9 +153,7 @@ func appendIndexRows(project string, rows []string) error {
 	return atomicWriteFile(indexFile(project), append(data, []byte(added.String())...), 0o644)
 }
 
-// contentKey is the first 16 hex chars of the file's SHA-256 — identical to
-// the bash spec, so existing project indexes stay valid.
-func contentKey(path string) (string, error) {
+func contentDigest(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -156,7 +163,81 @@ func contentKey(path string) (string, error) {
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil))[:16], nil
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// contentKey is the first 16 hex chars of the file's SHA-256 — identical to
+// the bash spec, so existing project indexes stay valid.
+func contentKey(path string) (string, error) {
+	digest, err := contentDigest(path)
+	if err != nil {
+		return "", err
+	}
+	return digest[:16], nil
+}
+
+func validateImageDimensions(width, height int) error {
+	if width <= 0 || height <= 0 {
+		return fmt.Errorf("invalid image dimensions %dx%d", width, height)
+	}
+	if int64(width) > maxDecodedImagePixels/int64(height) {
+		return fmt.Errorf("decoded image is %dx%d (%d pixels), limit is %d pixels; create a smaller copy before indexing",
+			width, height, int64(width)*int64(height), maxDecodedImagePixels)
+	}
+	return nil
+}
+
+func probeImage(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return fmt.Errorf("cannot decode image header: %w", err)
+	}
+	return validateImageDimensions(cfg.Width, cfg.Height)
+}
+
+func existingImageKeys(project string) (map[string]string, error) {
+	images, _, err := collectImages(project)
+	if err != nil {
+		return nil, err
+	}
+	keys := make(map[string]string, len(images))
+	for _, path := range images {
+		key, err := contentDigest(path)
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := keys[key]; !exists {
+			keys[key] = path
+		}
+	}
+	return keys, nil
+}
+
+func availableImagePath(project, base, key string) string {
+	dir := imgDir(project)
+	dst := filepath.Join(dir, base)
+	if _, err := os.Stat(dst); os.IsNotExist(err) {
+		return dst
+	}
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	for _, suffix := range []string{key[:8], key} {
+		candidate := filepath.Join(dir, stem+"-"+suffix+ext)
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
+	for n := 2; ; n++ {
+		candidate := filepath.Join(dir, fmt.Sprintf("%s-%s-%d%s", stem, key, n, ext))
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
 }
 
 // collectImages lists accepted images in the project, sorted. Files with
@@ -214,6 +295,15 @@ func addImages(project string, images []string) error {
 	if err := ensureProject(project); err != nil {
 		return err
 	}
+	unlock, err := lockProject(project)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	existingKeys, err := existingImageKeys(project)
+	if err != nil {
+		return err
+	}
 	copied, skipped, existing := 0, 0, 0
 	for _, img := range images {
 		st, err := os.Stat(img)
@@ -230,19 +320,25 @@ func addImages(project string, images []string) error {
 		if strings.ContainsAny(base, "\t\r\n") {
 			return fmt.Errorf("unsupported tab or newline in image filename %q", base)
 		}
-		dst := filepath.Join(imgDir(project), base)
+		if err := probeImage(img); err != nil {
+			return fmt.Errorf("%s: %w", base, err)
+		}
+		key, err := contentDigest(img)
+		if err != nil {
+			return err
+		}
+		if _, exists := existingKeys[key]; exists {
+			existing++
+			continue
+		}
+		dst := availableImagePath(project, base, key)
+		if filepath.Base(dst) != base {
+			note("stored %s as %s (filename already exists)", base, filepath.Base(dst))
+		}
 		if err := copyFileNoClobber(img, dst); err != nil {
-			if os.IsExist(err) {
-				srcKey, srcErr := contentKey(img)
-				dstKey, dstErr := contentKey(dst)
-				if srcErr == nil && dstErr == nil && srcKey == dstKey {
-					existing++
-					continue
-				}
-				return fmt.Errorf("%s already exists in the project; rename the new image first", filepath.Base(img))
-			}
 			return fmt.Errorf("copying %s: %w", img, err)
 		}
+		existingKeys[key] = dst
 		copied++
 	}
 	note("added %d image(s) to %s", copied, imgDir(project))

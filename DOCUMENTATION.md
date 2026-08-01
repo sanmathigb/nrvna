@@ -22,6 +22,11 @@ status and results.
 - [imgsrch](apps/imgsrch/README.md) — search screenshots by visible words and meaning
 - [bckbrnr](apps/bckbrnr/README.md) — local prompt work from the macOS menu bar
 
+## Validate
+
+- [Cold-agent test](COLD_AGENT_TEST.md) — compare clean onboarding and hands-on
+  behavior across agent harnesses without repeating model downloads
+
 ## Source of truth
 
 The CLI is the public API. Use each command's `--help` output for syntax and

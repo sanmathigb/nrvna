@@ -68,6 +68,13 @@ Captioning and OCR continue in the background, and each model exits after
 draining its work. Re-run `index` as images accumulate; already indexed
 content is skipped.
 
+Before copying, imgsrch validates each image header and decoded dimensions.
+Exact content duplicates are skipped even when their filenames differ. If two
+different images share a filename, both are retained and the later copy gets a
+deterministic hash suffix. Images above 64 million decoded pixels are rejected
+before model loading to avoid unbounded memory expansion; make a smaller copy
+for indexing while keeping the original untouched.
+
 Initial indexing is compute-heavy. A high-resolution phone screenshot may
 take several minutes on an older CPU; completed images do not need to be
 processed again.
@@ -125,6 +132,24 @@ model discovery fails, run:
 ```bash
 ./imgsrch doctor shots
 ```
+
+## Which command to use
+
+| Command | When to use it |
+| --- | --- |
+| `setup` | Once per model cache, during installation or after a model update. |
+| `doctor [project]` | After setup, or when model or engine discovery fails. |
+| `init <project>` | Once for a new collection. Reusing an existing project is safe. |
+| `index <project> [images...]` | Normal ingestion command. Add new images and start or resume background indexing. |
+| `status <project>` | Read progress once when returning. It never advances indexing. |
+| `search <project> <query>` | Normal retrieval command after at least one image is indexed. RRF is the default. |
+| `add <project> <images...>` | Stage files without starting indexing. Most people and agents should use `index` instead. |
+| `eval <project> <hardset.json>` | Maintainer workflow for labeled retrieval experiments, not ordinary search. |
+
+imgsrch does not currently expose `--json`. Agents should consume the concise
+terminal results and the richer `search-results.md` report. The underlying
+nrvna commands have their own JSON contract; do not pass those flags through
+to imgsrch.
 
 ## How search works
 
