@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "a4977263fcb5",
+  "strategy": "manual-commit",
+  "branch": "docs/documentation-system",
+  "checkpoints_count": 35,
+  "files_touched": [
+    "ADVANCED.md",
+    "AGENTS.md",
+    "ARCHITECTURE.md",
+    "CONFIGURATION.md",
+    "QUICKSTART.md",
+    "README.md",
+    "apps/bckbrnr/README.md",
+    "apps/bckbrnr/Sources/Bckbrnr/App.swift",
+    "apps/imgsrch/INSTALL.md",
+    "apps/imgsrch/README.md",
+    "apps/imgsrch/main.go",
+    "apps/imgsrch/main_test.go",
+    "cli/nrvnad.cpp",
+    "llms.txt"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a4/977263fcb5/0/metadata.json",
+      "transcript": "/a4/977263fcb5/0/full.jsonl",
+      "compact_transcript": "/a4/977263fcb5/0/transcript.jsonl",
+      "content_hash": "/a4/977263fcb5/0/content_hash.txt",
+      "prompt": "/a4/977263fcb5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3628,
+    "cache_creation_tokens": 7528260,
+    "cache_read_tokens": 35393573,
+    "output_tokens": 167313,
+    "api_call_count": 62
+  }
+}

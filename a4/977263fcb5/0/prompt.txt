@@ -1,0 +1,542 @@
+https://www.waveshare.com/esp32-s3-epaper-1.54.htm anything with this?
+
+---
+
+so no to this? This could become a strong physical demonstration of
+  nrvna’s actual architecture:
+
+  > A battery-powered local inference pager.
+
+  The ESP32 should not run the models. Its 512 KB SRAM and 8
+  MB PSRAM are far too small. Instead:
+
+  1. Press a button or record a short voice note.
+  2. The board sends the request to your Mac over Wi-Fi,
+     BLE, or USB.
+
+  3. A tiny host bridge submits it using wrk.
+  4. nrvnad processes it now or later.
+  5. The bridge retrieves the result with flw.
+  6. The 200×200 e-paper displays the durable result.
+
+  That directly demonstrates:
+
+  > The request can exist even when the model is not
+  > running. Compute arrives later; the result remains
+  > visible.
+
+  Good Day-One Use
+
+  A desk display showing:
+
+  nrvna
+
+  3 queued
+  1 running
+  28 complete
+
+  LATEST
+  Review PR #29:
+  No blocking issues.
+
+  Buttons could cycle through:
+
+  - Queue status
+  - Latest completed result
+  - Failed jobs
+  - imgsrch result title/path
+  - Weather or environment summary
+  - Today’s locally generated briefing
+
+  The hardware is unusually suitable because it includes:
+
+  - A low-power, sunlight-readable 200×200 e-paper screen
+  - Wi-Fi and BLE
+  - Microphone and audio codec
+  - RTC
+  - Buttons
+  - Optional touch
+  - Battery support
+  - MicroSD storage
+  - Temperature/humidity sensor
+
+  The display only needs power while updating: full refresh
+  is about 2 seconds and partial refresh about 0.3 seconds.
+  Waveshare specifications
+  (https://www.waveshare.com/esp32-s3-epaper-1.54.htm)
+
+  Best Longer Demo
+
+  A voice inbox:
+
+  Hold button:
+  “Summarize the notes I saved about late interaction.”
+
+  ESP32 → Mac bridge → wrk
+                       ↓
+                   nrvnad
+                       ↓
+  ESP32 ← result ← flw
+
+  This combines STT, retrieval, and generation without
+  pretending the ESP32 is an AI computer.
+
+  Architecture Constraint
+
+  nrvna currently has no network API, so the board cannot
+  call wrk directly. You need a deliberately small bridge on
+  the host:
+
+  ESP32 ──Wi-Fi/BLE/USB──► nrvna bridge ──► wrk / flw
+
+  That bridge should remain outside nrvna core. It
+  translates device messages into ordinary nrvna commands.
+
+  My verdict: don’t turn it into a broad “AI assistant.”
+  Build the nrvna pager first: submit one task, walk away,
+  see the result appear later. It is cheap, visually
+  memorable, and uniquely demonstrates why durable
+  asynchronous local inference matters.
+
+---
+
+what if it tells me - index cmplted or the batch of files
+  you submitted is over?
+
+---
+
+yes, log it as the completion-notifier version
+
+---
+
+thoughts on this ? https://github.com/ravikmovva/Gemma4_12B
+
+---
+
+anything to learn ? documentation or language? just the repo layoit and ettiquites?
+
+---
+
+this didnt make it last year nrvna ai
+Fall 2025
+Founders
+Founder Video
+Company
+Progress
+Idea
+Equity
+Curious
+Batch Preference
+Founders
+sanmathi bharamgouda
+error
+Profile incomplete
+keyboard_arrow_down
+Who writes code, or does other technical work on your product? Was any of it done by a non-founder? Please explain.
+I’m a solo founder and write all the code myself.
+Are you looking for a cofounder?
+No
+Founder Video
+Company
+Company name
+nrvna ai
+Describe what your company does in 50 characters or less.
+Unix-style AI inference primitive
+What is your company going to make? Please describe your product and what it does or will do.
+nrvna ai is building the inference primitive for AI - a missing layer between chats and agents.
+
+Once your prompt, model, and task are dialed in, you can graduate out of the chat window. There's no need for more experimentation and you just need a clean, reliable way to submit, repeat, and scale inference without orchestration complexity or framework bloat. Most tasks are one-shot inferences, not agents.
+
+nrvna is a Unix-style, asynchronous runtime powered by llama.cpp. You start a daemon with ./nrvna <workspace> <model>, submit jobs using ./wrk <workspace> <input + prompt>, and retrieve results with ./flw <workspace>. Everything is a file the input, output, metadata. It’s stateless, composable, and local-first by design.
+
+* Want multiple models? Start another daemon.
+* Want to push jobs from another device? Use a simple HTTP `POST`.
+* Want to run 100 prompts as part of eval? Just write a shell script.
+
+It runs anywhere from your laptop, the cloud, an embedded device, or on a rack of Raspberry Pis. Use it standalone to build CLI-first LLM apps, or as backend infra for agents, pipelines, or enterprise tools.
+Where do you live now, and where would the company be based after YC?
+San Jose, USA / San Francisco, USA
+Progress
+How far along are you?
+I have a working prototype of nrvna AI that I’ve been using personally and seamlessly for the past couple of months. You can start the daemon (./nrvna), submit structured jobs with ./wrk, and retrieve results using ./flw. It’s fully file-based, asynchronous, and stateless built on top of llama.cpp, with working multimodal and multi-model support via llava.cpp. I have been pushing all the code to a public github repo as I am making progress.
+
+I’ve used it for PDF summarization, image + prompt tasks, and code workflows, and built a working mobile-to-local HTTP integration using iOS Shortcuts. Everything is CLI-based and runs reliably without any orchestration layer. I'm now focused on hardening it for external users and early testers.
+How long have each of you been working on this? How much of that has been full-time? Please explain.
+I started working on nrvna AI in June 2025, though the idea began forming a few months earlier while I was exploring another app to help with my own transition back into work. At the time, I was a stay-at-home dad—supporting my wife’s return to work, helping our 3-year-old adjust to daycare, and caring for our 1-year-old while searching for a nanny.
+
+In those early months, I worked on nrvna during early mornings, late nights, and toddler nap windows. Despite the unconventional hours, I made steady progress and now have a working prototype. We recently found a nanny, and since then I’ve been building full-time and pushing the project forward at full throttle.
+What tech stack are you using, or planning to use, to build this product? Include AI models and AI coding tools you use.
+nrvna AI is written in modern C++14 with a strict Unix-style architecture with each binary doing just one thing (nrvna, wrk, flw). The backend is powered entirely by llama.cpp, with support for llava.cpp for multimodal inference. I use gguf models for text, code, and vision tasks, including TinyLlama, Mistral, and LLaVA variants.
+
+The system is file-based and stateless and job submission, processing, output are all handled as files. There's also a lightweight HTTP server for remote job submission (e.g. from phone or other devices). No external dependencies, no Python. All orchestration, batching, and flow logic is handled via shell scripting.
+Are people using your product?
+No
+When will you have a version people can use?
+Cleaning up the code and adding some tests and also planning to write a introductory blog post. Planning for a small release on my birthday on August 11, 2025.
+Do you have revenue?
+no
+If you are applying with the same idea as a previous batch, did anything change? If you applied with a different idea, why did you pivot and what did you learn from the last idea?
+First time applicant.
+If you have already participated or committed to participate in an incubator, "accelerator" or "pre-accelerator" program, please tell us about it.
+None yet.
+Idea
+Why did you pick this idea to work on? Do you have domain expertise in this area? How do you know people need what you’re making?
+It started with two toddlers at home. Time was fragmented, unpredictable and I realized that most LLM apps, however powerful, are unusable in that context. You need flow, presence, time. I wanted an app where I could quickly push a bunch of links, job openings, or code snippets, and come back later to a structured result I could act on. No chat. No switching windows.
+
+So I built exactly what I needed over a few weekends a tool sort of which lived between chats and agents. I chose a llama.cpp backend, used GGUF models for PDF summarization and code-related tasks, and set up a minimal HTTP server so I could push content directly from my phone using an iOS Shortcut.
+
+It worked. And as I started seamlessly started pushing voice and text and images to a server running on my laptop at home and retrieving results in one go when I had time was mind blowing.
+So at this point I had a choice - vibe code this into a web app which was sort of like pinterest meets llm provider kind of set up. But because I have been helping real customers in big enterprise companies spanning robotics and automotive and
+
+That’s when I realized this wasn’t just a tool for me—it could be the missing layer for others too. I pivoted to building it as infrastructure, not just an app. I embraced Unix-style composition, file-based jobs, and structured output—and nrvna AI was born.
+Who are your competitors? What do you understand about your business that they don’t?
+Our closest “competitors” are open-source frontends like LM Studio, Ollama, and model runners built on top of llama.cpp, as well as heavier orchestration frameworks like LangChain and AutoGen. But most of these tools assume one of two extremes: either a chat-style interface, or a fully autonomous agent system.
+
+nrvna ai takes a different path. It’s a new way of experiencing and working with AI which is between chats and agents. It removes the conversational bloat and brings the reliability and composability of Unix to modern LLMs. Everything is a file. Everything is scriptable. There’s no learning curve, no YAML editing, no hidden state.
+
+We benefit from the thriving communities behind llama.cpp and Hugging Face, but I understand that inference workflows need to be reliable, scalable, and repeatable especially in the last mile of production, where I’ve seen firsthand how developers, customers, and execs struggle with deploying LLMs cleanly.
+
+Local model experimentation is wide open and fragmented. What’s missing is a solid, structured layer to consolidate it. That’s what nrvna ai provides.
+How do or will you make money? How much could you make?
+We make money by turning nrvna ai into the inference runtime developers and companies build on top of.
+
+1. Hosted nrvna runtimes
+For users who don’t want to run local infrastructure, we’ll offer hosted nrvna daemons with GPU-backed inference, persistent workspaces, logging, eval tools, and batching APIs.
+
+2. Enterprise licensing + support
+Teams deploying nrvna internally—on-prem, air-gapped, or at the embedded edge can license the core system with enterprise support, priority updates, and fine-tuned model bundles.
+
+3. Premium developer tools
+CLI add-ons, dashboards, eval harnesses, workspace explorers, and batch schedulers that make running and scaling jobs easier.
+
+4. Model marketplace (“nrvna mode”)
+We’ll curate a repo of models tested and optimized to run in nrvna-mode just like Hugging Face, but every model works out of the box. Some will be free. Others fine-tuned, vertical-specific, or commercially licensed.
+
+5. We could also have a Notion style templates but for flw templates. Imagine having your inference served as you want it - spreadsheets and blog posts and code snippets.
+
+Long-term, we believe nrvna becomes the Git or ffmpeg of AI inference invisible, essential, and everywhere. If we power the task layer across local AI, agents, and automation, this becomes a $100M+ opportunity. And the target audience will go beyond developers, anyone with a need to run specific workloads at scale (think a small pizza shop wanting to do local OCR + a math model to return spreadsheets) or someone wanting to write locally and have a model run analysis and provide actionable insights are all possible nrvna ai powered apps.
+Which category best applies to your company?
+Other
+If you had any other ideas you considered applying with, please list them. One may be something we’ve been waiting for. Often when we fund people it’s to do something they list here and not in the main application.
+For about 20% of my time, I’ve been building a nrvna-powered app called OpenmAIc to demonstrate what’s possible when infrastructure is done righ and how much leverage Unix-style primitives give you out of the box.
+
+The idea is simple: it's like an AI wingman for founders and creators—similar to how comedians use open mics to shape their set.
+
+You drop in a file about your work (PDF, pitch, bio).
+A model generates a technically sound, spirited intro to tee you up.
+You press spacebar and speak—raw, unfiltered voice for 1–3 minutes (like a founder video, but audio-first).
+Over time, this could become a personal playlist—subscribers could follow your journey from ideation to execution.
+A model of your choice turns these audio recordings into shareable artifacts: summaries, blogs, social-ready clips, etc.
+
+Under the hood, a nrvna daemon is running. All inputs and outputs are just files. The flow is stateless, modular, and composable and asynchronous powered by llama.cpp and written in C++ with a Unix mindset.
+Equity
+Have you formed ANY legal entity yet?
+no
+If you have not formed the company yet, describe the planned equity ownership breakdown among the founders, employees and any other proposed stockholders. If there are multiple founders, be sure to give the proposed equity ownership of each founder and founder title (e.g. CEO). (This question is as much for you as us.)
+I’m the sole founder and plan to retain 100% equity at incorporation.
+There are no other proposed stockholders at this stage.
+Have you taken any investment yet?
+no
+Are you currently fundraising?
+no
+Curious
+What convinced you to apply to Y Combinator? Did someone encourage you to apply? Have you been to any YC events?
+I just could not sleep with this little working prototype and had to ship it. YC was obvious to help me accelerate in this journey of thinking big and solving real user problems.
+How did you hear about Y Combinator?
+I have been reading Hacker News since a decade now. And then PG essays and then YC. To be honest I have learnt more about careers and this country and tech has all been through one of the above.
+Batch Preference
+
+---
+
+but so was bun? which anthropic acquired?
+
+---
+
+[Image #2] wdyt?
+
+---
+
+Late interaction is relevant, but the post is discussing a
+  broader layer.
+
+  Query understanding
+          ↓
+  Metadata filtering
+          ↓
+  Candidate retrieval (L0)
+    ├─ BM25
+    ├─ single-vector dense      ← imgsrch today
+    └─ late interaction        ← ColBERT/ColPali option
+          ↓
+  Fusion
+          ↓
+  Reranking
+
+  Late interaction improves candidate retrieval. Instead of
+  compressing the entire caption into one vector, it retains
+  vectors for individual tokens or image patches and uses
+  MaxSim matching.
+
+  That could help imgsrch retrieve:
+
+  - A rare technical detail buried in a long caption
+  - A small relevant region of a screenshot
+  - Concepts where most screenshot content is unrelated
+    noise
+
+  - Visually grounded evidence that captions or OCR missed
+
+  It could therefore produce a much better L0 candidate set
+  than the current single 768-dimensional vector.
+
+  But it does not solve the whole problem in the screenshot:
+
+  - It does not enforce “from LinkedIn.”
+  - It does not enforce “saved this week.”
+  - It does not inherently distinguish “material for my
+    interview” from “a post discussing ML interviews.”
+
+  - It cannot recover metadata that was never indexed.
+
+  So the complete future design could be:
+
+  query understanding + metadata filters
+                     ↓
+  ColPali/ColBERT late-interaction retrieval
+                     +
+                   BM25
+                     ↓
+  optional fusion or reranking
+
+  Late interaction may reduce dependence on RRF because one
+  retrieval channel captures both semantic meaning and
+  localized high-signal details better. It probably would
+  not eliminate BM25 for exact identifiers such as
+  llama.cpp, names, URLs, or error messages.
+
+  So: yes, late interaction is one strong answer to the
+  post’s “better L0 candidates” argument. It is not an
+  answer to missing metadata or query understanding.
+
+---
+
+hows the imgsrch readme
+
+---
+
+how should i digest and understand and accomodate this into my learning? https://www.dbos.dev/blog/making-postgres-queues-scale
+
+---
+
+how do we play well with coding agents? pi and codex and opencode and claude and hermes and openclaw?
+
+---
+
+so introduce nrvna or only the apps we continue to build?
+
+---
+
+but what about novel workflows personal agents might build with these primitives?
+
+---
+
+may be using imgsrch and nrvna teach agents to go build their own of and when needed?
+
+---
+
+i really want the best documentation ..  the best single README for bckbrnr and nrvna and imgsrch .. research
+  some of the open source projects if need be .. tools whihc have gone viral and popular wiht more stars ..
+  those related ir built on llama cpp related to inference .. local ai .. helping with anything .. get a
+  blueprint and lets use that .. it should be simple useufl and minimal and both agent and human ready ..
+
+---
+
+https://kvg.dev/posts/20260730-mcp-vs-clis/
+
+---
+
+• All changes are local and uncommitted on main in:
+
+  /Users/sanmathi.bharamgouda/ws/nrvna
+
+  They are not pushed to GitHub yet.
+
+  Documentation
+
+  - /Users/sanmathi.bharamgouda/ws/nrvna/README.md - rewritten nrvna README
+  - /Users/sanmathi.bharamgouda/ws/nrvna/ADVANCED.md - canonical environment-variable reference
+  - /Users/sanmathi.bharamgouda/ws/nrvna/ARCHITECTURE.md - removed duplicated configuration and linked canonical
+    reference
+
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/imgsrch/README.md - human and agent-ready README
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/imgsrch/INSTALL.md - corrected setup/download guidance
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/bckbrnr/README.md - simplified product and usage documentation
+
+  Help Surfaces
+
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/imgsrch/main.go - clearer --help, configuration details,
+    documentation link
+
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/imgsrch/main_test.go - locks the help contract into tests
+  - /Users/sanmathi.bharamgouda/ws/nrvna/apps/bckbrnr/Sources/Bckbrnr/App.swift - adds a Help link to the
+    popover
+
+  Total: 9 files, 380 insertions, 260 deletions.
+
+  The .build output from verification is ignored. Existing unrelated untracked files were not changed.
+
+---
+
+and this? https://github.com/browser-use/video-use pay attention to the setup prompt line
+
+---
+
+• Yes. The important line is:
+
+  > Paste into Claude Code, Codex, Hermes, OpenClaw, or any agent with shell access.
+
+  It does three things well:
+
+  1. Names concrete compatible agents.
+  2. States the real requirement: shell access.
+  3. Gives the agent one operational prompt defining:
+      - what to read first;
+      - what to install;
+      - when to ask the user;
+      - what not to start automatically;
+      - when setup is complete.
+
+  Our imgsrch flow is already structurally stronger because detailed behavior lives in /Users/
+  sanmathi.bharamgouda/ws/nrvna/apps/imgsrch/INSTALL.md, which we tested with cold agents. The README prompt
+  stays small:
+
+  > Set up imgsrch for me by following INSTALL.md exactly. Run the steps yourself, verify each step, and ask me
+  > only where the guide says to.
+
+  I updated both nrvna and imgsrch READMEs to explicitly name:
+
+  Codex CLI, Claude Code, OpenCode, Pi, Hermes, OpenClaw, or another agent with shell access
+
+  We should not copy video-use’s skill registration approach. video-use teaches an agent a complex creative
+  workflow; imgsrch is already a discoverable CLI, and nrvna’s AGENTS.md is its machine contract. Adding agent-
+  specific skills now would duplicate documentation and create maintenance drift.
+
+---
+
+can you also teach yourself how to find usch free repos on github?
+
+---
+
+dont worry - just a pointer for you
+
+---
+
+anything from this? https://github.com/browser-use/video-use/tree/main/skills/manim-video
+
+---
+
+i mean can we use it make nrvna videos?
+
+---
+
+this? https://www.skills.sh/heygen-com/hyperframes/faceless-explainer
+
+---
+
+https://github.com/chakka-guna-sekhar-venkata-chennaiah/Mutli-Modal-RAG-ChaBot anything here? https://huggingface.co/datasets/uv-scripts/video and this https://huggingface.co/spaces/davanstrien/prelinger-moments-space
+
+---
+
+how do i use this? i have tailscale and it works when my laptop and phone are on same wifi .. Termius + Tailscale + tmux
+
+You don't need your laptop to build with Claude Code, Codex, or any other AI coding agent:
+
+→ Run your agent inside tmux to keep the session alive
+→ Use 
+@Tailscale
+ for secure access to your laptop
+→ Connect with Termius over SSH from iPhone, iPad, or Android
+
+Start coding at your desk. Continue on the go.
+0:14 / 0:32
+4:58 PM · Jul 29, 2026
+·
+731.2K
+ Views
+Relevant
+View quotes
+
+Vincent Koc
+
+@vincent_koc
+·
+Jul 29
+Forgot mosh
+Drew Bredvick
+@DBredvick
+·
+Jul 30
+you should call this the t3 stack
+Flo Hart
+@theflohart
+·
+Jul 30
+Better: Termius + Tailscale + Herdr
+Morten Punnerud-Engelstad
+@m_punnerud
+·
+Jul 30
+Still need your laptop if not paying for VPS, but don’t need so sit by your laptop 😁
+
+@TermiusHQ
+ can you fix copy in “Fullscreen” haven’t worked for over a year. And better scroll support 🙏 
+Used this setup for years, but irritating enough to switch if a better alternative come
+0:09 / 0:09
+Termius
+@TermiusHQ
+·
+22h
+Copy in "fullscreen" will be fixed in the next release.
+Stew
+@stewartcelani
+·
+Jul 29
+You guys should do a native paste image which puts it in like /tmp/termius-image/*.jpg and then pastes it in as this natively attaches to most coding TUIs.
+Termius
+@TermiusHQ
+·
+Jul 29
+It's already implemented on iOS in SSH sessions.
+
+---
+
+dont worry about caffienate .. my laptop is always on
+
+---
+
+i use herdr
+
+---
+
+[Image #4] on my  phone termius
+
+---
+
+sanmathi.bharamgouda@peace:~ $tailscale ip -4
+-bash: tailscale: command not found
+
+---
+
+can you do all this
+
+---
+
+[Image #5]
+
+---
+
+[Image #6] [Image #7]
+
+---
+
+are we in ~/ws/nrvna?
