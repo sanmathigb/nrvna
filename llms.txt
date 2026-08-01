@@ -1,0 +1,35 @@
+# nrvna
+
+> Unix-like primitives for durable, asynchronous local inference.
+
+nrvna is not a chat API or agent framework. `wrk` publishes an independent
+job, `nrvnad` processes one workspace with one model, and `flw` reads status or
+terminal artifacts. Context does not carry between jobs. `--parent` records
+lineage only.
+
+## Start
+
+- [README](https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md): Product contract, verified first run, boundaries, and applications.
+- [Documentation map](https://raw.githubusercontent.com/sanmathigb/nrvna/main/DOCUMENTATION.md): Shortest path to the right human or agent guide.
+- [Quickstart](https://raw.githubusercontent.com/sanmathigb/nrvna/main/QUICKSTART.md): Build and complete the first durable inference job.
+- [Agent guide](https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md): Operational contract for coding agents and scripts.
+
+## Understand and build
+
+- [Domain language](https://raw.githubusercontent.com/sanmathigb/nrvna/main/CONTEXT.md): Canonical job, workspace, state, artifact, and lifecycle terms.
+- [Advanced patterns](https://raw.githubusercontent.com/sanmathigb/nrvna/main/ADVANCED.md): Batches, tags, explicit context transfer, and multiple models.
+- [Configuration](https://raw.githubusercontent.com/sanmathigb/nrvna/main/CONFIGURATION.md): Runtime, model, logging, and application settings.
+- [Architecture](https://raw.githubusercontent.com/sanmathigb/nrvna/main/ARCHITECTURE.md): Filesystem state machine, daemon lifecycle, and implementation ownership.
+
+## Applications
+
+- [imgsrch](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md): Local screenshot and image search.
+- [imgsrch agent install](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/INSTALL.md): Cold-agent installation runbook.
+- [bckbrnr](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/bckbrnr/README.md): macOS menu-bar prompt work with file results.
+
+## Contract priority
+
+For command syntax, use `wrk --help`, `nrvnad --help`, and `flw --help` from
+the installed version. For implementation work, the authoritative filesystem
+and lifecycle contracts are `include/nrvna/contract.hpp` and
+`include/nrvna/lifecycle.hpp`.

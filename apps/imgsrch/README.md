@@ -1,42 +1,96 @@
 # imgsrch
 
+[![CI](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/sanmathigb/nrvna/blob/main/LICENSE)
+[![Built with nrvna](https://img.shields.io/badge/built_with-nrvna-5b5bd6.svg)](https://github.com/sanmathigb/nrvna)
+
 Search local screenshots and images by what they say and what they mean.
 
-`imgsrch` reads each image once with local vision models, a caption of what
-it shows and OCR of what it says, then searches those words by meaning and by
-keyword. Indexing runs in the background; search is offline. Humans get
-ranked originals. Agents get a small, cited candidate set.
+`imgsrch` processes each image once with local models. It generates a caption
+of what the image shows and OCR of what it says, then searches both by meaning
+and keyword.
 
-It is the first application built on
-[nrvna](https://github.com/sanmathigb/nrvna), durable local inference
-primitives.
+```text
+images  ->  local index  ->  "that diagram about KV cache"  ->  originals
+```
 
-**Status: pre-beta.** It does one thing: search your screenshots. It's
-early. If something breaks or you have an idea,
-[open an issue](https://github.com/sanmathigb/nrvna/issues); every report
-gets read.
+Indexing runs in the background. Search returns a small, cited candidate set
+for a person or agent to inspect.
+
+**Pre-beta.** imgsrch is the first application built with
+[nrvna](https://github.com/sanmathigb/nrvna).
 
 ## Install
 
-Download the release archive for your platform and fetch the models once:
+Download the archive for your platform from the
+[latest release](https://github.com/sanmathigb/nrvna/releases/latest):
+
+| Platform | Archive |
+| --- | --- |
+| Apple Silicon | `imgsrch-darwin-arm64.tar.gz` |
+| Intel Mac | `imgsrch-darwin-x86_64.tar.gz` |
+| x86-64 Linux | `imgsrch-linux-x86_64.tar.gz` |
+
+Extract it, keep `imgsrch` beside `bin/`, and fetch the models once:
 
 ```bash
 tar -xzf imgsrch-darwin-arm64.tar.gz
 cd imgsrch-darwin-arm64
 ./imgsrch setup
+./imgsrch doctor
 ```
 
-`setup` downloads three logical models (five GGUF files, including the two
-vision projectors) into `~/.imgsrch/models`: about 3.4 GB,
-checksum-verified, one time. Everything else ships in the archive: the
-`imgsrch` binary and the engine binaries in `bin/`. Keep them together.
+`setup` downloads three logical models for captioning, OCR, and embedding.
+They occupy about 3.4 GB as five checksum-verified GGUF files, including two
+vision projectors. No account or API key is required.
 
-Platforms: macOS 13.3+ (Apple Silicon and Intel) and x86-64 Linux with AVX2
-(Ubuntu 22.04 compatible). CPU-first, no GPU required. The macOS archives
-are not yet signed or notarized; the first run may need approval under
+The archives support macOS 13.3+ on Apple Silicon and Intel, and x86-64 Linux
+with AVX2 (Ubuntu 22.04 compatible). CPU inference is the default. The macOS
+developer previews are not notarized; first launch may require approval under
 **System Settings → Privacy & Security**.
 
-For agent-led setup, start a fresh coding-agent session and paste:
+## Search your images
+
+Create a project, import a folder, and search:
+
+```bash
+./imgsrch init shots
+./imgsrch index shots "$HOME/Screenshots"/*
+./imgsrch search shots "diagram explaining KV cache"
+```
+
+The current CLI accepts image files, so the shell glob imports files directly
+inside that folder; it does not recurse into subdirectories.
+
+`index` copies supported images into `shots/images/` and returns after queuing
+them. PNG, JPEG, and GIF are supported. Originals are left untouched.
+Captioning and OCR continue in the background, and each model exits after
+draining its work. Re-run `index` as images accumulate; already indexed
+content is skipped.
+
+Initial indexing is compute-heavy. A high-resolution phone screenshot may
+take several minutes on an older CPU; completed images do not need to be
+processed again.
+
+Search prints ranked paths and the evidence behind each match:
+
+```text
+1  images/IMG_7741.PNG
+   Screenshot of a post about engineering ownership: "strong teams own
+   outcomes, not tickets" …
+
+2  images/Screenshot 2026-03-14 at 9.12.03.png
+   Slide titled "Ownership vs. accountability" with a two-column
+   comparison …
+```
+
+It also writes `shots/search-results.md` with inline, clickable previews of
+the original images.
+
+## Give it to an agent
+
+For a new installation, paste this into Codex CLI, Claude Code, OpenCode, Pi,
+Hermes, OpenClaw, or another agent with shell access:
 
 ```text
 Set up imgsrch for me by following
@@ -45,118 +99,84 @@ exactly. Run the steps yourself, verify each step, and ask me only where the
 guide says to.
 ```
 
-## Use
+Once a project exists, ask the agent to retrieve before opening originals:
 
-```bash
-./imgsrch init shots
-./imgsrch index shots ~/Screenshots/*.png
-./imgsrch search shots "diagram explaining KV cache"
+```text
+Use ./imgsrch to find the strongest screenshots in ./shots for my engineering
+management interview. Do not enumerate or open the whole image directory.
+Search with the terms you need, use the returned captions and visible-text
+snippets to narrow the results, and open at most three originals for visual
+verification. Then prepare a concise interview brief and cite the
+project-relative filename for every source.
 ```
 
-Commands refuse a project that does not exist; `init` creates it.
+All indexing and search inference stays on this machine. A remote agent sees
+only command output and any originals you explicitly allow it to open.
 
-`index` copies images into `shots/images/` (PNG, JPEG, GIF; originals
-untouched) and returns after queuing. Caption and OCR finish in the
-background: each model loads, drains its queue, and exits. Close the
-terminal; the work continues. Index as you go: run `index` again as images
-accumulate, and already-indexed images are skipped.
-
-Progress is optional to watch:
+## Check progress
 
 ```bash
 ./imgsrch status shots
 ```
 
-`status` is read-only and never required to move indexing forward. When
-setup or model discovery fails, `./imgsrch doctor shots` explains why.
-
-## Find a screenshot
-
-Search with the part you remember:
+`status` is read-only; it is not required to advance indexing. If setup or
+model discovery fails, run:
 
 ```bash
-./imgsrch search shots "that post about engineering ownership"
+./imgsrch doctor shots
 ```
-
-```text
-1  images/IMG_7741.PNG
-   Screenshot of a post about engineering ownership: "strong teams own
-   outcomes, not tickets" …
-2  images/Screenshot 2026-03-14 at 9.12.03.png
-   Slide titled "Ownership vs. accountability" with a two-column
-   comparison …
-```
-
-Results print ranked filenames with the caption and visible text that
-matched. Search also writes `shots/search-results.md`, with links to the
-originals, for any Markdown viewer.
-
-## Use from an agent
-
-Ask an agent to retrieve first and open only the strongest candidates:
-
-```text
-Use ./imgsrch to find screenshots in ./shots relevant to my engineering
-management interview. Search locally first. Do not enumerate or open the
-whole image directory. Use the returned captions and visible-text snippets
-to narrow the results. Open at most three original images when visual
-verification is necessary. Cite the project-relative filename for every
-source.
-```
-
-The retrieval step is an ordinary command:
-
-```bash
-./imgsrch search shots "engineering management culture hiring" --top-k 10
-```
-
-All indexing and search inference stays local. A cloud agent receives the
-terminal output and any originals you explicitly allow it to open.
 
 ## How search works
 
-Indexing writes plain-text artifacts per image; search fuses two rankings
-over them.
+```text
+index:  image ──► caption ──► caption.txt ─┐
+              └─► OCR ─────► ocr.txt ──────┴─► combined.md ─► embedding.json
+
+search: query ──► embedding ─► dense ranking ─┐
+        query ──► BM25 ──────► keyword ranking┴─► RRF ─► results
+```
+
+RRF (reciprocal rank fusion) combines the dense and keyword ranks without
+mixing their incomparable raw scores.
+
+The defaults are measured decisions:
+
+- RRF produced better top-1 and top-3 recall than the original normalized
+  50/50 blend on the local hard set.
+- Captions are capped at 900 characters because verbose captions diluted the
+  image embedding.
+- Indexed text uses nomic-embed's `search_document:` prefix; queries use
+  `search_query:`.
+- Ties break on path, so repeated searches are stable.
+
+These choices are current defaults, not universal retrieval claims.
+
+## What to expect
+
+imgsrch works best on screenshots, slides, diagrams, and images whose meaning
+can be recovered from visible text or a short caption.
+
+It is less reliable for tiny or blurry text, purely visual similarity, and
+queries that require metadata such as dates or source applications. The
+current CLI imports a non-recursive list of files and has no watch mode.
+Retrieval quality has been tested on a small personal collection, not yet at
+large public scale.
+
+## Inspect and evaluate
+
+Every indexed image has ordinary artifacts:
 
 ```text
-index:  image ──► caption model ──► caption.txt ─┐
-              └─► OCR model ─────► ocr.txt ──────┴─► combined.md ─► embedding.json
-
-search: query ──► embedding ──► cosine against every image ──► dense ranks ─┐
-        query ──► BM25 over combined.md ─────────────────────► keyword ranks┴─► RRF
+shots/.imgsrch/
+├── artifacts/<image>/   caption.txt · ocr.txt · combined.md · embedding.json
+├── index/index.tsv      readable search index
+└── workspaces/          durable nrvna jobs
 ```
 
-RRF (reciprocal rank fusion) scores each image by summing `1/(60 + rank)`
-across both lists. It fuses ranks, not incomparable raw score scales.
+If a result surprises you, its caption, OCR, embedding, and component ranks
+are inspectable.
 
-The choices, and why:
-
-- **RRF is the default because it measured better**: higher top-1 and top-3
-  recall than the original 50/50 dense + normalized-BM25 blend on the local
-  hard set. The old blend is kept as `--scorer simple` so the claim stays
-  checkable.
-- **Captions are capped at 900 characters** in `combined.md`: verbose
-  captions dilute the embedding. Proven by A/B, not taste.
-- **Embedding prefixes matter**: documents embed as `search_document: …`,
-  queries as `search_query: …` (nomic-embed's contract). The wrong prefix
-  quietly degrades everything.
-- **Ties break on path**, so results are stable across runs.
-
-## Evaluate search quality
-
-`eval` is a maintainer tool for deciding whether a ranking or model change
-actually improves retrieval on a labeled collection.
-
-Expected images may be project-relative paths, basenames, or content keys:
-
-```json
-{
-  "queries": [
-    { "query": "docker error screen", "expected": ["images/docker.png"] },
-    { "query": "diagram explaining queues", "expected": ["queue-diagram.png"] }
-  ]
-}
-```
+Maintainers can compare scorers against a labeled set:
 
 ```bash
 ./imgsrch eval shots hardset.json --top-k 5
@@ -164,27 +184,14 @@ Expected images may be project-relative paths, basenames, or content keys:
 ./imgsrch search shots "docker error screen" --scorer bm25
 ```
 
-`rrf` is the default scorer. `--scorer simple` compares against the original
-blend; `dense` and `bm25` inspect either signal alone.
+`rrf` is the default. `simple` retains the original blend; `dense` and `bm25`
+isolate either retrieval signal.
 
-## Inspect
+Model, prompt, and engine-path environment overrides are listed in the
+[nrvna configuration reference](https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md).
 
-The index is plain files under `shots/.imgsrch/`:
+If something breaks or a real search fails, please
+[open an issue](https://github.com/sanmathigb/nrvna/issues). Those examples
+are more useful than feature requests based only on imagined workflows.
 
-```text
-shots/.imgsrch/
-├── artifacts/<image>/   caption.txt · ocr.txt · combined.md · embedding.json
-├── index/index.tsv      the search index, a TSV you can read
-└── workspaces/          the engine's job queues, inspectable mid-flight
-```
-
-If a search result surprises you, the reason is a file you can open.
-
-The implementation in this directory is the supported imgsrch product. The
-root repository carries `scripts/nrvna-lib.sh` for people using the nrvna
-primitives directly.
-
----
-
-Built with [nrvna](https://github.com/sanmathigb/nrvna), durable local
-inference primitives.
+MIT licensed. Model licenses remain model-specific.

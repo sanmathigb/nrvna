@@ -16,10 +16,21 @@ the [latest release](https://github.com/sanmathigb/nrvna/releases/latest):
 ```bash
 mkdir -p ~/imgsrch-app
 cd ~/imgsrch-app
+
+case "$(uname -sm)" in
+  "Darwin arm64")  kit=imgsrch-darwin-arm64 ;;
+  "Darwin x86_64") kit=imgsrch-darwin-x86_64 ;;
+  "Linux x86_64")  kit=imgsrch-linux-x86_64 ;;
+  *)
+    echo "imgsrch: unsupported platform: $(uname -sm)" >&2
+    exit 1
+    ;;
+esac
+
 curl -fL -o imgsrch.tar.gz \
-  https://github.com/sanmathigb/nrvna/releases/latest/download/<archive>
+  "https://github.com/sanmathigb/nrvna/releases/latest/download/$kit.tar.gz"
 tar -xzf imgsrch.tar.gz
-cd imgsrch-*/
+cd "$kit"
 ```
 
 Keep `imgsrch` and `bin/` together. On macOS, if the unsigned developer
@@ -38,10 +49,10 @@ Tell the person before starting: this downloads about 3.4 GB once.
 ./imgsrch doctor
 ```
 
-`setup` is resumable and checksum-verifies three logical models: caption, OCR,
-and embedding. Caption and OCR each include a projector, so five GGUF files
-appear on disk. Do not continue until `doctor` reports the engine and all
-models ready.
+`setup` checksum-verifies three logical models: caption, OCR, and embedding.
+Caption and OCR each include a projector, so five GGUF files appear on disk.
+If a download is interrupted, run `setup` again. Do not continue until
+`doctor` reports the engine and all models ready.
 
 ## 3. Index images
 

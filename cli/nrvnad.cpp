@@ -317,7 +317,7 @@ void printHelp() {
     std::cout << "you rarely need to pass them explicitly.\n\n";
     std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
     std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
-    std::cout << "https://github.com/sanmathigb/nrvna/blob/main/ADVANCED.md\n\n";
+    std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
     std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
     std::cout << "  cat doc.txt | wrk <workspace> -           text\n";
     std::cout << "  wrk <workspace> \"text\" --embed            embeddings\n";
