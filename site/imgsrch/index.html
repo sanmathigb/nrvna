@@ -71,11 +71,7 @@
   .query { padding: 16px 20px 0; font-size: 13.5px; }
   .query .prompt { color: var(--ember-ink); font-weight: 700; }
   .results { padding: 6px 20px 18px; font-size: 13.5px; }
-  .hit { margin-top: 12px; animation: settle 0.5s ease-out backwards; }
-  .hit:nth-child(2) { animation-delay: 0.25s; }
-  .hit:nth-child(3) { animation-delay: 0.5s; }
-  @keyframes settle { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .hit { animation: none; } }
+  .hit { margin-top: 12px; }
   .hit .score { color: var(--faint); }
   .hit .file { font-weight: 700; }
   .hit .snippet { color: var(--dim); padding-left: 1.6em; display: block; }
@@ -124,6 +120,7 @@
     .dl li { grid-template-columns: 1fr; gap: 2px; }
     .hit .snippet { padding-left: 0; }
     nav a { margin-left: 14px; }
+    .code:not(.diagram) pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   }
 </style>
 </head>
@@ -191,11 +188,8 @@
     <div class="wrap">
       <div class="eyebrow">mechanics</div>
       <h2>How search works</h2>
-      <div class="code"><pre>index:   image ──► caption model ──► caption.txt ─┐
-               └─► OCR model ─────► ocr.txt ──────┴─► combined.md ─► embedding.json
-
-search:  query ──► embedding ──► cosine per image ──► dense ranks ─┐
-         query ──► BM25 over combined.md ───────────► keyword ranks┴─► RRF</pre></div>
+      <div class="code diagram"><pre>image ─► caption + OCR ─► index
+query ─► dense + BM25 ─► RRF</pre></div>
       <p class="quiet">RRF is the default because it measured better on a
       labeled hard set. <code>imgsrch eval</code> keeps the claim checkable.</p>
     </div>
@@ -205,10 +199,14 @@ search:  query ──► embedding ──► cosine per image ──► dense ra
     <div class="wrap">
       <div class="eyebrow">no black box</div>
       <h2>The index is plain files</h2>
-      <div class="code"><pre>shots/.imgsrch/
-├── artifacts/&lt;image&gt;/   <span class="c">caption.txt · ocr.txt · combined.md · embedding.json</span>
-├── index/index.tsv      <span class="c">the search index, a TSV you can read</span>
-└── workspaces/          <span class="c">the engine’s job queues, inspectable mid-flight</span></pre></div>
+      <div class="code diagram"><pre>shots/.imgsrch/
+├── artifacts/&lt;image&gt;/
+│   ├── <span class="c">caption.txt</span>
+│   ├── <span class="c">ocr.txt</span>
+│   ├── <span class="c">combined.md</span>
+│   └── <span class="c">embedding.json</span>
+├── index/index.tsv
+└── workspaces/</pre></div>
       <p class="quiet">No database. If a search result surprises you, the
       reason is a file you can open.</p>
     </div>

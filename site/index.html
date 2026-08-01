@@ -187,6 +187,7 @@
     body { font-size: 16px; }
     .prims li { grid-template-columns: 84px 1fr; gap: 10px; }
     nav a { margin-left: 14px; }
+    .terminal pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   }
 </style>
 </head>
@@ -250,10 +251,10 @@
       <div class="eyebrow">~/how-it-works</div>
       <h2>Jobs are directories. State is location.</h2>
       <div class="tree"><pre>workspace/
-├── <span class="k">input/ready/</span>    <span class="m">queued jobs</span>
-├── <span class="k">processing/</span>     <span class="m">jobs being worked</span>
-├── <span class="k">output/</span>         <span class="m">results: result.txt, embedding.json, audio.wav</span>
-└── <span class="k">failed/</span>         <span class="m">errors: error.txt</span></pre></div>
+├── <span class="k">input/ready/</span>   <span class="m">queued</span>
+├── <span class="k">processing/</span>    <span class="m">claimed</span>
+├── <span class="k">output/</span>        <span class="m">results</span>
+└── <span class="k">failed/</span>        <span class="m">errors</span></pre></div>
       <p>Transitions are atomic renames. No database. No message broker. No runtime
       dependency beyond the binaries and the models. Every job runs in a fresh
       context: bounded input, no session drift, inspectable output.</p>
