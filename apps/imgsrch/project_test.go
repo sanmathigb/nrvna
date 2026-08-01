@@ -1,12 +1,36 @@
 package main
 
 import (
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 )
+
+func writeTestPNG(t *testing.T, path string, c color.Color) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.Set(x, y, c)
+		}
+	}
+	if err := png.Encode(f, img); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestAddRefusesUninitializedProject(t *testing.T) {
 	project := filepath.Join(t.TempDir(), "typo")
@@ -45,9 +69,7 @@ func TestIndexStagesImagesBeforeStartingWorkers(t *testing.T) {
 		t.Fatal(err)
 	}
 	img := filepath.Join(t.TempDir(), "shot.png")
-	if err := os.WriteFile(img, []byte("img"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeTestPNG(t, img, color.Black)
 
 	err := cmdIndex(project, []string{img})
 	if err == nil {
@@ -58,7 +80,7 @@ func TestIndexStagesImagesBeforeStartingWorkers(t *testing.T) {
 	}
 }
 
-func TestCmdAddRejectsExistingBasename(t *testing.T) {
+func TestCmdAddDisambiguatesExistingBasename(t *testing.T) {
 	project := filepath.Join(t.TempDir(), "project")
 	if err := cmdInit(project); err != nil {
 		t.Fatal(err)
@@ -73,25 +95,33 @@ func TestCmdAddRejectsExistingBasename(t *testing.T) {
 	}
 	first := filepath.Join(firstDir, "same.png")
 	second := filepath.Join(secondDir, "same.png")
-	if err := os.WriteFile(first, []byte("first"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(second, []byte("second"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeTestPNG(t, first, color.Black)
+	writeTestPNG(t, second, color.White)
 
 	if err := cmdAdd(project, []string{first}); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdAdd(project, []string{second}); err == nil {
-		t.Fatal("expected duplicate basename to be rejected")
+	if err := cmdAdd(project, []string{second}); err != nil {
+		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(imgDir(project), "same.png"))
+	secondKey, err := contentKey(second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "first" {
-		t.Fatalf("existing image was overwritten: %q", got)
+	disambiguated := filepath.Join(imgDir(project), "same-"+secondKey[:8]+".png")
+	if _, err := os.Stat(disambiguated); err != nil {
+		t.Fatalf("disambiguated image missing: %v", err)
+	}
+	firstKey, err := contentKey(filepath.Join(imgDir(project), "same.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFirstKey, err := contentKey(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstKey != wantFirstKey {
+		t.Fatal("existing image was overwritten")
 	}
 }
 
@@ -102,15 +132,78 @@ func TestCmdAddSkipsIdenticalExistingImage(t *testing.T) {
 	}
 	sourceDir := t.TempDir()
 	image := filepath.Join(sourceDir, "same.png")
-	if err := os.WriteFile(image, []byte("same image"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeTestPNG(t, image, color.Black)
 
 	if err := cmdAdd(project, []string{image}); err != nil {
 		t.Fatal(err)
 	}
 	if err := cmdAdd(project, []string{image}); err != nil {
 		t.Fatalf("adding the same image twice should be idempotent: %v", err)
+	}
+}
+
+func TestCmdAddSkipsIdenticalContentWithDifferentName(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	first := filepath.Join(t.TempDir(), "first.png")
+	second := filepath.Join(t.TempDir(), "copy.png")
+	writeTestPNG(t, first, color.Black)
+	data, err := os.ReadFile(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdAdd(project, []string{first}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdAdd(project, []string{second}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(imgDir(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("project contains %d files, want one exact-content copy", len(entries))
+	}
+}
+
+func TestCmdAddRejectsCorruptImageBeforeCopy(t *testing.T) {
+	project := filepath.Join(t.TempDir(), "project")
+	if err := cmdInit(project); err != nil {
+		t.Fatal(err)
+	}
+	image := filepath.Join(t.TempDir(), "broken.png")
+	if err := os.WriteFile(image, []byte("not a png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdAdd(project, []string{image}); err == nil {
+		t.Fatal("expected corrupt image to be rejected")
+	}
+	if _, err := os.Stat(filepath.Join(imgDir(project), "broken.png")); !os.IsNotExist(err) {
+		t.Fatalf("corrupt image was copied: %v", err)
+	}
+}
+
+func TestValidateImageDimensions(t *testing.T) {
+	if err := validateImageDimensions(8_000, 6_000); err != nil {
+		t.Fatalf("48MP phone image should be accepted: %v", err)
+	}
+	if err := validateImageDimensions(1_290, 30_000); err != nil {
+		t.Fatalf("very tall screenshot should be accepted: %v", err)
+	}
+	if err := validateImageDimensions(8_000, 8_000); err != nil {
+		t.Fatalf("64MP image should be accepted: %v", err)
+	}
+	if err := validateImageDimensions(8_001, 8_001); err == nil {
+		t.Fatal("image above decoded-pixel limit should be rejected")
+	}
+	if err := validateImageDimensions(0, 10); err == nil {
+		t.Fatal("zero-width image should be rejected")
 	}
 }
 
