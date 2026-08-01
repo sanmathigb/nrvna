@@ -5,6 +5,12 @@ bin_dir="${1:?usage: primitive-contract.sh <engine-bin-dir>}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+help="$("$bin_dir/nrvnad" --help)"
+case "$help" in
+    *'https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md'*) ;;
+    *) echo "nrvnad help does not link the configuration reference" >&2; exit 1 ;;
+esac
+
 done_id="00001781482179019396_4090_000000"
 mkdir -p "$tmp/output/$done_id"
 printf 'unrelated\n' > "$tmp/output/$done_id/result.txt"

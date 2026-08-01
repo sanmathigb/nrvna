@@ -12,7 +12,7 @@ import (
 
 const version = "0.1.0"
 
-const usageText = `Local semantic search for images.
+const usageText = `Search local images by visible text and meaning.
 
 Usage:
   imgsrch <command> [arguments]
@@ -39,6 +39,11 @@ Options:
   --scorer all              Eval only; compare all scorers
   -h, --help                Show help
   -v, --version             Show version
+
+Configuration:
+  Models default to ~/.imgsrch/models; override with IMGSRCH_MODELS_DIR.
+  Run 'imgsrch doctor' to show resolved model and engine paths.
+  Full reference: https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md
 `
 
 func usage() { fmt.Fprint(os.Stderr, usageText) }

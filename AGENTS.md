@@ -108,7 +108,8 @@ For ordinary operation, this guide and the three commands' `--help` output are
 enough. Read the implementation documents below only when changing the code.
 
 - Read `README.md` for the product contract, `ARCHITECTURE.md` for ownership and
-  state transitions, and `ADVANCED.md` for composition patterns.
+  state transitions, `ADVANCED.md` for composition patterns, and
+  `CONFIGURATION.md` for runtime settings.
 - Treat `include/nrvna/contract.hpp` and `include/nrvna/lifecycle.hpp` as the
   authoritative filesystem and daemon contracts.
 - Do not edit `third_party/llama.cpp` casually. Backend updates are isolated,

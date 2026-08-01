@@ -181,6 +181,13 @@ struct PopoverView: View {
             }
             .disabled(controller.isStopping)
             Spacer()
+            Button("Help") {
+                if let url = URL(string: "https://github.com/sanmathigb/nrvna/tree/main/apps/bckbrnr#readme") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.link)
+            .font(.caption)
             Button("Quit") {
                 NSApp.terminate(nil)
             }

@@ -16,7 +16,7 @@ cmake -S . -B build && cmake --build build -j4
 Use a llama.cpp-compatible instruct GGUF that your current build supports. Put
 it in `./models/` or point to it with a full path (`NRVNA_MODELS_DIR` changes
 the search path). If you don't have one yet, use the pinned, checksum-verified
-model in the [README quick start](README.md#quick-start).
+model under [Run one job](README.md#run-one-job).
 
 ## First Job
 
@@ -95,5 +95,6 @@ side by side.
 
 - [README.md](README.md)
 - [ADVANCED.md](ADVANCED.md) — batch, fan-out, chaining, multi-model patterns
+- [CONFIGURATION.md](CONFIGURATION.md) — model and runtime settings
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [apps/imgsrch/README.md](apps/imgsrch/README.md)

@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bckbrnr — local prompt work from the menu bar</title>
+<meta name="description" content="A macOS menu-bar app. Type a prompt, walk away, pick up the answer as a file. Local models, no cloud.">
+<meta property="og:title" content="bckbrnr — local prompt work from the menu bar">
+<meta property="og:description" content="A macOS menu-bar app. Type a prompt, walk away, pick up the answer as a file. Local models, no cloud.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #FCFBF9;
+    --ink: #1C1A17;
+    --muted: #6E6A62;
+    --line: #E7E3DA;
+    --ember: #D96B2B;
+    --pop-paper: #F5F0E3;   /* the app's own warm cream, from the SwiftUI source */
+    --pop-ink: #2E2921;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--ember); text-underline-offset: 3px; }
+  a:hover { color: var(--ember); }
+  a:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 2px; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+  header { padding: 28px 0 0; }
+  header .wrap { display: flex; align-items: baseline; justify-content: space-between; }
+  .wordmark { font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+  nav { font-family: var(--mono); font-size: 13.5px; }
+  nav a { text-decoration: none; color: var(--muted); margin-left: 20px; }
+  nav a:hover { color: var(--ember); }
+
+  .hero { padding: 72px 0 20px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr 320px; gap: 44px; align-items: center; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 5.6vw, 46px);
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+  }
+  .hero p { margin-top: 20px; font-size: 18px; color: var(--muted); }
+
+  /* the popover, recreated from the app's own SwiftUI */
+  .popover {
+    background: var(--pop-paper);
+    color: var(--pop-ink);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 18px 40px rgba(28, 26, 23, 0.10);
+    font-size: 13px;
+  }
+  .pop-head { display: flex; align-items: center; justify-content: space-between; }
+  .pop-title { font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: 0.02em; }
+  .pop-sub { font-family: var(--serif); font-style: italic; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .orb { width: 10px; height: 10px; border-radius: 50%; background: var(--ember); display: inline-block; flex: none; animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .orb { animation: none; } }
+  .pop-rule { border: 0; border-top: 1px solid rgba(46,41,33,0.14); margin: 14px 0; }
+  .pop-field {
+    border: 1px solid rgba(46,41,33,0.22);
+    background: #FFFFFF;
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .pop-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; }
+  .pop-label { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); }
+  .pop-value { font-family: var(--mono); font-size: 11.5px; margin-top: 2px; }
+  .pop-link { color: var(--ember); font-size: 12px; }
+  .pop-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+  .pop-btn {
+    border: 1px solid rgba(46,41,33,0.25);
+    background: #FFFFFF;
+    border-radius: 6px;
+    padding: 4px 14px;
+    font-size: 12.5px;
+  }
+  .pop-quit { color: var(--muted); font-size: 12px; }
+
+  section { padding: 52px 0 8px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ember);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    margin-bottom: 22px;
+  }
+  h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin-bottom: 14px; }
+  section > .wrap > p { max-width: 36em; margin-bottom: 14px; }
+  .quiet { color: var(--muted); }
+
+  .contract { list-style: none; margin-top: 6px; }
+  .contract li { padding: 12px 0; border-bottom: 1px solid var(--line); max-width: 38em; }
+  .contract li:first-child { border-top: 1px solid var(--line); }
+  .contract b { font-weight: 600; }
+  .contract span { color: var(--muted); }
+
+  .block {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.8;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    overflow-x: auto;
+    background: #FFFFFF;
+  }
+  .block .m { color: var(--muted); }
+
+  footer { padding: 64px 0 48px; }
+  footer .wrap { border-top: 1px solid var(--line); padding-top: 22px; }
+  .credit {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+  .credit .orb { width: 8px; height: 8px; }
+  .credit a { text-decoration: none; color: var(--ink); }
+  .credit a:hover { color: var(--ember); }
+  .footlinks { margin-top: 14px; font-family: var(--mono); font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 22px; }
+  .footlinks a { text-decoration: none; }
+
+  @media (max-width: 720px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .popover { margin: 0 auto; }
+  }
+  @media (max-width: 540px) {
+    body { font-size: 16px; }
+    nav a { margin-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="wordmark">bckbrnr</span>
+    <nav>
+      <a href="https://github.com/sanmathigb/nrvna/tree/main/apps/bckbrnr">github</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>Type a prompt. Walk away. The answer is a file.</h1>
+        <p>A macOS menu-bar app for local prompt work. Pick a GGUF model,
+        press Start, and every answer lands in a folder — even if you
+        weren't around when it finished.</p>
+      </div>
+      <div class="popover" role="img" aria-label="The bckbrnr menu-bar popover: a prompt field, the chosen model, the workspace folder, and Start and Quit controls.">
+        <div class="pop-head">
+          <div>
+            <div class="pop-title">bckbrnr</div>
+            <div class="pop-sub">inference as utility</div>
+          </div>
+          <span class="orb" aria-hidden="true"></span>
+        </div>
+        <hr class="pop-rule">
+        <div class="pop-field">type the prompt and hit enter</div>
+        <hr class="pop-rule">
+        <div class="pop-row">
+          <div>
+            <div class="pop-label">MODEL</div>
+            <div class="pop-value">smollm2-1.7b.gguf</div>
+          </div>
+          <span class="pop-link">Change</span>
+        </div>
+        <div class="pop-row">
+          <div>
+            <div class="pop-label">WORKSPACE</div>
+            <div class="pop-value">~/bckbrnr/text</div>
+          </div>
+          <span class="pop-link">Change</span>
+        </div>
+        <div class="pop-controls">
+          <span class="pop-btn">Stop</span>
+          <span class="pop-link">Help</span>
+          <span class="pop-quit">Quit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="contract">
+    <div class="wrap">
+      <div class="eyebrow">~/the-contract</div>
+      <h2>Durable in both directions</h2>
+      <ul class="contract">
+        <li><b>Answers are files</b> <span>— every completed prompt lands in <code>~/bckbrnr/text/response/</code>, named after what you asked</span></li>
+        <li><b>Failures are files too</b> <span>— a readable <code>.error.txt</code> beside where the answer would have been, not a log line that scrolled away</span></li>
+        <li><b>Nothing is lost to timing</b> <span>— answers that finished while the app was closed surface the next time it opens</span></li>
+      </ul>
+      <p class="quiet" style="margin-top:14px">No chat history, no session, no
+      cloud. The folder is the record.</p>
+    </div>
+  </section>
+
+  <section id="get">
+    <div class="wrap">
+      <div class="eyebrow">~/install</div>
+      <h2>Install the developer preview</h2>
+      <p>Download <code>bckbrnr-darwin-arm64.zip</code> for Apple Silicon or
+      <code>bckbrnr-darwin-x86_64.zip</code> for Intel from the
+      <a href="https://github.com/sanmathigb/nrvna/releases/latest">latest release</a>.
+      Move the app to Applications, then right-click it and choose Open once.</p>
+      <p class="quiet">bckbrnr requires macOS 13.3+ and a local instruct GGUF.
+      It is ad-hoc signed but not notarized. The app bundles the three nrvna
+      binaries; the model is the only separate download.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="credit">
+      <span class="orb" aria-hidden="true"></span>
+      <span>built with <a href="../">nrvna</a> — durable local inference primitives. The engine is three binaries and a folder.</span>
+    </div>
+    <div class="footlinks">
+      <span>MIT License</span>
+      <a href="https://github.com/sanmathigb/nrvna/tree/main/apps/bckbrnr">source &amp; readme</a>
+      <a href="../">nrvna</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

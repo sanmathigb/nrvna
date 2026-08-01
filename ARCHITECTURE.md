@@ -206,35 +206,10 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NRVNA_WORKERS` | 4 | Worker threads |
-| `NRVNA_LOG_LEVEL` | info | Log verbosity |
-| `NRVNA_GPU_LAYERS` | 0 | GPU layers to offload (default CPU; set >0 to use GPU, e.g. 99 on Apple Silicon) |
-| `NRVNA_PREDICT` | 2048 | Max tokens to generate |
-| `NRVNA_MAX_CTX` | 8192 | Context window size |
-| `NRVNA_BATCH` | 2048 | Batch size |
-| `NRVNA_UBATCH` | batch size | Physical batch size |
-| `NRVNA_TEMP` | 0.8 | Sampling temperature |
-| `NRVNA_THINKING` | 1 | Preserve model reasoning mode when supported |
-| `NRVNA_VISION_TEMP` | 0.3 | Vision sampling temperature |
-| `NRVNA_TOP_K` | 40 | Top-K sampling |
-| `NRVNA_TOP_P` | 0.9 | Top-P sampling |
-| `NRVNA_MIN_P` | 0.05 | Min-P sampling |
-| `NRVNA_REPEAT_PENALTY` | 1.1 | Repetition penalty |
-| `NRVNA_REPEAT_LAST_N` | 64 | Repeat penalty window |
-| `NRVNA_SEED` | 0 | Random seed |
-| `NRVNA_MODELS_DIR` | ./models/ | Model search path |
-| `NRVNA_MAX_IMAGE_SIZE` | 50MB | Max image file size |
-| `NRVNA_MAX_AUDIO_SIZE` | 200MB | Max audio file size (STT) |
-| `NRVNA_MAX_PROMPT_SIZE` | 10MB | Max prompt.txt size read by daemon |
-| `NRVNA_IMAGE_MAX_TOKENS` | 0 | Optional image-token cap; 0 uses model defaults |
-| `NRVNA_CHAT_TEMPLATE_FILE` | (unset) | Override GGUF chat template; unreadable files fail startup |
-| `NRVNA_STT_TEMP` | (base temp) | STT sampling temperature |
-| `NRVNA_STT_PREDICT` | (base predict) | STT max tokens |
-| `NRVNA_WARMUP` | 0 | mtmd context warmup (0/1) |
-| `NRVNA_FLASH_ATTN` | -1 | mtmd flash attention type (-1 = auto) |
-| `LLAMA_LOG_LEVEL` | error | llama.cpp log verbosity |
+The canonical inventory is in [CONFIGURATION.md](CONFIGURATION.md). It
+includes runtime, sampling, multimodal, TTS, safety, logging, binary-discovery,
+and application integration settings. Keep defaults there instead of
+duplicating them in this implementation document.
 
 ## Thread Model
 

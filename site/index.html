@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nrvna — durable local inference primitives</title>
+<meta name="description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
+<meta property="og:title" content="nrvna — durable local inference primitives">
+<meta property="og:description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #FCFBF9;
+    --ink: #1C1A17;
+    --muted: #6E6A62;
+    --line: #E7E3DA;
+    --term-bg: #16130F;
+    --term-fg: #D8D3C8;
+    --term-dim: #8A857A;
+    --ember: #D96B2B;
+    --ember-bright: #F08A4B;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--ember); text-underline-offset: 3px; }
+  a:hover { color: var(--ember); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; border-radius: 2px; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+  /* header */
+  header { padding: 28px 0 0; }
+  header .wrap { display: flex; align-items: baseline; justify-content: space-between; }
+  .wordmark { font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 8px; }
+  .orb { width: 8px; height: 8px; border-radius: 50%; background: var(--ember); display: inline-block; animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .orb { animation: none; } }
+  nav { font-family: var(--mono); font-size: 13.5px; }
+  nav a { text-decoration: none; color: var(--muted); margin-left: 20px; }
+  nav a:hover { color: var(--ember); }
+
+  /* hero */
+  .hero { padding: 72px 0 20px; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  h1 .bin {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.72em;
+    background: #F1EDE4;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.06em 0.3em;
+    vertical-align: 0.06em;
+  }
+  .hero p {
+    margin-top: 22px;
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 34em;
+  }
+  .hero p code { color: var(--ink); }
+
+  /* terminals — the dark objects on the page, one per moment */
+  .termstack {
+    display: grid;
+    gap: 14px;
+    margin: 44px 0 10px;
+  }
+  .terminal {
+    background: var(--term-bg);
+    color: var(--term-fg);
+    border-radius: 10px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.75;
+    overflow: hidden;
+  }
+  .term-title {
+    padding: 9px 18px;
+    font-size: 12px;
+    color: var(--term-dim);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .terminal pre {
+    padding: 14px 18px;
+    overflow-x: auto;
+  }
+  .terminal .p { color: var(--ember-bright); }                  /* prompt $ */
+  .terminal .o { color: var(--term-dim); }                      /* output */
+  .caption {
+    font-size: 14px;
+    color: var(--muted);
+    font-family: var(--mono);
+    padding-bottom: 8px;
+  }
+
+  /* sections */
+  section { padding: 52px 0 8px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ember);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    margin-bottom: 22px;
+  }
+  h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin-bottom: 14px; }
+  section > .wrap > p { max-width: 36em; margin-bottom: 14px; }
+  .quiet { color: var(--muted); }
+
+  /* primitives table */
+  .prims { list-style: none; margin: 6px 0 18px; }
+  .prims li {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .prims li:first-child { border-top: 1px solid var(--line); }
+  .prims .name { font-family: var(--mono); font-weight: 600; font-size: 15px; }
+  .prims .desc { color: var(--muted); font-size: 16px; }
+
+  /* tree */
+  .tree {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.8;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    overflow-x: auto;
+    background: #FFFFFF;
+  }
+  .tree .k { color: var(--ember); }
+  .tree .m { color: var(--muted); }
+
+  /* nots */
+  .nots { list-style: none; margin-top: 6px; }
+  .nots li { padding: 10px 0; border-bottom: 1px solid var(--line); max-width: 36em; }
+  .nots li:first-child { border-top: 1px solid var(--line); }
+  .nots b { font-weight: 600; }
+  .nots span { color: var(--muted); }
+
+  /* apps */
+  .apps { list-style: none; margin-top: 6px; }
+  .apps li { padding: 14px 0; border-bottom: 1px solid var(--line); max-width: 38em; }
+  .apps li:first-child { border-top: 1px solid var(--line); }
+  .apps .name { font-family: var(--mono); font-weight: 600; }
+  .apps p { color: var(--muted); font-size: 16px; margin-top: 2px; }
+
+  /* footer */
+  footer { padding: 64px 0 48px; }
+  footer .wrap {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+  }
+  footer a { text-decoration: none; }
+
+  @media (max-width: 540px) {
+    body { font-size: 16px; }
+    .prims li { grid-template-columns: 84px 1fr; gap: 10px; }
+    nav a { margin-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="wordmark"><span class="orb" aria-hidden="true"></span>nrvna</span>
+    <nav>
+      <a href="https://github.com/sanmathigb/nrvna">github</a>
+      <a href="https://github.com/sanmathigb/nrvna/blob/main/DOCUMENTATION.md">docs</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <h1>With nrvna, models get <span class="bin">wrk</span>.<br>You get <span class="bin">flw</span>.</h1>
+      <p>Unix-like primitives for durable, asynchronous local inference. <code>nrvnad</code> runs models,
+      <code>wrk</code> submits jobs, <code>flw</code> collects results.
+      The filesystem is the queue.</p>
+
+      <div class="termstack" role="img" aria-label="Three terminal windows: work is submitted before anything runs, a model is started later, and the answer is collected by job ID.">
+        <div class="terminal">
+          <div class="term-title">21:04</div>
+<pre><span class="p">$</span> wrk ~/ws "Write a primer on KV caches"
+<span class="o">00001783014028941539_78592_000000</span></pre>
+        </div>
+        <div class="terminal">
+          <div class="term-title">07:30 — bring a model to the queue</div>
+<pre><span class="p">$</span> nrvnad smollm2 ~/ws
+<span class="o">RUNNING</span></pre>
+        </div>
+        <div class="terminal">
+          <div class="term-title">07:32 — the next morning</div>
+<pre><span class="p">$</span> flw ~/ws 00001783014028941539_78592_000000
+<span class="o">A KV cache is why the model doesn't re-read…</span></pre>
+        </div>
+      </div>
+      <p class="caption">Submit now. Start later. Collect whenever.</p>
+    </div>
+  </div>
+
+  <section id="primitives">
+    <div class="wrap">
+      <div class="eyebrow">~/primitives</div>
+      <h2>Three binaries</h2>
+      <ul class="prims">
+        <li><span class="name">nrvnad</span><span class="desc">Load a model, watch a workspace, process jobs</span></li>
+        <li><span class="name">wrk</span><span class="desc">Submit work, get back a job ID immediately</span></li>
+        <li><span class="name">flw</span><span class="desc">Inspect a workspace, or collect a result by job ID</span></li>
+      </ul>
+      <p class="quiet">That's the entire API. Everything else is composition — text,
+      vision, embeddings, transcription, and speech, selected per job.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="eyebrow">~/how-it-works</div>
+      <h2>Jobs are directories. State is location.</h2>
+      <div class="tree"><pre>workspace/
+├── <span class="k">input/ready/</span>    <span class="m">queued jobs</span>
+├── <span class="k">processing/</span>     <span class="m">jobs being worked</span>
+├── <span class="k">output/</span>         <span class="m">results: result.txt, embedding.json, audio.wav</span>
+└── <span class="k">failed/</span>         <span class="m">errors: error.txt</span></pre></div>
+      <p>Transitions are atomic renames. No database. No message broker. No runtime
+      dependency beyond the binaries and the models. Every job runs in a fresh
+      context: bounded input, no session drift, inspectable output.</p>
+      <p class="quiet">Jobs survive daemon restarts, closed terminals, and sleeping
+      laptops. Results are plain files — <code>cat</code> them, <code>grep</code>
+      them, pipe them into the next job.</p>
+    </div>
+  </section>
+
+  <section id="not">
+    <div class="wrap">
+      <div class="eyebrow">~/where-it-fits</div>
+      <h2>Bigger than one prompt, smaller than a framework</h2>
+      <ul class="nots">
+        <li><b>Not a chat app</b> <span>— async jobs, not conversations</span></li>
+        <li><b>Not an agent framework</b> <span>— primitives you build on</span></li>
+        <li><b>Not a model runtime</b> <span>— llama.cpp runs the model; nrvna adds jobs, workspaces, and composition</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="apps">
+    <div class="wrap">
+      <div class="eyebrow">~/built-with-nrvna</div>
+      <h2>A family of small, sharp apps</h2>
+      <ul class="apps">
+        <li>
+          <a class="name" href="imgsrch/">imgsrch</a>
+          <p>Search your screenshots and images by what's in them. Fully local.</p>
+        </li>
+        <li>
+          <a class="name" href="bckbrnr/">bckbrnr</a>
+          <p>Local prompt work from the macOS menu bar. The answer is a file.</p>
+        </li>
+      </ul>
+      <p class="quiet">Each app bundles the primitives and adds no alternate inference
+      path. The list is meant to grow.</p>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap">
+      <div class="eyebrow">~/agents</div>
+      <h2>Give it the same three commands</h2>
+      <p class="quiet">Paste this into a coding agent with shell access:</p>
+      <div class="terminal">
+<pre>Read https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md.
+Explain nrvna's job, context, drain, and failure contracts before using it.
+Use an isolated workspace and an existing local model. Do not download models
+or modify existing workspaces without asking me first.</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>MIT License</span>
+    <a href="https://github.com/sanmathigb/nrvna">github.com/sanmathigb/nrvna</a>
+    <a href="https://github.com/sanmathigb/nrvna/blob/main/QUICKSTART.md">quick start</a>
+    <a href="https://github.com/sanmathigb/nrvna/blob/main/AGENTS.md">agent guide</a>
+    <a href="https://raw.githubusercontent.com/sanmathigb/nrvna/main/llms.txt">llms.txt</a>
+  </div>
+</footer>
+
+</body>
+</html>
