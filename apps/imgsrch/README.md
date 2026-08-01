@@ -92,7 +92,8 @@ Search prints ranked paths and the evidence behind each match:
 ```
 
 It also writes `shots/search-results.md` with inline, clickable previews of
-the original images.
+the original images. Search requires write access to the project because it
+submits a query-embedding job and updates this report.
 
 ## Give it to an agent
 

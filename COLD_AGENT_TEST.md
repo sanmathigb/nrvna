@@ -77,7 +77,16 @@ IMGSRCH_MODELS=/tmp/imgsrch-fresh/models
 IMGSRCH_PROJECT=/tmp/imgsrch-fresh/test-project
 
 test -x "$IMGSRCH_BIN" && echo "binary: ready" || echo "binary: missing"
-test -d "$IMGSRCH_MODELS" && echo "models: present" || echo "models: missing"
+models_ready=true
+for model in \
+  LFM2.5-VL-1.6B-Q8_0.gguf \
+  mmproj-LFM2.5-VL-1.6b-Q8_0.gguf \
+  GLM-OCR-Q8_0.gguf \
+  mmproj-GLM-OCR-Q8_0.gguf \
+  nomic-embed-text-v1.5.Q8_0.gguf; do
+  test -f "$IMGSRCH_MODELS/$model" || models_ready=false
+done
+$models_ready && echo "models: ready" || echo "models: missing or incomplete"
 test -f "$IMGSRCH_PROJECT/.imgsrch/items.tsv" \
   && test -f "$IMGSRCH_PROJECT/.imgsrch/index/index.tsv" \
   && echo "project: initialized" \
@@ -99,7 +108,7 @@ Interpret the result strictly:
   Do not ask the agent to evaluate retrieval.
 - **Project directory exists but either manifest is missing:** it is stale or
   incomplete, not an existing index. Do not reuse it.
-- **Models present but no usable index:** the model download can be skipped,
+- **Models ready but no usable index:** the model download can be skipped,
   but a future hands-on test still needs a new project and source images.
 - **Binary missing:** use the current source-built binary above if present, or
   provide a packaged binary. Do not make a cold documentation test build it.
@@ -203,6 +212,12 @@ rich `search-results.md`; JSON flags belong to the underlying nrvna commands.
 ## 5. If a usable index exists
 
 After reading its report, provide only these paths:
+
+The agent must have write access to the project. Search submits a query
+embedding job and writes `search-results.md`; a read-only sandbox can inspect
+status but cannot search. Codex CLI v0.144.6 may resume a prior session in
+read-only mode unless `-s workspace-write` is supplied again. Record that as a
+harness failure, not an imgsrch failure.
 
 ```text
 An existing local test is available. Use only these paths:
