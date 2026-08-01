@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "fceef7e752df",
+  "strategy": "manual-commit",
+  "branch": "docs/cold-agent-discovery-control",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "COLD_AGENT_TEST.md",
+    "apps/imgsrch/README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fc/eef7e752df/0/metadata.json",
+      "transcript": "/fc/eef7e752df/0/full.jsonl",
+      "compact_transcript": "/fc/eef7e752df/0/transcript.jsonl",
+      "content_hash": "/fc/eef7e752df/0/content_hash.txt",
+      "prompt": "/fc/eef7e752df/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 275732,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9414912,
+    "output_tokens": 11980,
+    "api_call_count": 56
+  }
+}
