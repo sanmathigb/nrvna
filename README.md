@@ -87,6 +87,15 @@ stdin, files, JSON, and exit codes.
 
 ## Why
 
+I built nrvna on a 2017 Intel MacBook while caring for two young children. My
+time and compute both came in fragments. I wanted to leave work in a folder,
+bring a local model to it when the machine was available, and return to
+ordinary files later. Existing local tools centered a live chat or request.
+nrvna makes the work durable instead.
+
+Local compute is finite and intermittent. Work should not disappear because
+the caller, model process, or terminal is gone.
+
 Local model servers are useful for chat and interactive completion. nrvna is
 for work that should not depend on a live request or on the process waiting
 for it:
