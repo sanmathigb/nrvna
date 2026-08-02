@@ -40,6 +40,7 @@ void printUsage() {
     std::cout << "  flw ./ws                          workspace status\n";
     std::cout << "  flw ./ws <job-id> -w              wait for and print one result\n";
     std::cout << "  wrk ./ws \"prompt\" | flw ./ws -w   submit and wait in one pipe\n";
+    std::cout << "  Wait requires a positional or piped job ID.\n";
     std::cout << "  flw ./ws -W                       block until all jobs finish\n";
     std::cout << "  flw ./ws -W --tag nightly         wait for this batch (no result output)\n";
     std::cout << "  flw ./ws --tag nightly --json     then collect the batch as NDJSON\n";
@@ -247,6 +248,10 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
+    if (wait && jobId.empty()) {
+        std::cerr << "Error: -w requires a positional or piped job ID\n";
+        return 1;
+    }
 
     // Validate job ID format
     if (!jobId.empty() && !Flow::isValidJobId(jobId)) {
@@ -356,16 +361,6 @@ int main(int argc, char* argv[]) {
                 }
             }
             return 0;
-        }
-
-        // Resolve ID (Specific or Latest)
-        if (jobId.empty()) {
-             auto latest = flow.latest();
-             if (latest) jobId = latest->id;
-             else {
-                 std::cerr << "No jobs found" << std::endl;
-                 return 1;
-             }
         }
 
         // Wait loop
