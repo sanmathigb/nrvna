@@ -1,6 +1,6 @@
 # Advanced Patterns
 
-The primitives (`nrvnad`, `wrk`, `flw`) are building blocks. Here's what you can build with them.
+Use `nrvnad`, `wrk`, and `flw` to build the following patterns.
 
 ---
 
@@ -24,17 +24,16 @@ nrvnad vision-model.gguf ./workspace --drain
 flw ./workspace --tag "$BATCH" --json > results.ndjson
 ```
 
-Tags group jobs only. They do not share context, impose ordering, create
-dependencies, or route work to a model. Keep `jobs.txt` when the source-to-job
-mapping matters. If a persistent daemon already owns the workspace, use
-`flw ./workspace -W --tag "$BATCH"` as a silent barrier before the separate
-collection command.
+Tags group jobs only. They do not share context or control execution. Keep
+`jobs.txt` when you need the source-to-job mapping. If a daemon owns the
+workspace, run `flw ./workspace -W --tag "$BATCH"` as a silent barrier. Then
+run the collection command.
 
 ---
 
-## Fan-Out / Fan-In (Map-Reduce)
+## Fan-Out and Fan-In
 
-Break a document into parallel subtasks, synthesize:
+Fan-out sends parts to independent jobs. Fan-in combines their results.
 
 ```bash
 # Fan-out: summarize each chapter independently
@@ -55,14 +54,14 @@ $result2
 $result3"
 ```
 
-The document never fit in one context window. It didn't need to — the window
-is the step size, not the ceiling.
+Each job uses one bounded context. The final job receives only the selected
+results.
 
 ---
 
 ## Self-Refinement Loop
 
-Generate, critique, improve:
+Generate a draft. Critique it. Then improve it.
 
 ```bash
 GOAL="Write a cover letter for a senior engineer position"
@@ -111,7 +110,7 @@ done
 
 ## Vision Batch
 
-Caption or analyze a directory of images:
+Caption or analyze each image in a directory:
 
 ```bash
 nrvnad qwen-vl.gguf ./ws-vision    # mmproj auto-detected
@@ -131,7 +130,7 @@ done
 
 ## Embeddings for Search
 
-Generate embeddings and use them for similarity:
+Generate embeddings for similarity search:
 
 ```bash
 # Generate embeddings for a corpus
@@ -181,9 +180,9 @@ done
 
 ---
 
-## Memory / Context Accumulation
+## Explicit Context
 
-Build up knowledge across jobs:
+Save results and include them in a later prompt:
 
 ```bash
 # Save results to memory
@@ -202,7 +201,7 @@ What themes appear in all of them? List contradictions separately."
 
 ## Multi-Model Routing
 
-Different models for different tasks:
+Use separate workspaces for different model roles:
 
 ```bash
 # Start specialized daemons
@@ -227,11 +226,13 @@ wrk "$ws" "Process this: $input"
 
 ---
 
-## Tips
+## Operational Notes
 
-1. **More workers = more parallelism** — but diminishing returns past CPU cores
-2. **Vision is serialized** — mutex prevents parallel vision encoding corruption
-3. **Jobs are directories** — inspect with `ls`, `cat`, `tree`
-4. **Atomic state** — job location *is* job state
-5. **Compose with shell** — the primitives are designed for piping
-6. **TTS vocoder auto-detected** — place vocoder .gguf next to your OuteTTS model
+1. More workers increase parallel work. Extra workers can reduce performance
+   after all CPU cores are busy.
+2. nrvna serializes vision encoding. This prevents corruption in shared GGML
+   compute state.
+3. Jobs are directories. Inspect them with `ls`, `cat`, or `tree`.
+4. A job's directory defines its state.
+5. The commands support shell pipes.
+6. Place the vocoder GGUF beside the OuteTTS model. `nrvnad` detects it.

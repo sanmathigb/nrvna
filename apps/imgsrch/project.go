@@ -16,14 +16,12 @@ import (
 	"syscall"
 )
 
-// Accepted formats = what the inference engine (llama.cpp/stb_image) can
-// actually decode, intersected with what screenshots are. Everything else is
-// loudly skipped — never silently dropped, never accepted-then-failed.
+// Accept formats that llama.cpp/stb_image can decode and screenshots commonly
+// use. Report every unsupported input before inference.
 var acceptExt = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true}
 
-// A 64MP ceiling admits current 48MP phone photos and long screenshots while
-// preventing small compressed files from expanding into multi-gigabyte
-// bitmaps before the vision model can apply its own token budget.
+// The 64 MP limit accepts current 48 MP phone photos and long screenshots. It
+// prevents small compressed files from expanding into very large bitmaps.
 const maxDecodedImagePixels int64 = 64_000_000
 
 func imgDir(p string) string       { return filepath.Join(p, "images") }
@@ -40,13 +38,13 @@ type item struct {
 	Key, Path, CapJob, OcrJob, EmbJob string
 }
 
-// requireProject refuses to operate on a directory that was never initialized —
-// a typo in the project name must not silently create a new project.
+// requireProject rejects a directory that imgsrch did not initialize. A path
+// error must not create a new project.
 func requireProject(project string) error {
 	if st, err := os.Stat(rootDir(project)); err == nil && st.IsDir() {
 		return nil
 	}
-	return fmt.Errorf("no project at %s — create it first: imgsrch init %s", project, project)
+	return fmt.Errorf("no project at %s; create it first: imgsrch init %s", project, project)
 }
 
 func ensureProject(project string) error {
@@ -166,8 +164,8 @@ func contentDigest(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// contentKey is the first 16 hex chars of the file's SHA-256 — identical to
-// the bash spec, so existing project indexes stay valid.
+// contentKey is the first 16 hexadecimal characters of the file's SHA-256.
+// This format keeps existing project indexes valid.
 func contentKey(path string) (string, error) {
 	digest, err := contentDigest(path)
 	if err != nil {

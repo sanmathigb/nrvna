@@ -1,4 +1,4 @@
-// imgsrch — search your screenshots and images by what's in them. Fully local.
+// imgsrch searches screenshots and images by their content. It runs locally.
 //
 // Built with nrvna: three background workers (caption, OCR, embedding)
 // process images as durable jobs; every artifact is a plain file you can read.

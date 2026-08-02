@@ -1,14 +1,13 @@
 # Agent Guide
 
-nrvna provides durable local inference through three command-line primitives:
-`wrk` submits jobs, `nrvnad` executes them, and `flw` reads results. It is not
-a chat API or an agent framework. Compose it with processes, exit codes, JSON,
-and files.
+nrvna provides durable local inference through three commands. `wrk` submits
+jobs. `nrvnad` executes them. `flw` reads results. nrvna is not a chat API or
+agent framework. Compose it with processes, exit codes, JSON, and files.
 
-Every `wrk` submission is an independent durable task. Context does not carry
-between jobs. `--parent` records lineage only: it does not copy context, wait
-for the parent, or impose execution order. The workspace remembers; the model
-does not.
+Every `wrk` submission creates an independent durable job. Context does not
+continue between jobs. `--parent` records lineage only. It does not copy
+context, wait for the parent, or control execution order. The workspace
+remembers. The model does not.
 
 ## Writing
 
@@ -23,13 +22,19 @@ reports, and agent replies.
 - Write short paragraphs. Put one topic in each paragraph.
 - Avoid idioms, filler, hype, and unnecessary jargon.
 - Define a necessary technical term before you use it.
+- Do not rewrite commands, identifiers, file names, or quoted output.
 - Use `nrvna` in lowercase unless a case-sensitive identifier requires another
   form.
 
+Do not claim formal ASD-STE100 compliance unless a validated vocabulary and
+grammar check confirms it. Describe unvalidated work as following the
+standard's principles.
+
 ## Cold Run
 
-Source builds place binaries under `./build`; packaged apps place them under
-`./bin`. Set `BIN` accordingly and provide a compatible GGUF:
+Source builds put binaries under `./build`. Packaged applications put them
+under `./bin`. Set `BIN` for the applicable directory. Provide a compatible
+GGUF.
 
 ```bash
 BIN=./build
@@ -43,11 +48,11 @@ JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 "$BIN/flw" "$WS" "$JOB2" --json
 ```
 
-`wrk` creates the workspace when needed and prints only the job ID on stdout.
+`wrk` creates the workspace when needed. It prints only the job ID on stdout.
 Before the daemon starts, status shows two queued jobs. `--drain` loads the
-model, uses the two workers configured in this example, and exits at observed
-idle. A nonzero drain exit means the run did not complete cleanly; inspect the
-workspace with `flw`. Nothing needs to remain running.
+model and starts the two configured workers. It exits when it observes an idle
+queue. A nonzero exit means that the drain failed. Inspect the workspace with
+`flw`. No process must stay open.
 
 Use `--drain` for bounded batches, model swapping, and constrained hardware.
 For repeated low-latency work, keep one daemon on the workspace:
@@ -59,8 +64,8 @@ JOB=$("$BIN/wrk" "$WS" "task")
 "$BIN/nrvnad" stop "$WS"
 ```
 
-Use separate workspaces for different model roles. Drain them sequentially
-when their models cannot coexist in memory.
+Use separate workspaces for different model roles. Drain them in sequence when
+their models cannot fit in memory together.
 
 ## Machine Contract
 
@@ -70,23 +75,22 @@ when their models cannot coexist in memory.
 - `nrvnad status <ws>` exits `0` when ready, `2` while starting, and `1` when
   not running. `nrvnad stop <ws>` exits `0` when stopped or already absent.
 - Use `flw <ws> -w <job>` to wait for one job handled by a persistent daemon.
-- Use a repeated `--tag <name>` on `wrk`, then `flw <ws> -W --tag <name>` as a
-  barrier for that batch. The barrier prints no selected results. Collect them
-  separately with `flw <ws> --tag <name> --json`, which emits NDJSON and exits
-  `1` if any selected job failed.
+- Add the same `--tag <name>` to each related `wrk` command.
+- Use `flw <ws> -W --tag <name>` as the batch barrier. It prints no results.
+- Collect the batch with `flw <ws> --tag <name> --json`. It emits NDJSON. It
+  exits `1` when a selected job failed.
 - Use `wrk --parent <job-id>` for lineage and `flw --children <job-id>` to read
   direct descendants.
 - One daemon owns a workspace at a time. `nrvnad status <ws> --json` is the
   liveness check; `nrvnad stop <ws>` is the graceful stop operation.
-- Some agent sandboxes prevent a later tool invocation from signaling a
-  process started by an earlier invocation. Prefer `--drain` there. If `stop`
-  reports that the daemon still holds the workspace, stop it from its owning
-  terminal rather than editing lifecycle files.
+- Some agent sandboxes cannot signal a process that an earlier tool call
+  started. Use `--drain` in these sandboxes.
+- If `stop` reports an owner, stop the daemon from its terminal. Do not edit
+  lifecycle files.
 - A `.nrvnad.lock` file may remain after exit. Its existence is not liveness;
   do not inspect lifecycle files instead of using `nrvnad status`.
-- Job inputs become immutable when published under `input/ready/`. The daemon
-  moves the directory and adds terminal artifacts; callers must not edit or
-  move published job directories themselves.
+- Job inputs become immutable under `input/ready/`. The daemon moves the job
+  directory and adds artifacts. Callers must not edit published jobs.
 - Failures are terminal and preserved under `failed/`. Retry policy belongs to
   the calling app or agent, not the primitive.
 - Primary artifacts are `result.txt`, `embedding.json`, `transcript.txt`, or
@@ -94,8 +98,7 @@ when their models cannot coexist in memory.
   full vector, so use workspace status rather than job retrieval when only
   counts are needed.
 
-To pass prior evidence forward, put it in the next prompt explicitly. Keep
-lineage separate:
+Put required prior evidence in the next prompt. Keep lineage separate.
 
 ```bash
 PARENT=$("$BIN/wrk" "$WS" "Extract the important facts")
@@ -107,28 +110,29 @@ CHILD=$({ echo "Previous result:"; "$BIN/flw" "$WS" "$PARENT"; \
 "$BIN/flw" "$WS" "$CHILD"
 ```
 
-Submission is staged and atomically published. Workers claim by atomic rename;
-terminal output is atomically published under `output/` or `failed/`. After a
-daemon crash, the next daemon recovers abandoned `processing/` jobs. Compute
-may therefore run more than once, but only one terminal job directory is
-published. Treat execution as at least once.
+`wrk` stages each submission and publishes it with an atomic rename. Workers
+also claim jobs with an atomic rename. The daemon publishes terminal output
+under `output/` or `failed/`. After a crash, the next daemon recovers abandoned
+`processing/` jobs. A recovered job can run again. Only one terminal job
+directory becomes visible. Treat execution as at least once.
 
-Model names resolve under `./models` or `NRVNA_MODELS_DIR`. Matching mmproj and
-vocoder files beside the model are auto-detected. Use `nrvnad --help` for job
+Model names resolve under `./models` or `NRVNA_MODELS_DIR`. `nrvnad` detects
+matching mmproj and vocoder files beside the model. Use `nrvnad --help` for job
 types and model requirements.
 
-nrvna does not assemble parent context, execute DAGs, route models, parse
-documents, retry failures automatically, or search artifacts semantically.
-Callers own orchestration, context selection, validation, and search.
+nrvna does not assemble parent context or execute dependency graphs. It does
+not route models, parse documents, retry failures, or search artifacts. Callers
+own orchestration, context selection, validation, and search.
 
 ## Working On This Repository
 
 For ordinary operation, this guide and the three commands' `--help` output are
 enough. Read the implementation documents below only when changing the code.
 
-- Read `README.md` for the product contract, `ARCHITECTURE.md` for ownership and
-  state transitions, `ADVANCED.md` for composition patterns, and
-  `CONFIGURATION.md` for runtime settings.
+- Read `README.md` for the product contract.
+- Read `ARCHITECTURE.md` for ownership and state transitions.
+- Read `ADVANCED.md` for composition patterns.
+- Read `CONFIGURATION.md` for runtime settings.
 - Treat `include/nrvna/contract.hpp` and `include/nrvna/lifecycle.hpp` as the
   authoritative filesystem and daemon contracts.
 - Do not edit `third_party/llama.cpp` casually. Backend updates are isolated,

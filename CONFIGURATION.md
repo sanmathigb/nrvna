@@ -1,8 +1,8 @@
 # Configuration
 
-`nrvnad` reads model and runtime settings from environment variables. Flags
-take precedence when the same setting is available on the command line, such
-as `--workers`, `--mmproj`, and `--vocoder`.
+`nrvnad` reads model and runtime settings from environment variables. A command
+flag overrides the related variable. These flags include `--workers`,
+`--mmproj`, and `--vocoder`.
 
 Most users need only these:
 
@@ -14,14 +14,14 @@ Most users need only these:
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
 | `NRVNA_PREDICT` | `2048` | Maximum generated tokens |
 
-CPU inference is the default. A model name resolves under `./models` or
-`NRVNA_MODELS_DIR`; a full model path is also accepted. Matching projector and
-vocoder files beside the model are auto-detected.
+CPU inference is the default. `nrvnad` resolves model names under `./models` or
+`NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching
+projector and vocoder files beside the model.
 
 ## Generation
 
-GGUF metadata supplies sampling values when available. Otherwise nrvna uses
-the fallbacks below.
+GGUF metadata supplies sampling values when available. Otherwise, nrvna uses
+these fallback values.
 
 | Variable | Fallback | Purpose |
 | --- | --- | --- |
@@ -46,8 +46,8 @@ the fallbacks below.
 | `NRVNA_BATCH` | `2048` | Logical prompt batch size; TTS defaults to `8192` |
 | `NRVNA_UBATCH` | batch size | Physical batch size; lower it to reduce peak memory |
 
-Context is fresh for every job regardless of these values. Increasing
-`NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
+Every job receives a new context. These values do not change that rule.
+Increasing `NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
 
 ## Vision, speech, and media
 
@@ -76,8 +76,8 @@ Context is fresh for every job regardless of these values. Increasing
 
 ## Repository integrations
 
-These variables are used by repository helpers and applications. They are not
-inference settings.
+Repository helpers and applications use these variables. They do not change
+inference behavior.
 
 | Variable | Default | Used by |
 | --- | --- | --- |
@@ -90,8 +90,8 @@ inference settings.
 
 ### imgsrch
 
-Project configuration in `<project>/.imgsrch/config` accepts the same model
-keys. Environment variables take precedence over that file.
+`<project>/.imgsrch/config` accepts the same model keys. Environment variables
+override values in that file.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -113,6 +113,6 @@ keys. Environment variables take precedence over that file.
 | `BCKBRNR_ENGINE_DIR` | bundled engine directory | Directory containing `nrvnad`, `wrk`, and `flw` |
 | `BCKBRNR_TEXT_MODEL` | saved selection | Text-model path for tests and development launches |
 
-bckbrnr supplies conservative defaults for `NRVNA_GPU_LAYERS=0`,
+bckbrnr sets conservative defaults for `NRVNA_GPU_LAYERS=0`,
 `NRVNA_TEMP=0.3`, `NRVNA_PREDICT=1024`, `NRVNA_MAX_CTX=4096`, and
-`NRVNA_THINKING=0`. Values already present in the app environment win.
+`NRVNA_THINKING=0`. Existing environment values override these defaults.

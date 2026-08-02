@@ -9,8 +9,8 @@ Unix-like primitives for durable, asynchronous local inference.
 Submit work now. Run the model when compute is available. Read ordinary files
 later.
 
-**Experimental developer preview.** The filesystem and lifecycle contracts
-are tested; production behavior is not claimed.
+**Experimental developer preview.** Tests cover the filesystem and lifecycle
+contracts. nrvna does not claim production readiness.
 
 ```text
 wrk  ->  workspace  <->  nrvnad + model
@@ -33,7 +33,7 @@ cmake -S . -B build
 cmake --build build -j4 --target nrvnad wrk flw
 ```
 
-Then use any compatible instruct GGUF:
+Use any compatible instruct GGUF:
 
 ```bash
 MODEL=/path/to/model.gguf
@@ -50,14 +50,15 @@ first
 ```
 
 `wrk` creates the workspace and returns immediately. `nrvnad --drain` loads
-the model, processes the queued work, and exits at observed idle. The result
-remains under `$WS/output/$JOB/`; nothing needs to stay running.
+the model and processes the queued work. It exits when it observes an idle
+queue. The result remains under `$WS/output/$JOB/`. No process must stay open.
 
 <details>
 <summary>Need a small verified model?</summary>
 
-This downloads SmolLM2 1.7B Q4_K_M (about 1 GB, Apache-2.0) from an immutable
-Hugging Face revision and verifies its checksum:
+This command downloads SmolLM2 1.7B Q4_K_M from an immutable Hugging Face
+revision. The model is about 1 GB and uses the Apache-2.0 license. The command
+also verifies the checksum.
 
 ```bash
 mkdir -p models
@@ -87,11 +88,11 @@ stdin, files, JSON, and exit codes.
 
 ## Why
 
-I built nrvna on a 2017 Intel MacBook while caring for two young children. My
-time and compute both came in fragments. I wanted to leave work in a folder,
-bring a local model to it when the machine was available, and return to
-ordinary files later. Existing local tools centered a live chat or request.
-nrvna makes the work durable instead.
+I built nrvna on a 2017 Intel MacBook while caring for two young children. I
+had little uninterrupted time or compute. I wanted to leave work in a folder.
+A local model could process it when the machine was available. I could return
+to ordinary files later. Existing local tools depended on a live chat or
+request. nrvna makes the work durable instead.
 
 Local compute is finite and intermittent. Work should not disappear because
 the caller, model process, or terminal is gone.
@@ -100,11 +101,11 @@ Local model servers are useful for chat and interactive completion. nrvna is
 for work that should not depend on a live request or on the process waiting
 for it:
 
-- queue a batch before loading a model;
-- let specialized models take turns on constrained hardware;
-- survive terminal, caller, or daemon restarts;
-- inspect every input, result, and failure;
-- collect work from another script or agent session.
+- Queue a batch before you load a model.
+- Let specialized models take turns on constrained hardware.
+- Preserve work across terminal, caller, and daemon restarts.
+- Inspect each input, result, and failure.
+- Collect work from another script or agent session.
 
 The model process is temporary. The workspace is the durable record.
 
@@ -118,11 +119,11 @@ workspace/
 └── failed/        terminal failures and error.txt
 ```
 
-Submission, claims, and terminal publication use atomic filesystem renames.
-After a crash, the next daemon recovers abandoned jobs from `processing/`.
+Atomic filesystem renames publish, claim, and complete jobs. After a crash,
+the next daemon recovers abandoned jobs from `processing/`.
 
-Execution is at least once. Failures are preserved and terminal. Retry policy
-belongs to the caller.
+Execution is at least once. nrvna preserves terminal failures. The caller owns
+the retry policy.
 
 ## Fresh context
 
@@ -145,8 +146,8 @@ The workspace remembers; the model does not.
 | Speech to text | `--audio ... --stt` | `transcript.txt` |
 | Text to speech | `--tts` | `audio.wav` |
 
-Vision and speech models may require an `mmproj`; TTS may require a vocoder.
-Place matching files beside the model and `nrvnad` will auto-detect them.
+Vision and speech models can require an `mmproj`. TTS can require a vocoder.
+Place matching files beside the model. `nrvnad` detects them automatically.
 
 ## Give it to an agent
 
@@ -170,8 +171,8 @@ lineage, daemon lifecycle, artifacts, and recovery.
 - [bckbrnr](apps/bckbrnr/README.md) runs local prompt work from the macOS menu
   bar and writes answers back as files.
 
-The applications use `nrvnad`, `wrk`, and `flw` directly. They add product
-behavior, not another inference path.
+The applications call `nrvnad`, `wrk`, and `flw` directly. They add product
+behavior. They do not add another inference path.
 
 ## Boundaries
 
@@ -182,7 +183,7 @@ It does not assemble parent context, execute DAGs, choose models, parse
 documents, validate model output, or retry failures automatically.
 
 llama.cpp owns model inference. The calling application owns orchestration and
-product behavior. nrvna owns the durable local work between them.
+product behavior. nrvna keeps the local work durable between them.
 
 ## Documentation
 

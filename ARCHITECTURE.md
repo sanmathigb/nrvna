@@ -2,9 +2,9 @@
 
 ## Overview
 
-nrvna provides **durable local inference primitives**: a directory-based job
-queue for llama.cpp inference. Jobs are filesystem directories that move
-through states via atomic renames.
+nrvna provides durable local inference primitives. A workspace stores jobs in
+directories. Atomic renames move each job between states. llama.cpp performs
+the model inference.
 
 ## Directory Structure
 
@@ -22,16 +22,16 @@ WORKSPACE/
 
 | Component | File | Role |
 |-----------|------|------|
-| **Work** | `work.hpp/cpp` | Client API - submits jobs |
-| **Flow** | `flow.hpp/cpp` | Client API - queries job status/results |
-| **Server** | `server.hpp/cpp` | Orchestrates Scanner + Pool + Processor |
+| **Work** | `work.hpp/cpp` | Validates and submits jobs |
+| **Flow** | `flow.hpp/cpp` | Reads job status and results |
+| **Server** | `server.hpp/cpp` | Owns the scanner, pool, and processor |
 | **Scanner** | `scanner.hpp/cpp` | Finds jobs in `input/ready/` |
-| **Pool** | `pool.hpp/cpp` | Thread pool for workers |
-| **Processor** | `processor.hpp/cpp` | Routes jobs by type, manages Runners, moves jobs through states |
-| **Runner** | `runner.hpp/cpp` | Wraps llama.cpp for text, vision, embedding, and speech-to-text (STT) inference |
-| **TtsRunner** | `runner_tts.hpp/cpp` | Text-to-speech inference with OuteTTS + vocoder |
-| **Logger** | `logger.hpp/cpp` | Thread-safe logging to stderr |
-| **Contract** | `contract.hpp` | Single owner of the on-disk job contract: state dirs, artifact filenames, artifact rule, job-ID grammar, type.txt spellings |
+| **Pool** | `pool.hpp/cpp` | Runs worker threads |
+| **Processor** | `processor.hpp/cpp` | Routes and completes jobs |
+| **Runner** | `runner.hpp/cpp` | Runs text, vision, embedding, and speech-to-text inference |
+| **TtsRunner** | `runner_tts.hpp/cpp` | Runs OuteTTS and the vocoder |
+| **Logger** | `logger.hpp/cpp` | Writes thread-safe logs to stderr |
+| **Contract** | `contract.hpp` | Defines job states, IDs, types, and artifacts |
 
 ## Workflow: Job Submission (Client Side)
 
@@ -120,14 +120,17 @@ Read output/<job_id>/result.txt (or error.txt if failed)
 
 ## Daemon Lifecycle
 
-nrvnad owns its lifecycle as files in the workspace (the lifecycle contract,
-`include/nrvna/lifecycle.hpp`): `.nrvnad.lock` (flock = liveness truth),
-`.nrvnad.pid`, `.nrvnad.ready` (written after the model loads), `.nrvnad.info`
-(JSON: pid/model/workers/started_at). `nrvnad status` is the blessed reader
-(exit 0 ready / 2 starting / 1 not running); `nrvnad stop` the blessed stopper.
-`nrvnad <model> <ws> --drain` processes the queue until quiet and exits —
-run-to-done mode; if a daemon already owns the workspace, drain waits for it
-to finish the queue instead (same postcondition).
+`include/nrvna/lifecycle.hpp` defines the daemon lifecycle. The workspace can
+contain `.nrvnad.lock`, `.nrvnad.pid`, `.nrvnad.ready`, and `.nrvnad.info`.
+The lock records liveness. The ready file appears after the model loads. The
+info file contains the PID, model, workers, and start time as JSON.
+
+Use `nrvnad status` to read daemon state. It returns `0` for ready, `2` for
+starting, and `1` for not running. Use `nrvnad stop` for a graceful stop.
+
+`nrvnad <model> <ws> --drain` processes work until it observes an idle queue.
+It then exits. If another daemon owns the workspace, drain waits for that
+daemon to finish the queue.
 
 ## Inference Pipeline
 
@@ -135,32 +138,35 @@ to finish the queue instead (same postcondition).
 
 Based on llama.cpp `examples/simple/simple.cpp` and `tools/mtmd/mtmd-cli.cpp`.
 
-- Shared `llama_model` across all workers (thread-safe)
-- Per-worker `llama_context` created fresh for each job, freed after
-- Per-worker `mtmd_context` for vision (NOT thread-safe)
-- Vision encoding serialized via mutex (GGML shared compute graph state)
-- Chat template applied via `common_chat_templates` with Jinja (`use_jinja=true`); `NRVNA_CHAT_TEMPLATE_FILE` overrides (unreadable override fails startup)
-- Sampler chain: penalties → top_k → top_p → min_p → temp → dist
-- `stripThinkBlocks()` removes `<think>...</think>` from reasoning models
+- All workers share one thread-safe `llama_model`.
+- Each worker creates a new `llama_context` for each job.
+- Each worker owns one `mtmd_context`. This context is not thread-safe.
+- A mutex serializes vision encoding because GGML shares compute graph state.
+- `common_chat_templates` applies the Jinja chat template.
+- `NRVNA_CHAT_TEMPLATE_FILE` overrides the model template. An unreadable file
+  stops startup.
+- The sampler order is penalties, top-k, top-p, min-p, temperature, and
+  distribution.
+- `stripThinkBlocks()` removes `<think>...</think>` blocks.
 
 ### TTS (TtsRunner)
 
 Based on llama.cpp `tools/tts/tts.cpp`.
 
-- Shared TTS model + vocoder model across workers
-- OuteTTS v0.2/v0.3 auto-detected by vocabulary probing
-- Audio code generation with top_k=4 sampler
-- Code extraction via `<|N|>` token text parsing
-- Vocoder encodes codes → embeddings → ISTFT spectral conversion → 24kHz PCM
+- All workers share the TTS and vocoder models.
+- Vocabulary checks detect OuteTTS v0.2 or v0.3.
+- Audio code generation uses a top-k value of `4`.
+- The runner extracts codes from `<|N|>` token text.
+- The vocoder converts codes to embeddings, an ISTFT spectrum, and 24 kHz PCM.
 
 ### Embeddings (Runner::embed)
 
-- Creates context with `embeddings=true`, mean pooling
-- Returns float vector (dimension depends on model)
+- The runner creates a context with `embeddings=true` and mean pooling.
+- It returns a float vector. The model defines the vector dimension.
 
 ## Logging
 
-All log output goes to **stderr**. Stdout is reserved for job status lines.
+All logs go to stderr. Stdout contains machine-readable command output.
 
 ### Log Levels
 
@@ -198,18 +204,19 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 
 ## Key Design Decisions
 
-1. **Atomic renames** - Directory moves are atomic on POSIX filesystems, ensuring thread-safe state transitions without locks
-2. **Directory = State** - Job's location IS its state (no database needed)
-3. **Shared model, per-thread context** - llama.cpp model loaded once, each worker gets own inference context
-4. **Filesystem-based** - Survives process crashes, easy to inspect/debug
-5. **Stuck job recovery** - If `finalizeSuccess` fails, attempts `finalizeFailure` to prevent jobs stuck in `processing/`
+1. **Use atomic renames.** POSIX directory renames provide one winner without
+   a database lock.
+2. **Use the directory as state.** The job's location defines its state.
+3. **Share model weights.** Each worker uses its own inference context.
+4. **Keep state in files.** Jobs survive process failure and remain readable.
+5. **Complete every claim.** If `finalizeSuccess` fails, the processor calls
+   `finalizeFailure`.
 
 ## Environment Variables
 
-The canonical inventory is in [CONFIGURATION.md](CONFIGURATION.md). It
-includes runtime, sampling, multimodal, TTS, safety, logging, binary-discovery,
-and application integration settings. Keep defaults there instead of
-duplicating them in this implementation document.
+[CONFIGURATION.md](CONFIGURATION.md) contains the authoritative variable list.
+It covers runtime, sampling, media, safety, logging, discovery, and application
+settings. Do not copy defaults into this document.
 
 ## Thread Model
 

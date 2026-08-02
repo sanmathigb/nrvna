@@ -24,8 +24,8 @@ namespace nrvna {
 
 struct ModelInfo {
     bool        valid = false;
-    std::string desc;                 // llama_model_desc() — display only, not for policy
-    std::string arch;                 // general.architecture — "llama", "qwen2", "bert", etc.
+    std::string desc;                 // llama_model_desc() for display only
+    std::string arch;                 // general.architecture, such as llama or qwen2
     int         n_ctx_train = 0;      // training context length
     uint64_t    model_size_bytes = 0; // total parameter bytes
     bool        has_chat_template = false;
@@ -64,7 +64,7 @@ public:
     [[nodiscard]] EmbedResult embedVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
     [[nodiscard]] bool isMultimodal() const noexcept { return mtmd_ctx_ != nullptr; }
 
-    // Probe GGUF metadata without starting a server — loads model briefly, returns info
+    // Load the model briefly to read GGUF metadata without starting a server.
     [[nodiscard]] static ModelInfo probeModelInfo(const std::string& modelPath);
 
 private:
@@ -85,7 +85,7 @@ private:
     static std::string current_model_path_;
     static std::mutex model_mutex_;
 
-    // GGUF sampling defaults — resolved once at model load, used as fallbacks in env_*() calls.
+    // Resolve GGUF sampling defaults once. env_*() uses them as fallbacks.
     // If GGUF has no value, these hold the hardcoded defaults.
     static float gguf_temp_;
     static int   gguf_top_k_;

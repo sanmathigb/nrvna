@@ -19,7 +19,7 @@ func engineEnvVar(name string) string {
 }
 
 // doctor verifies the engine binaries and models are present and runnable.
-// It is the one place engine internals are named — that's its job.
+// This command can name engine internals because it diagnoses the engine.
 func cmdDoctor(project string) error {
 	if project != "" {
 		if err := requireProject(project); err != nil {

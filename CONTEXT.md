@@ -1,36 +1,63 @@
 # nrvna Domain Language
 
-Terms used consistently across code, docs, and reviews. If code and this
-file disagree, one of them has a bug.
+Use these terms in code, documentation, and reviews. A disagreement between
+the code and this file is a defect.
 
-- **Primitive** — one of the three commands: `nrvnad` (daemon), `wrk`
-  (submit), `flw` (collect). Small on purpose; everything else builds on top.
-- **Workspace** — a directory that is a complete, self-describing job queue.
-  Contains the five state directories. Owned by at most one running `nrvnad`.
-- **Job** — a directory. Its location is its state; its files are its data.
-  Never partially visible: staged in `input/writing/`, published by one
-  atomic rename.
-- **State** — which state directory a job lives in: Queued (`input/ready/`),
-  Running (`processing/`), Done (`output/`), Failed (`failed/`). Missing =
-  no directory anywhere.
-- **Claim** — the atomic rename `input/ready/<id>` → `processing/<id>`.
-  The only mechanism that assigns a job to a worker; POSIX guarantees one winner.
-- **Artifact** — the primary output file of a Done job. Exactly one per job,
-  resolved by priority: `result.txt` > `transcript.txt` > `audio.wav` >
-  `embedding.json`.
-- **Job contract** — the full on-disk vocabulary: state directories, artifact
-  filenames, the artifact rule, job-ID grammar, `type.txt` spellings. Single
-  owner: `include/nrvna/contract.hpp`. Non-C++ consumers cross the contract
-  via `wrk`/`flw` (`flw --json` carries `artifact_kind`/`artifact_path`),
-  never by touching the layout directly. bckbrnr follows this rule; imgsrch's
-  collection path still reads engine artifacts internally.
-- **Language policy** — below the CLI seam: C++17 only (the engine never gains
-  a second language). Above it: each surface uses its native language (Go for
-  portable CLI apps, Swift for macOS GUI, bash for glue), and every language
-  crosses into nrvna ONLY via the three binaries and the documented contracts —
-  no FFI, no bindings, no workspace-layout reading. Python is never a runtime
-  dependency of anything tracked.
-- **Lifecycle contract** — the daemon-management files (`.nrvnad.lock`,
-  `.nrvnad.pid`, `.nrvnad.ready`, `.nrvnad.info`). Deliberately NOT part of
-  the job contract. Single owner: nrvnad (`include/nrvna/lifecycle.hpp`);
-  `nrvnad status`/`stop` are the blessed readers, `--drain` the run-to-done mode.
+## Core Terms
+
+| Term | Meaning |
+| --- | --- |
+| **Primitive** | One nrvna command: `wrk`, `nrvnad`, or `flw`. |
+| **Workspace** | One directory that contains jobs and daemon state. One daemon can own it at a time. |
+| **Job** | One directory that contains an independent inference task. |
+| **State** | The job's current state directory. |
+| **Claim** | An atomic rename from `input/ready/<id>` to `processing/<id>`. |
+| **Artifact** | The primary output file from a successful job. |
+| **Job contract** | The public rules for job states, IDs, types, and artifacts. |
+| **Lifecycle contract** | The private rules for daemon status and control files. |
+
+## Job States
+
+| State | Directory | Meaning |
+| --- | --- | --- |
+| **Staging** | `input/writing/` | `wrk` is writing the job. Other processes cannot use it. |
+| **Queued** | `input/ready/` | The job is complete and waits for a worker. |
+| **Running** | `processing/` | A worker claimed the job. |
+| **Done** | `output/` | The job completed and contains an artifact. |
+| **Failed** | `failed/` | The job ended with `error.txt`. |
+| **Missing** | none | No state directory contains the job ID. |
+
+`wrk` publishes a staged job with one atomic rename. A worker claims a queued
+job with another atomic rename. The job's directory is its state.
+
+## Artifacts
+
+A successful job has one primary artifact. `flw` resolves it in this order:
+
+```text
+result.txt -> transcript.txt -> audio.wav -> embedding.json
+```
+
+`include/nrvna/contract.hpp` defines the job contract. Applications use `wrk`
+and `flw` instead of reading workspace directories. imgsrch still reads some
+engine artifacts inside its private collection path.
+
+## Language Boundary
+
+The engine uses C++17. Applications use their native language:
+
+- Go for portable command-line applications.
+- Swift for macOS applications.
+- Bash for small composition scripts.
+
+Applications cross the nrvna boundary through the three commands. Do not add
+an FFI, language binding, or second engine language. Tracked programs do not
+use Python as a runtime dependency.
+
+## Daemon Lifecycle
+
+`include/nrvna/lifecycle.hpp` defines the lifecycle contract. It covers
+`.nrvnad.lock`, `.nrvnad.pid`, `.nrvnad.ready`, and `.nrvnad.info`.
+
+Use `nrvnad status` and `nrvnad stop`. Do not read lifecycle files to determine
+daemon state. Use `--drain` when the daemon must process queued work and exit.

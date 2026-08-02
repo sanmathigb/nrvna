@@ -12,7 +12,7 @@ import (
 )
 
 // The blessed model set. Every entry is pinned to an exact repo revision and
-// SHA-256 — these are byte-identical to the files the pipeline was validated
+// These SHA-256 values identify the files used to validate the pipeline.
 // with. Sources are the original author/org repos (no redistribution).
 type modelSpec struct {
 	Name     string // local filename under the models home
@@ -49,7 +49,7 @@ func newDownloadClient(timeout time.Duration) *http.Client {
 var downloadClient = newDownloadClient(2 * time.Hour)
 
 // modelsHome is where setup installs models and where defaults resolve as a
-// fallback after ./models — one fixed, predictable place per user.
+// Use one fixed per-user location after the ./models fallback.
 func modelsHome() string {
 	if v := os.Getenv("IMGSRCH_MODELS_DIR"); v != "" {
 		return v

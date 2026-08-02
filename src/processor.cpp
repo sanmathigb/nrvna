@@ -144,7 +144,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             return ProcessResult::Failed;
         }
 
-        // TTS dispatches to its own runner — no text Runner needed
+        // TTS uses its own runner and does not need a text Runner.
         if (jobType == JobType::Tts) {
             if (vocoderPath_.empty()) {
                 auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
@@ -175,7 +175,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                     LOG_ERROR("Failed to finalize TTS job: " + jobId);
                     completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write audio to output directory")) {
-                        LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
+                        LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. Manual intervention is required.");
                     }
                     return ProcessResult::SystemError;
                 }
@@ -188,7 +188,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             }
         }
 
-        // Text, embed, or vision — these all need the text Runner
+        // Text, embedding, and vision jobs use the text Runner.
         Runner* runner = getRunnerForWorker(workerId);
         if (!runner) {
             auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
@@ -211,7 +211,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                     LOG_ERROR("Failed to finalize STT job: " + jobId);
                     completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write transcript to output directory")) {
-                        LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
+                        LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. Manual intervention is required.");
                     }
                     return ProcessResult::SystemError;
                 }
@@ -239,7 +239,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                     LOG_ERROR("Failed to finalize embedding job: " + jobId);
                     completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                     if (!finalizeFailure(jobId, "Failed to write embedding to output directory")) {
-                        LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
+                        LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. Manual intervention is required.");
                     }
                     return ProcessResult::SystemError;
                 }
@@ -270,7 +270,7 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 LOG_ERROR("Failed to finalize successful job: " + jobId);
                 completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 if (!finalizeFailure(jobId, "Failed to write result to output directory")) {
-                    LOG_ERROR("STUCK JOB: " + jobId + " trapped in processing/ — manual intervention required");
+                    LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. Manual intervention is required.");
                 }
                 return ProcessResult::SystemError;
             }
@@ -476,7 +476,7 @@ std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) con
 
         for (const auto& entry : std::filesystem::directory_iterator(imagesDir)) {
             // wrk copies media into the job (self-contained by contract), so a
-            // symlink here is foreign — reject rather than read through it.
+            // Reject a foreign symlink instead of reading through it.
             if (!entry.is_symlink() && entry.is_regular_file()) {
                 imagePaths.push_back(entry.path());
             }

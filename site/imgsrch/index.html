@@ -169,10 +169,10 @@
     <div class="wrap">
       <div class="eyebrow">why</div>
       <h2>The useful screenshots were already there</h2>
-      <p>My iPhone screenshots kept accumulating, but giving hundreds of
-      images to an agent was impractical and wasteful. imgsrch processes them
-      locally once and retrieves a small relevant set, so a person or agent
-      opens only the evidence needed for the task.</p>
+      <p>My iPhone screenshots kept accumulating. Giving hundreds of images to
+      an agent was not practical. imgsrch processes them locally once. It
+      returns a small relevant set. A person or agent opens only the evidence
+      needed for the task.</p>
     </div>
   </section>
 
@@ -187,7 +187,7 @@
       <ul class="cmds">
         <li><span class="name">setup</span><span class="desc">Download the three pinned models: 3.4 GB, checksum-verified, once</span></li>
         <li><span class="name">init</span><span class="desc">Create a project</span></li>
-        <li><span class="name">index</span><span class="desc">Index as you go: new images queue, already-indexed are skipped</span></li>
+        <li><span class="name">index</span><span class="desc">Queue new images and skip indexed content</span></li>
         <li><span class="name">status</span><span class="desc">Read-only progress: what finished, what failed and why</span></li>
         <li><span class="name">search</span><span class="desc">Natural language in, ranked files with matched text out</span></li>
       </ul>
@@ -201,8 +201,8 @@
       <h2>How search works</h2>
       <div class="code diagram"><pre>image ─► caption + OCR ─► index
 query ─► dense + BM25 ─► RRF</pre></div>
-      <p class="quiet">RRF is the default because it measured better on a
-      labeled hard set. <code>imgsrch eval</code> keeps the claim checkable.</p>
+      <p class="quiet">RRF is the default. It performed better on a labeled
+      hard set. <code>imgsrch eval</code> makes this result repeatable.</p>
     </div>
   </section>
 
@@ -246,14 +246,14 @@ query ─► dense + BM25 ─► RRF</pre></div>
         <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-x86_64.tar.gz">imgsrch-darwin-x86_64.tar.gz</a><span class="plat">macOS 13.3+, Intel</span></li>
         <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-linux-x86_64.tar.gz">imgsrch-linux-x86_64.tar.gz</a><span class="plat">Linux x86-64, AVX2</span></li>
       </ul>
-      <p class="quiet">Everything is bundled except the models. CPU-first, no
-      GPU required. SHA-256 checksums ship next to each archive. macOS builds
-      are unsigned; the first run may need approval in System Settings →
-      Privacy &amp; Security.</p>
-      <p class="quiet">imgsrch is pre-beta. It does one thing: search your
-      screenshots. It's early. If something breaks,
+      <p class="quiet">The archive includes everything except the models. CPU
+      inference is the default. A GPU is not required. Each archive has a
+      SHA-256 checksum. macOS builds are unsigned. The first run can require
+      approval in System Settings → Privacy &amp; Security.</p>
+      <p class="quiet">imgsrch is pre-beta. It searches your screenshots. If
+      something breaks,
       <a href="https://github.com/sanmathigb/nrvna/issues">open an issue</a>;
-      every report gets read.</p>
+      I read every report.</p>
     </div>
   </section>
 </main>

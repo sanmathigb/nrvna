@@ -81,7 +81,7 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
                     break;
                 }
                 case contract::ArtifactKind::Audio:
-                    // Audio output — return absolute path as content
+                    // Return the absolute audio path instead of binary content.
                     content = std::filesystem::absolute(artifact->path).string();
                     break;
                 case contract::ArtifactKind::Embedding: {

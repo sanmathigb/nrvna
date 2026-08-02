@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>bckbrnr — local prompt work from the menu bar</title>
+<title>bckbrnr | local prompt work from the menu bar</title>
 <meta name="description" content="A macOS menu-bar app. Type a prompt, walk away, pick up the answer as a file. Local models, no cloud.">
-<meta property="og:title" content="bckbrnr — local prompt work from the menu bar">
+<meta property="og:title" content="bckbrnr | local prompt work from the menu bar">
 <meta property="og:description" content="A macOS menu-bar app. Type a prompt, walk away, pick up the answer as a file. Local models, no cloud.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
@@ -172,9 +172,9 @@
     <div class="wrap hero-grid">
       <div>
         <h1>Type a prompt. Walk away. The answer is a file.</h1>
-        <p>A macOS menu-bar app for local prompt work. Pick a GGUF model,
-        press Start, and every answer lands in a folder — even if you
-        weren't around when it finished.</p>
+        <p>A macOS menu-bar app for local prompt work. Choose a GGUF model and
+        press Start. The app writes every answer to a folder. You do not need
+        to stay while the model runs.</p>
       </div>
       <div class="popover" role="img" aria-label="The bckbrnr menu-bar popover: a prompt field, the chosen model, the workspace folder, and Stop, Help, and Quit controls.">
         <div class="pop-head">
@@ -215,9 +215,9 @@
       <div class="eyebrow">~/the-contract</div>
       <h2>Durable in both directions</h2>
       <ul class="contract">
-        <li><b>Answers are files</b> <span>— every completed prompt lands in <code>~/bckbrnr/text/response/</code>, named after what you asked</span></li>
-        <li><b>Failures are files too</b> <span>— a readable <code>.error.txt</code> beside where the answer would have been, not a log line that scrolled away</span></li>
-        <li><b>Nothing is lost to timing</b> <span>— answers that finished while the app was closed surface the next time it opens</span></li>
+        <li><b>Answers are files</b> <span>Each answer goes to <code>~/bckbrnr/text/response/</code>.</span></li>
+        <li><b>Failures are files</b> <span>Each failure creates a readable <code>.error.txt</code>.</span></li>
+        <li><b>The app recovers answers</b> <span>It shows completed answers after it opens again.</span></li>
       </ul>
       <p class="quiet" style="margin-top:14px">No chat history, no session, no
       cloud. The folder is the record.</p>
@@ -231,7 +231,7 @@
       <p>Download <code>bckbrnr-darwin-arm64.zip</code> for Apple Silicon or
       <code>bckbrnr-darwin-x86_64.zip</code> for Intel from the
       <a href="https://github.com/sanmathigb/nrvna/releases/latest">latest release</a>.
-      Move the app to Applications, then right-click it and choose Open once.</p>
+      Move the app to Applications. Right-click it and choose Open once.</p>
       <p class="quiet">bckbrnr requires macOS 13.3+ and a local instruct GGUF.
       It is ad-hoc signed but not notarized. The app bundles the three nrvna
       binaries; the model is the only separate download.</p>
@@ -243,7 +243,7 @@
   <div class="wrap">
     <div class="credit">
       <span class="orb" aria-hidden="true"></span>
-      <span>built with <a href="../">nrvna</a> — durable local inference primitives. The engine is three binaries and a folder.</span>
+      <span>Built with <a href="../">nrvna</a>. The engine is three binaries and a folder.</span>
     </div>
     <div class="footlinks">
       <span>MIT License</span>

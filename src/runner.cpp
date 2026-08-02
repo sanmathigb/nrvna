@@ -27,7 +27,7 @@ std::mutex Runner::model_mutex_;
 
 common_chat_templates* Runner::chat_templates_ = nullptr;
 
-// GGUF sampling defaults — hardcoded fallbacks until model is loaded
+// Use these sampling fallbacks until the GGUF model loads.
 float Runner::gguf_temp_           = 0.8f;
 int   Runner::gguf_top_k_          = 40;
 float Runner::gguf_top_p_          = 0.9f;
@@ -78,9 +78,8 @@ struct LlamaBatchOwner {
     ~LlamaBatchOwner() { llama_batch_free(value); }
 };
 
-// Strip <think>...</think> blocks from reasoning models (DeepSeek-R1, QwQ, Qwen3, etc.)
-// Handles both closed (<think>...</think>) and unclosed (<think>... to end) blocks —
-// unclosed blocks occur when the model exhausts n_predict tokens while still reasoning.
+// Remove closed and unclosed <think> blocks from reasoning model output.
+// A block can remain open when the model reaches n_predict during reasoning.
 static std::string trimWhitespace(const std::string& text) {
     size_t start = text.find_first_not_of(" \t\n\r");
     if (start == std::string::npos) {
@@ -234,7 +233,7 @@ ModelInfo Runner::probeModelInfo(const std::string& modelPath) {
     ggml_backend_load_all();
 
     llama_model_params params = llama_model_default_params();
-    params.n_gpu_layers = 0;  // CPU only for probing — fast, no GPU contention
+    params.n_gpu_layers = 0;  // Use CPU for a small probe without GPU contention.
     restrictModelToCpu(params);
 
     llama_model* model = llama_model_load_from_file(modelPath.c_str(), params);
@@ -284,7 +283,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
             shared_model_ = std::shared_ptr<llama_model>(model, llama_model_free);
             current_model_path_ = modelPath;
 
-            // Resolve GGUF sampling defaults once — log only when model provides a value
+            // Resolve GGUF sampling defaults once. Log values from the model.
             auto resolveGgufFloat = [&](const char* key, float hardcoded, float& out) {
                 float v = readModelFloatMeta(model, key, -1.0f);
                 if (v >= 0.0f) {
@@ -312,9 +311,9 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 
             LOG_INFO("Model loaded successfully");
 
-            // Initialize chat templates (auto-detects Jinja vs legacy).
-            // NRVNA_CHAT_TEMPLATE_FILE overrides the GGUF-embedded template — needed
-            // for models like TranslateGemma whose strict template rejects plain-string content.
+            // Initialize the Jinja or legacy chat template.
+            // NRVNA_CHAT_TEMPLATE_FILE overrides the GGUF template. Some models
+            // reject plain string content without this override.
             std::string tmpl_override;
             if (const char* path = std::getenv("NRVNA_CHAT_TEMPLATE_FILE")) {
                 std::ifstream f(path);
@@ -372,7 +371,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 }
 
 Runner::~Runner() {
-    // chat_templates_ is static/shared — freed on model replacement, not per-instance
+    // chat_templates_ is shared. Free it only when the model changes.
 }
 
 Runner::SamplingConfig Runner::buildSamplingConfig() const {
@@ -519,9 +518,9 @@ EmbedResult Runner::embed(const std::string& text) {
         int n_embd = llama_model_n_embd_out(shared_model_.get());
         std::vector<float> embedding(emb, emb + n_embd);
 
-        // L2 normalize — upstream does this in common_embd_normalize(, , , 2)
-        // Without it, stored vectors aren't unit length, forcing every consumer
-        // to normalize at read time and breaking dot-product / vector DB assumptions.
+        // Apply the same L2 normalization as common_embd_normalize(, , , 2).
+        // Stored vectors must have unit length. This supports direct dot-product
+        // comparison and avoids normalization in each reader.
         double norm = 0.0;
         for (float v : embedding) { norm += v * v; }
         norm = std::sqrt(norm);
@@ -642,7 +641,7 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
         std::vector<float> embedding(emb, emb + n_embd);
         llama_free(ctx);
 
-        // L2 normalize — same as embed(), matches upstream common_embd_normalize(, , , 2)
+        // Match embed() and upstream common_embd_normalize(, , , 2).
         double norm = 0.0;
         for (float v : embedding) { norm += v * v; }
         norm = std::sqrt(norm);

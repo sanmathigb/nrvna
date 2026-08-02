@@ -1,6 +1,6 @@
 #!/bin/bash
 # Courtesy wrapper over nrvnad's own lifecycle interface.
-# The daemon owns the truth; this file just launches and delegates.
+# The daemon owns state. This file starts it and sends control commands.
 
 set -euo pipefail
 

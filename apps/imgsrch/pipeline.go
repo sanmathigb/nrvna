@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Worker configurations — the exact validated settings from the bash spec.
+// Use the worker settings validated by the original Bash specification.
 // imgsrch's MVP keeps inference on CPU for predictable portability.
 func captionEnv() map[string]string {
 	return map[string]string{
@@ -511,7 +511,7 @@ func readProgress(project string) (progress, error) {
 
 // writeCombined merges caption + OCR into the embedding source document.
 // Caption is whitespace-collapsed and capped at 900 characters on a word boundary
-// (verbose captions dilute embeddings — proven by A/B in the spec's history).
+// Long captions diluted embeddings in the recorded comparison.
 func writeCombined(capFile, ocrFile, outFile string) error {
 	capData, err := os.ReadFile(capFile)
 	if err != nil {

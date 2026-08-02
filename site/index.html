@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nrvna — durable local inference primitives</title>
+<title>nrvna | durable local inference primitives</title>
 <meta name="description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
-<meta property="og:title" content="nrvna — durable local inference primitives">
+<meta property="og:title" content="nrvna | durable local inference primitives">
 <meta property="og:description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
@@ -79,7 +79,7 @@
   }
   .hero p code { color: var(--ink); }
 
-  /* terminals — the dark objects on the page, one per moment */
+  /* Dark terminal blocks show the three times in the job lifecycle. */
   .termstack {
     display: grid;
     gap: 14px;
@@ -207,8 +207,8 @@
   <div class="hero">
     <div class="wrap">
       <h1>With nrvna, models get <span class="bin">wrk</span>.<br>You get <span class="bin">flw</span>.</h1>
-      <p>Unix-like primitives for durable, asynchronous local inference. <code>nrvnad</code> runs models,
-      <code>wrk</code> submits jobs, <code>flw</code> collects results.
+      <p>Unix-like primitives for durable, asynchronous local inference. <code>nrvnad</code> runs a model.
+      <code>wrk</code> submits jobs. <code>flw</code> collects results.
       The filesystem is the queue.</p>
 
       <div class="termstack" role="img" aria-label="Three terminal windows: work is submitted before anything runs, a model is started later, and the answer is collected by job ID.">
@@ -218,19 +218,19 @@
 <span class="o">00001783014028941539_78592_000000</span></pre>
         </div>
         <div class="terminal">
-          <div class="term-title">07:30 — bring a model to the queue</div>
+          <div class="term-title">07:30 | bring a model to the queue</div>
 <pre><span class="p">$</span> nrvnad smollm2 ~/ws
 <span class="o">RUNNING</span></pre>
         </div>
         <div class="terminal">
-          <div class="term-title">07:32 — the next morning</div>
+          <div class="term-title">07:32 | the next morning</div>
 <pre><span class="p">$</span> flw ~/ws 00001783014028941539_78592_000000
 <span class="o">A KV cache is why the model doesn't re-read…</span></pre>
         </div>
       </div>
       <p class="caption">Submit now. Start later. Collect whenever.</p>
-      <p class="quiet">Experimental developer preview. The filesystem and
-      lifecycle contracts are tested; production behavior is not claimed.</p>
+      <p class="quiet">Experimental developer preview. Tests cover the
+      filesystem and lifecycle contracts. nrvna does not claim production readiness.</p>
     </div>
   </div>
 
@@ -239,9 +239,9 @@
       <div class="eyebrow">~/why</div>
       <h2>Built for interrupted time and finite machines</h2>
       <p>I built nrvna on a 2017 Intel MacBook while caring for two young
-      children. My time and compute both came in fragments. I wanted to leave
-      work in a folder, bring a local model to it when the machine was
-      available, and return to ordinary files later.</p>
+      children. I had little uninterrupted time or compute. I wanted to leave
+      work in a folder. A local model could process it when the machine was
+      available. I could return to ordinary files later.</p>
       <p class="quiet">Local compute is finite and intermittent. Work should
       not disappear because the caller, model process, or terminal is gone.</p>
     </div>
@@ -252,12 +252,12 @@
       <div class="eyebrow">~/primitives</div>
       <h2>Three binaries</h2>
       <ul class="prims">
-        <li><span class="name">nrvnad</span><span class="desc">Load a model, watch a workspace, process jobs</span></li>
-        <li><span class="name">wrk</span><span class="desc">Submit work, get back a job ID immediately</span></li>
-        <li><span class="name">flw</span><span class="desc">Inspect a workspace, or collect a result by job ID</span></li>
+        <li><span class="name">nrvnad</span><span class="desc">Loads one model and processes one workspace</span></li>
+        <li><span class="name">wrk</span><span class="desc">Submits one job and returns its ID</span></li>
+        <li><span class="name">flw</span><span class="desc">Reads workspace status and job results</span></li>
       </ul>
-      <p class="quiet">That's the entire API. Everything else is composition — text,
-      vision, embeddings, transcription, and speech, selected per job.</p>
+      <p class="quiet">That is the complete API. Compose text, vision,
+      embedding, transcription, and speech jobs with files and exit codes.</p>
     </div>
   </section>
 
@@ -274,7 +274,7 @@
       dependency beyond the binaries and the models. Every job runs in a fresh
       context: bounded input, no session drift, inspectable output.</p>
       <p class="quiet">Jobs survive daemon restarts, closed terminals, and sleeping
-      laptops. Results are plain files — <code>cat</code> them, <code>grep</code>
+      laptops. Results are plain files. <code>cat</code> them, <code>grep</code>
       them, pipe them into the next job.</p>
     </div>
   </section>
@@ -284,9 +284,9 @@
       <div class="eyebrow">~/where-it-fits</div>
       <h2>Bigger than one prompt, smaller than a framework</h2>
       <ul class="nots">
-        <li><b>Not a chat app</b> <span>— async jobs, not conversations</span></li>
-        <li><b>Not an agent framework</b> <span>— primitives you build on</span></li>
-        <li><b>Not a model runtime</b> <span>— llama.cpp runs the model; nrvna adds jobs, workspaces, and composition</span></li>
+        <li><b>Not a chat app</b> <span>Async jobs, not conversations</span></li>
+        <li><b>Not an agent framework</b> <span>Primitives that applications use</span></li>
+        <li><b>Not a model runtime</b> <span>llama.cpp runs the model. nrvna adds jobs, workspaces, and composition.</span></li>
       </ul>
     </div>
   </section>

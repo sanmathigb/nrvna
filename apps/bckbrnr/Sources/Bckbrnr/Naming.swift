@@ -1,7 +1,7 @@
 import Foundation
 
 /// Turns a prompt into a friendly, collision-safe filename stem.
-/// The user never names anything — bckbrnr derives it from what they typed.
+/// bckbrnr derives the file name from the prompt.
 enum Naming {
     /// First non-empty line, cleaned of path-illegal characters,
     /// whitespace-collapsed, capped at 40 characters. Empty → "prompt".
@@ -30,14 +30,14 @@ enum Naming {
             }
             cleaned = cleaned.trimmingCharacters(in: .whitespaces)
         }
-        // A leading dot would make the answer a hidden file in response/ —
+        // A leading dot would hide the answer file in response/.
         // delivered but invisible in Finder.
         while cleaned.hasPrefix(".") { cleaned.removeFirst() }
         cleaned = cleaned.trimmingCharacters(in: .whitespaces)
         return cleaned.isEmpty ? "prompt" : cleaned
     }
 
-    /// A stem unique within `dir` for `ext`, appending -2, -3… if taken.
+    /// Return a unique stem. Add -2, -3, and later numbers when needed.
     /// Never overwrites an existing file (durability).
     static func uniqueStem(_ base: String, in dir: URL, ext: String) -> String {
         let fm = FileManager.default

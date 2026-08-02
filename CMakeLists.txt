@@ -78,7 +78,7 @@ foreach(_cli nrvnad wrk flw)
 endforeach()
 
 if(BUILD_TESTING)
-    # Contract unit test — header-only include, deliberately no llama linkage
+    # This contract test uses headers and does not link llama.cpp.
     add_executable(contract_test tests/contract_test.cpp)
     target_include_directories(contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

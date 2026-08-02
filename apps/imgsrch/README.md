@@ -6,9 +6,9 @@
 
 Search local screenshots and images by what they say and what they mean.
 
-`imgsrch` processes each image once with local models. It generates a caption
-of what the image shows and OCR of what it says, then searches both by meaning
-and keyword.
+`imgsrch` processes each image once with local models. It describes what the
+image shows. It also uses OCR to extract visible text. Search uses both meaning
+and keywords.
 
 ```text
 images  ->  local index  ->  "that diagram about KV cache"  ->  originals
@@ -22,9 +22,9 @@ for a person or agent to inspect.
 
 ## Why
 
-My iPhone screenshots kept accumulating. The useful ones were there, but
-giving hundreds of images to an agent was impractical and wasteful. imgsrch
-processes them locally once and retrieves a small relevant set, so a person or
+My iPhone screenshots kept accumulating. I knew that useful images were in the
+collection. Giving hundreds of images to an agent was not practical. imgsrch
+processes them locally once. It retrieves a small relevant set. A person or
 agent opens only the evidence needed for the task.
 
 ## Install
@@ -47,13 +47,13 @@ cd imgsrch-darwin-arm64
 ./imgsrch doctor
 ```
 
-`setup` downloads three logical models for captioning, OCR, and embedding.
-They occupy about 3.4 GB as five checksum-verified GGUF files, including two
-vision projectors. No account or API key is required.
+`setup` downloads three models for captioning, OCR, and embedding. The models
+use five GGUF files, including two vision projectors. They use about 3.4 GB.
+`setup` verifies each checksum. You do not need an account or API key.
 
-The archives support macOS 13.3+ on Apple Silicon and Intel, and x86-64 Linux
-with AVX2 (Ubuntu 22.04 compatible). CPU inference is the default. The macOS
-developer previews are not notarized; first launch may require approval under
+The archives support macOS 13.3+ on Apple Silicon and Intel. They also support
+x86-64 Linux with AVX2 and Ubuntu 22.04. CPU inference is the default. The
+macOS previews are not notarized. The first launch can require approval under
 **System Settings → Privacy & Security**.
 
 ## Search your images
@@ -66,25 +66,25 @@ Create a project, import a folder, and search:
 ./imgsrch search shots "diagram explaining KV cache"
 ```
 
-The current CLI accepts image files, so the shell glob imports files directly
-inside that folder; it does not recurse into subdirectories.
+The current CLI accepts image files. The shell glob imports files directly
+from that folder. It does not search subdirectories.
 
-`index` copies supported images into `shots/images/` and returns after queuing
-them. PNG, JPEG, and GIF are supported. Originals are left untouched.
-Captioning and OCR continue in the background, and each model exits after
-draining its work. Re-run `index` as images accumulate; already indexed
-content is skipped.
+`index` copies supported images into `shots/images/`. It returns after it
+queues them. imgsrch supports PNG, JPEG, and GIF files. It does not change the
+originals. Captioning and OCR continue in the background. Each model exits
+after it drains its work. Run `index` again when you add images. imgsrch skips
+content that it already indexed.
 
-Before copying, imgsrch validates each image header and decoded dimensions.
-Exact content duplicates are skipped even when their filenames differ. If two
-different images share a filename, both are retained and the later copy gets a
-deterministic hash suffix. Images above 64 million decoded pixels are rejected
-before model loading to avoid unbounded memory expansion; make a smaller copy
-for indexing while keeping the original untouched.
+Before copying, imgsrch validates the image header and decoded dimensions. It
+skips exact duplicates, even when their file names differ. It keeps different
+images that share a file name. The later copy receives a stable hash suffix.
+imgsrch rejects images above 64 million decoded pixels before model loading.
+This limit prevents excessive memory use. Make a smaller copy for indexing.
+Keep the original unchanged.
 
-Initial indexing is compute-heavy. A high-resolution phone screenshot may
-take several minutes on an older CPU; completed images do not need to be
-processed again.
+Initial indexing uses significant compute. A high-resolution phone screenshot
+can take several minutes on an older CPU. imgsrch does not process completed
+images again.
 
 Search prints ranked paths and the evidence behind each match:
 
@@ -98,14 +98,14 @@ Search prints ranked paths and the evidence behind each match:
    comparison …
 ```
 
-It also writes `shots/search-results.md` with inline, clickable previews of
-the original images. Search requires write access to the project because it
-submits a query-embedding job and updates this report.
+It also writes `shots/search-results.md`. The report contains inline links to
+the original images. Search needs project write access. It submits a query
+embedding job and updates the report.
 
 ## Give it to an agent
 
-For a new installation, paste this into Codex CLI, Claude Code, OpenCode, Pi,
-Hermes, OpenClaw, or another agent with shell access:
+For a new installation, use an agent with shell access. Supported examples
+include Codex CLI, Claude Code, OpenCode, Pi, Hermes, and OpenClaw. Paste:
 
 ```text
 Set up imgsrch for me by following
@@ -126,7 +126,7 @@ project-relative filename for every source.
 ```
 
 All indexing and search inference stays on this machine. A remote agent sees
-only command output and any originals you explicitly allow it to open.
+command output. It sees an original only when you permit access.
 
 ## Check progress
 
@@ -134,8 +134,8 @@ only command output and any originals you explicitly allow it to open.
 ./imgsrch status shots
 ```
 
-`status` is read-only; it is not required to advance indexing. If setup or
-model discovery fails, run:
+`status` is read-only. Indexing does not depend on it. Run this command when
+setup or model discovery fails:
 
 ```bash
 ./imgsrch doctor shots
@@ -154,10 +154,9 @@ model discovery fails, run:
 | `add <project> <images...>` | Stage files without starting indexing. Most people and agents should use `index` instead. |
 | `eval <project> <hardset.json>` | Maintainer workflow for labeled retrieval experiments, not ordinary search. |
 
-imgsrch does not currently expose `--json`. Agents should consume the concise
-terminal results and the richer `search-results.md` report. The underlying
-nrvna commands have their own JSON contract; do not pass those flags through
-to imgsrch.
+imgsrch does not support `--json`. Agents should use the concise terminal
+results and the detailed `search-results.md` report. The nrvna commands have a
+separate JSON contract. Do not pass their flags to imgsrch.
 
 ## How search works
 
@@ -169,8 +168,8 @@ search: query ──► embedding ─► dense ranking ─┐
         query ──► BM25 ──────► keyword ranking┴─► RRF ─► results
 ```
 
-RRF (reciprocal rank fusion) combines the dense and keyword ranks without
-mixing their incomparable raw scores.
+RRF means reciprocal rank fusion. It combines dense and keyword ranks. It does
+not mix their different raw scores.
 
 The defaults are measured decisions:
 
@@ -182,18 +181,17 @@ The defaults are measured decisions:
   `search_query:`.
 - Ties break on path, so repeated searches are stable.
 
-These choices are current defaults, not universal retrieval claims.
+These choices are current defaults. They are not universal retrieval claims.
 
 ## What to expect
 
-imgsrch works best on screenshots, slides, diagrams, and images whose meaning
-can be recovered from visible text or a short caption.
+imgsrch works best on screenshots, slides, and diagrams. It also works on
+images that visible text or a short caption can describe.
 
-It is less reliable for tiny or blurry text, purely visual similarity, and
-queries that require metadata such as dates or source applications. The
-current CLI imports a non-recursive list of files and has no watch mode.
-Retrieval quality has been tested on a small personal collection, not yet at
-large public scale.
+It is less reliable with tiny text, blurry text, or purely visual similarity.
+It does not know dates or source applications unless the image shows them. The
+CLI imports a non-recursive file list. It has no watch mode. Tests use a small
+personal collection. They do not show quality at large public scale.
 
 ## Inspect and evaluate
 
@@ -206,8 +204,8 @@ shots/.imgsrch/
 └── workspaces/          durable nrvna jobs
 ```
 
-If a result surprises you, its caption, OCR, embedding, and component ranks
-are inspectable.
+If a result surprises you, inspect its caption, OCR, embedding, and component
+ranks.
 
 Maintainers can compare scorers against a labeled set:
 
@@ -223,8 +221,8 @@ isolate either retrieval signal.
 Model, prompt, and engine-path environment overrides are listed in the
 [nrvna configuration reference](https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md).
 
-If something breaks or a real search fails, please
-[open an issue](https://github.com/sanmathigb/nrvna/issues). Those examples
-are more useful than feature requests based only on imagined workflows.
+If something breaks, [open an issue](https://github.com/sanmathigb/nrvna/issues).
+Include a failed real search when possible. This evidence is more useful than
+a request based on an imagined workflow.
 
 MIT licensed. Model licenses remain model-specific.
