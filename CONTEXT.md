@@ -25,7 +25,7 @@ the code and this file is a defect.
 | **Running** | `processing/` | A worker claimed the job. |
 | **Done** | `output/` | The job completed and contains an artifact. |
 | **Failed** | `failed/` | The job ended with `error.txt`. |
-| **Missing** | none | No state directory contains the job ID. |
+| **Missing** | none | No queued, running, done, or failed directory contains the job ID. |
 
 `wrk` publishes a staged job with one atomic rename. A worker claims a queued
 job with another atomic rename. The job's directory is its state.

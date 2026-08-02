@@ -69,14 +69,17 @@ The complete local state is:
 └── .ws/               durable nrvna jobs
 ```
 
-- Answers use `response/<prompt>.txt`.
-- Failures use `response/<prompt>.error.txt`.
+- Answers use `response/<prompt-stem>.txt`.
+- Failures use `response/<prompt-stem>.error.txt`.
+- The stem comes from the first non-empty prompt line. It is cleaned and capped
+  at 40 characters. A numeric suffix prevents collisions.
 - Prompts become durable before earlier answers finish.
 - The app recovers completed answers when it opens.
 - The app resumes unfinished jobs when you press **Start**.
 
-You can change the answer folder while the utility is stopped. The app does
-not upload or delete your model, prompts, jobs, or answers.
+You can change the utility root while the utility is stopped. This changes the
+folders for prompts, jobs, and answers. The app does not upload, move, or delete
+your model, prompts, jobs, or answers.
 
 ## Human app, reusable primitives
 
@@ -115,6 +118,6 @@ Engine, model, and runtime environment overrides are listed in the
 bckbrnr processes independent text prompts. It does not provide chat history,
 token streaming, vision, or tool use. It requires macOS 13.3+ and a local
 instruct GGUF. Tests cover Apple Silicon and Intel archives. Distribution is
-not signed or notarized.
+ad-hoc signed but not Developer ID signed or notarized.
 
 MIT licensed. Model licenses remain model-specific.

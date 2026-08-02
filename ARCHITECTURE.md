@@ -122,8 +122,9 @@ Read output/<job_id>/result.txt (or error.txt if failed)
 
 `include/nrvna/lifecycle.hpp` defines the daemon lifecycle. The workspace can
 contain `.nrvnad.lock`, `.nrvnad.pid`, `.nrvnad.ready`, and `.nrvnad.info`.
-The lock records liveness. The ready file appears after the model loads. The
-info file contains the PID, model, workers, and start time as JSON.
+A held lock indicates liveness. The `.nrvnad.lock` file can remain after exit.
+The ready file appears after the model loads. The info file contains the PID,
+model, workers, and start time as JSON.
 
 Use `nrvnad status` to read daemon state. It returns `0` for ready, `2` for
 starting, and `1` for not running. Use `nrvnad stop` for a graceful stop.

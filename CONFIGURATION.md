@@ -76,8 +76,8 @@ Increasing `NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
 
 ## Repository integrations
 
-Repository helpers and applications use these variables. They do not change
-inference behavior.
+Repository helpers and applications use these variables. Applications can set
+runtime defaults. They use the same nrvna inference path.
 
 | Variable | Default | Used by |
 | --- | --- | --- |

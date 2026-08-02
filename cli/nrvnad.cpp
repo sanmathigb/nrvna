@@ -475,7 +475,7 @@ int main(int argc, char * argv[]) {
                 return c.failed > before.failed ? 1 : 0;
             }
             if (!lifecycle::daemonPresent(std::filesystem::path(workspace))) {
-                std::cerr << "nrvnad: daemon exited with queued work. This process will drain it.\n";
+                std::cerr << "nrvnad: daemon exited with queued work. This process will try to drain it.\n";
                 delegated = false;  // fall through to normal startup + drain
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));

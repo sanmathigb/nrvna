@@ -141,7 +141,7 @@ int main(int argc, char* argv[]) {
     if (readStdin) {
         prompt.assign((std::istreambuf_iterator<char>(std::cin)),
                        std::istreambuf_iterator<char>());
-        // Remove one trailing newline from a single-line stdin prompt.
+        // Remove one trailing newline from stdin input.
         if (!prompt.empty() && prompt.back() == '\n') {
             prompt.pop_back();
         }

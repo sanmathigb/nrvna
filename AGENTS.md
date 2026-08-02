@@ -6,14 +6,13 @@ agent framework. Compose it with processes, exit codes, JSON, and files.
 
 Every `wrk` submission creates an independent durable job. Context does not
 continue between jobs. `--parent` records lineage only. It does not copy
-context, wait for the parent, or control execution order. The workspace
-remembers. The model does not.
+context, wait for the parent, or control execution order.
+The workspace remembers. The model does not.
 
 ## Writing
 
-Follow ASD-STE100 Simplified Technical English principles for all prose. This
-rule covers documentation, comments, interface text, commits, pull requests,
-reports, and agent replies.
+Use ASD-STE100 Simplified Technical English principles for technical documents
+and procedures.
 
 - Use common, precise words.
 - Use one term for one concept. Give each term one meaning.
@@ -26,9 +25,15 @@ reports, and agent replies.
 - Use `nrvna` in lowercase unless a case-sensitive identifier requires another
   form.
 
-Do not claim formal ASD-STE100 compliance unless a validated vocabulary and
-grammar check confirms it. Describe unvalidated work as following the
-standard's principles.
+Use the same clarity rules for comments, interface text, commits, pull requests,
+reports, and agent replies. Do not describe these surfaces as formally
+ASD-STE100 compliant.
+
+Product pages and personal writing can use a natural voice. Keep them concise
+and unambiguous.
+
+Formal compliance requires the official controlled dictionary and all writing
+rules. Do not claim compliance without validated vocabulary and grammar checks.
 
 ## Cold Run
 

@@ -2,7 +2,8 @@
 
 You are an AI coding agent. Set up `imgsrch` for the person you help. Run each
 step and verify its result. Ask a question only when this guide tells you.
-Everything runs locally. Do not ask for an account, API key, or secret.
+Indexing and search run locally. Installation downloads release and model files.
+Do not ask for an account, API key, or secret.
 
 ## 1. Install
 
@@ -27,14 +28,29 @@ case "$(uname -sm)" in
     ;;
 esac
 
-curl -fL -o imgsrch.tar.gz \
+curl -fL -o "$kit.tar.gz" \
   "https://github.com/sanmathigb/nrvna/releases/latest/download/$kit.tar.gz"
-tar -xzf imgsrch.tar.gz
+curl -fL -o "$kit.tar.gz.sha256" \
+  "https://github.com/sanmathigb/nrvna/releases/latest/download/$kit.tar.gz.sha256"
+
+expected=$(awk 'NR == 1 {print $1}' "$kit.tar.gz.sha256")
+if command -v shasum >/dev/null 2>&1; then
+  actual=$(shasum -a 256 "$kit.tar.gz" | awk '{print $1}')
+else
+  actual=$(sha256sum "$kit.tar.gz" | awk '{print $1}')
+fi
+if [ "$actual" != "$expected" ]; then
+  echo "imgsrch: archive checksum failed" >&2
+  exit 1
+fi
+
+tar -xzf "$kit.tar.gz"
 cd "$kit"
 ```
 
-Keep `imgsrch` and `bin/` together. macOS can block the unsigned preview. If it
-does, remove the quarantine attribute from this directory:
+Keep `imgsrch` and `bin/` together. macOS can block the unsigned preview. Run
+the next command only after checksum verification succeeds. It removes macOS
+quarantine metadata from the extracted release:
 
 ```bash
 xattr -dr com.apple.quarantine .

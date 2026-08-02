@@ -27,7 +27,7 @@ std::mutex Runner::model_mutex_;
 
 common_chat_templates* Runner::chat_templates_ = nullptr;
 
-// Use these sampling fallbacks until the GGUF model loads.
+// Use these sampling fallbacks when GGUF sampling metadata is not available.
 float Runner::gguf_temp_           = 0.8f;
 int   Runner::gguf_top_k_          = 40;
 float Runner::gguf_top_p_          = 0.9f;
@@ -519,8 +519,8 @@ EmbedResult Runner::embed(const std::string& text) {
         std::vector<float> embedding(emb, emb + n_embd);
 
         // Apply the same L2 normalization as common_embd_normalize(, , , 2).
-        // Stored vectors must have unit length. This supports direct dot-product
-        // comparison and avoids normalization in each reader.
+        // Non-zero stored vectors have unit length. Zero vectors remain zero.
+        // This supports direct dot-product comparison without reader-side normalization.
         double norm = 0.0;
         for (float v : embedding) { norm += v * v; }
         norm = std::sqrt(norm);

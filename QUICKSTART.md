@@ -46,7 +46,8 @@ a running daemon. It made the job durable before the daemon started.
 ```
 
 Without a job ID, `flw` shows workspace counts and recent jobs. Job retrieval
-uses three exit codes: `0` done, `1` failed, and `2` not ready.
+uses three exit codes: `0` done, `1` failed or missing, and `2` queued or
+running.
 
 ## Submit Now, Drain Later, Collect
 

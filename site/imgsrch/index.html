@@ -238,18 +238,20 @@ query ─► dense + BM25 ─► RRF</pre></div>
     <div class="wrap">
       <div class="eyebrow">install</div>
       <h2>One archive, no dependencies</h2>
-      <div class="code"><pre><span class="p">$</span> tar -xzf imgsrch-darwin-arm64.tar.gz
+      <div class="code"><pre><span class="p">$</span> shasum -a 256 imgsrch-darwin-arm64.tar.gz
+<span class="c"># compare this value with the linked SHA-256 checksum</span>
+<span class="p">$</span> tar -xzf imgsrch-darwin-arm64.tar.gz
 <span class="p">$</span> cd imgsrch-darwin-arm64
 <span class="p">$</span> ./imgsrch setup   <span class="c"># fetches the pinned models, once</span></pre></div>
       <ul class="dl">
-        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-arm64.tar.gz">imgsrch-darwin-arm64.tar.gz</a><span class="plat">macOS 13.3+, Apple Silicon</span></li>
-        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-x86_64.tar.gz">imgsrch-darwin-x86_64.tar.gz</a><span class="plat">macOS 13.3+, Intel</span></li>
-        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-linux-x86_64.tar.gz">imgsrch-linux-x86_64.tar.gz</a><span class="plat">Linux x86-64, AVX2</span></li>
+        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-arm64.tar.gz">imgsrch-darwin-arm64.tar.gz</a><span class="plat">macOS 13.3+, Apple Silicon · <a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-arm64.tar.gz.sha256">SHA-256</a></span></li>
+        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-x86_64.tar.gz">imgsrch-darwin-x86_64.tar.gz</a><span class="plat">macOS 13.3+, Intel · <a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-darwin-x86_64.tar.gz.sha256">SHA-256</a></span></li>
+        <li><a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-linux-x86_64.tar.gz">imgsrch-linux-x86_64.tar.gz</a><span class="plat">Linux x86-64, AVX2 · <a href="https://github.com/sanmathigb/nrvna/releases/latest/download/imgsrch-linux-x86_64.tar.gz.sha256">SHA-256</a></span></li>
       </ul>
       <p class="quiet">The archive includes everything except the models. CPU
-      inference is the default. A GPU is not required. Each archive has a
-      SHA-256 checksum. macOS builds are unsigned. The first run can require
-      approval in System Settings → Privacy &amp; Security.</p>
+      inference is the default. A GPU is not required. Verify the linked
+      SHA-256 checksum before extraction. macOS builds are unsigned. The first
+      run can require approval in System Settings → Privacy &amp; Security.</p>
       <p class="quiet">imgsrch is pre-beta. It searches your screenshots. If
       something breaks,
       <a href="https://github.com/sanmathigb/nrvna/issues">open an issue</a>;
