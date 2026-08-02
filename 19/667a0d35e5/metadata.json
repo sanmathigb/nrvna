@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "19667a0d35e5",
+  "strategy": "manual-commit",
+  "branch": "docs/cold-agent-discovery-control",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "ADVANCED.md",
+    "AGENTS.md",
+    "COLD_AGENT_TEST.md",
+    "DOCUMENTATION.md",
+    "QUICKSTART.md",
+    "apps/imgsrch/main.go",
+    "apps/imgsrch/main_test.go",
+    "cli/flw.cpp",
+    "site/index.html",
+    "tests/primitive-contract.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/19/667a0d35e5/0/metadata.json",
+      "transcript": "/19/667a0d35e5/0/full.jsonl",
+      "compact_transcript": "/19/667a0d35e5/0/transcript.jsonl",
+      "content_hash": "/19/667a0d35e5/0/content_hash.txt",
+      "prompt": "/19/667a0d35e5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 47070524,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 765613184,
+    "output_tokens": 1574764,
+    "api_call_count": 5304
+  }
+}
