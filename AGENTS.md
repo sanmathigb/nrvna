@@ -10,6 +10,22 @@ between jobs. `--parent` records lineage only: it does not copy context, wait
 for the parent, or impose execution order. The workspace remembers; the model
 does not.
 
+## Writing
+
+Follow ASD-STE100 Simplified Technical English principles for all prose. This
+rule covers documentation, comments, interface text, commits, pull requests,
+reports, and agent replies.
+
+- Use common, precise words.
+- Use one term for one concept. Give each term one meaning.
+- Keep instructions at 20 words or less.
+- Use active voice.
+- Write short paragraphs. Put one topic in each paragraph.
+- Avoid idioms, filler, hype, and unnecessary jargon.
+- Define a necessary technical term before you use it.
+- Use `nrvna` in lowercase unless a case-sensitive identifier requires another
+  form.
+
 ## Cold Run
 
 Source builds place binaries under `./build`; packaged apps place them under
