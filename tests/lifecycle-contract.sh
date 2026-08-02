@@ -5,6 +5,18 @@ bin_dir="${1:?usage: lifecycle-contract.sh <engine-bin-dir>}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# Lifecycle subcommands own their help and do not execute.
+status_help="$("$bin_dir/nrvnad" status --help)"
+case "$status_help" in
+    *'Usage: nrvnad status <workspace> [--json]'*) ;;
+    *) echo "status --help did not show status help" >&2; exit 1 ;;
+esac
+stop_help="$("$bin_dir/nrvnad" stop --help)"
+case "$stop_help" in
+    *'Usage: nrvnad stop <workspace> [--timeout <1-3600>]'*) ;;
+    *) echo "stop --help did not show stop help" >&2; exit 1 ;;
+esac
+
 # status on a workspace with no daemon: exit 1, says not running
 mkdir -p "$tmp/ws1"
 if "$bin_dir/nrvnad" status "$tmp/ws1"; then

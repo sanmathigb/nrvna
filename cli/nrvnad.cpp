@@ -326,10 +326,31 @@ void printHelp() {
     std::cout << "  wrk <workspace> \"text\" --tts              speech (needs vocoder)\n";
 }
 
+void printStatusHelp() {
+    std::cout << "Report daemon state.\n\n";
+    std::cout << "Usage: nrvnad status <workspace> [--json]\n\n";
+    std::cout << "Exit codes: 0 ready, 2 starting, 1 not running or error\n";
+}
+
+void printStopHelp() {
+    std::cout << "Stop a workspace daemon gracefully.\n\n";
+    std::cout << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n\n";
+    std::cout << "The default timeout is 20 seconds.\n";
+}
+
 int main(int argc, char * argv[]) {
     g_models_dir = resolveModelsDir(argv[0]);
 
-    if (argc >= 3 && std::string(argv[1]) == "status") {
+    if (argc >= 2 && std::string(argv[1]) == "status") {
+        if ((argc == 3 && (std::string(argv[2]) == "-h" || std::string(argv[2]) == "--help")) ||
+            (argc == 4 && (std::string(argv[3]) == "-h" || std::string(argv[3]) == "--help"))) {
+            printStatusHelp();
+            return 0;
+        }
+        if (argc < 3) {
+            std::cerr << "Usage: nrvnad status <workspace> [--json]\n";
+            return 1;
+        }
         if (argc > 4 || (argc == 4 && std::string(argv[3]) != "--json")) {
             std::cerr << "Usage: nrvnad status <workspace> [--json]\n";
             return 1;
@@ -360,7 +381,16 @@ int main(int argc, char * argv[]) {
         }
     }
 
-    if (argc >= 3 && std::string(argv[1]) == "stop") {
+    if (argc >= 2 && std::string(argv[1]) == "stop") {
+        if ((argc == 3 && (std::string(argv[2]) == "-h" || std::string(argv[2]) == "--help")) ||
+            (argc == 4 && (std::string(argv[3]) == "-h" || std::string(argv[3]) == "--help"))) {
+            printStopHelp();
+            return 0;
+        }
+        if (argc < 3) {
+            std::cerr << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n";
+            return 1;
+        }
         std::filesystem::path ws = argv[2];
         int timeout = 20;
         if (argc == 5 && std::string(argv[3]) == "--timeout") {

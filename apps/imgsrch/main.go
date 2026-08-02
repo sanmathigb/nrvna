@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 )
@@ -46,7 +47,7 @@ Configuration:
   Full reference: https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md
 `
 
-func usage() { fmt.Fprint(os.Stderr, usageText) }
+func usage(w io.Writer) { fmt.Fprint(w, usageText) }
 
 func note(format string, a ...any) { fmt.Fprintf(os.Stderr, "imgsrch: "+format+"\n", a...) }
 
@@ -149,15 +150,14 @@ func parseEvalArgs(rest []string) (evalArgs, error) {
 	return args, nil
 }
 
-func main() {
-	args := os.Args[1:]
+func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
-		usage()
-		return
+		usage(stdout)
+		return nil
 	}
 	if args[0] == "-v" || args[0] == "--version" || args[0] == "version" {
-		fmt.Printf("imgsrch %s\n", version)
-		return
+		fmt.Fprintf(stdout, "imgsrch %s\n", version)
+		return nil
 	}
 	cmd, rest := args[0], args[1:]
 
@@ -165,32 +165,27 @@ func main() {
 	switch cmd {
 	case "setup":
 		if len(rest) != 0 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch setup")
 		}
 		err = cmdSetup()
 	case "init":
 		if len(rest) != 1 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch init <project>")
 		}
 		err = cmdInit(rest[0])
 	case "add":
 		if len(rest) < 2 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch add <project> <image...>")
 		}
 		err = cmdAdd(rest[0], rest[1:])
 	case "index":
 		if len(rest) < 1 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch index <project> [image...]")
 		}
 		err = cmdIndex(rest[0], rest[1:])
 	case "status":
 		if len(rest) != 1 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch status <project>")
 		}
 		err = cmdStatus(rest[0])
 	case "search":
@@ -207,13 +202,12 @@ func main() {
 		}
 	case "__finish": // internal detached continuation launched by index
 		if len(rest) != 1 {
-			os.Exit(1)
+			return fmt.Errorf("internal finish requires one project")
 		}
 		err = finishPipeline(rest[0])
 	case "doctor":
 		if len(rest) > 1 {
-			usage()
-			os.Exit(1)
+			return fmt.Errorf("usage: imgsrch doctor [project]")
 		}
 		p := ""
 		if len(rest) > 0 {
@@ -221,10 +215,13 @@ func main() {
 		}
 		err = cmdDoctor(p)
 	default:
-		usage()
-		os.Exit(1)
+		return fmt.Errorf("unknown command %q; run 'imgsrch --help'", cmd)
 	}
-	if err != nil {
+	return err
+}
+
+func main() {
+	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fail("%v", err)
 	}
 }

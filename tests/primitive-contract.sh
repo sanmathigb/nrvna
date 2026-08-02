@@ -20,6 +20,17 @@ case "$flw_help" in
     *'Job result: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
     *) echo "flw help does not scope job-result exit codes" >&2; exit 1 ;;
 esac
+case "$flw_help" in
+    *'Wait requires a positional or piped job ID.'*) ;;
+    *) echo "flw help does not require an explicit wait job ID" >&2; exit 1 ;;
+esac
+
+for bad_flag in --nonsense --jsonn -x; do
+    if "$bin_dir/flw" "$tmp" "$bad_flag" >/dev/null 2>&1; then
+        echo "flw accepted unknown option: $bad_flag" >&2
+        exit 1
+    fi
+done
 
 done_id="00001781482179019396_4090_000000"
 mkdir -p "$tmp/output/$done_id"

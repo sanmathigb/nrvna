@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -23,6 +24,30 @@ func TestUsageListsPublicCommandsAndFlags(t *testing.T) {
 		if !strings.Contains(usageText, want) {
 			t.Errorf("usageText missing %q", want)
 		}
+	}
+}
+
+func TestRunWritesHelpToProvidedOutput(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"--help"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "imgsrch <command> [arguments]") {
+		t.Fatalf("help output = %q", out.String())
+	}
+}
+
+func TestRunNamesUnknownCommand(t *testing.T) {
+	err := run([]string{"serach"}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), `unknown command "serach"`) {
+		t.Fatalf("run error = %v", err)
+	}
+}
+
+func TestRunReportsCommandUsage(t *testing.T) {
+	err := run([]string{"status"}, &bytes.Buffer{})
+	if err == nil || err.Error() != "usage: imgsrch status <project>" {
+		t.Fatalf("run error = %v", err)
 	}
 }
 
