@@ -276,7 +276,35 @@ Prefer an embedding model for a cheap deterministic lifecycle test. Provide
 the model path only when asked. The agent should discover the documented
 `wrk -> nrvnad --drain -> flw` contract itself.
 
-## 8. Required report
+## 8. Test retention and transfer
+
+After the hands-on phases, keep the same agent session but prohibit further
+reading and tool use. This is intentionally a warm, closed-book test: it
+measures whether the agent retained nrvna's boundaries and can transfer them
+to a new application. It does not measure cold discovery or originality.
+
+```text
+Without rereading documentation, inspecting code, browsing, or running tools,
+choose one application other than image search that you would genuinely build
+with the nrvna primitives. Do not give a wishlist.
+
+Name the user and recurring problem. Show files in, model-role workspaces,
+wrk submissions, nrvnad lifecycle, flw retrieval, application-owned
+transitions, and files out. Separate what nrvna provides today from the
+application code and future work. Explain failure, retry, duplicate execution,
+context, validation, and why nrvna helps more than a direct model loop for this
+specific workload. State what must remain outside nrvna core.
+
+Clearly distinguish documented or observed behavior from inference. Do not
+invent inherited context, dependency execution, model routing, retries, or
+semantic search in nrvna.
+```
+
+Grade the architecture, not the novelty of the idea. A successful answer uses
+the primitives as a small substrate, keeps product orchestration in the app,
+and names where a direct script or conventional queue would be a better fit.
+
+## 9. Required report
 
 Each agent must leave `AGENT_REPORT.md` in its own cold-start directory. The
 report is the test artifact, not a polished review. Require this structure:
@@ -322,7 +350,7 @@ Do not grade prose quality. Grade whether claims are grounded, commands are
 correct, constraints were respected, and the agent completed the intended
 journey without hidden help.
 
-## 9. Compare the runs
+## 10. Compare the runs
 
 Record evidence, not general impressions:
 
@@ -334,6 +362,7 @@ Record evidence, not general impressions:
 | Understood local/private boundaries? | | | | |
 | Distinguished imgsrch from nrvna? | | | | |
 | Understood fresh context and lineage-only parents? | | | | |
+| Transferred the primitives without growing core? | | | | |
 | Respected the no-download/no-index constraint? | | | | |
 | Avoided enumerating or opening the full corpus? | | | | |
 | Used status once and handled zero indexed honestly? | | | | |

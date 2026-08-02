@@ -11,6 +11,16 @@ case "$help" in
     *) echo "nrvnad help does not link the configuration reference" >&2; exit 1 ;;
 esac
 
+flw_help="$("$bin_dir/flw" --help)"
+case "$flw_help" in
+    *'wait for this batch (no result output)'*'then collect the batch as NDJSON'*) ;;
+    *) echo "flw help does not distinguish batch barriers from collection" >&2; exit 1 ;;
+esac
+case "$flw_help" in
+    *'Job result: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
+    *) echo "flw help does not scope job-result exit codes" >&2; exit 1 ;;
+esac
+
 done_id="00001781482179019396_4090_000000"
 mkdir -p "$tmp/output/$done_id"
 printf 'unrelated\n' > "$tmp/output/$done_id/result.txt"
@@ -108,6 +118,11 @@ case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "chil
 if "$bin_dir/flw" "$tmp" -W --children "$tag_a"; then
     echo "-W --children with a failed child should exit 1" >&2; exit 1
 fi
-"$bin_dir/flw" "$tmp" -W --tag night || { echo "-W --tag with all-done set should exit 0" >&2; exit 1; }
+barrier_output="$("$bin_dir/flw" "$tmp" -W --tag night --json)" || {
+    echo "-W --tag with all-done set should exit 0" >&2; exit 1;
+}
+[ -z "$barrier_output" ] || {
+    echo "tag barrier should not print selected results: $barrier_output" >&2; exit 1;
+}
 
 echo "primitive-contract: all checks passed"

@@ -6,23 +6,29 @@ The primitives (`nrvnad`, `wrk`, `flw`) are building blocks. Here's what you can
 
 ## Batch Processing
 
-Submit many jobs, collect results later:
+Submit many independent jobs before loading the model, then wait for and
+collect only that batch:
 
 ```bash
-# Submit 100 jobs in seconds
+BATCH="captions-$(date +%s)"
+
 for img in photos/*.jpg; do
-  wrk ./workspace "Caption this image" --image "$img" >> jobs.txt
+  wrk ./workspace "Caption this image" --image "$img" --tag "$BATCH" \
+    >> jobs.txt
 done
 
-# Check progress
-ls ./workspace/output/ | wc -l
+# Load once, drain the queued work, and release the model
+nrvnad vision-model.gguf ./workspace --drain
 
-# Collect all results
-for job in $(cat jobs.txt); do
-  echo "=== $job ==="
-  flw ./workspace $job
-done
+# Drain has already waited; collect this batch as NDJSON
+flw ./workspace --tag "$BATCH" --json > results.ndjson
 ```
+
+Tags group jobs only. They do not share context, impose ordering, create
+dependencies, or route work to a model. Keep `jobs.txt` when the source-to-job
+mapping matters. If a persistent daemon already owns the workspace, use
+`flw ./workspace -W --tag "$BATCH"` as a silent barrier before the separate
+collection command.
 
 ---
 
@@ -37,9 +43,9 @@ job2=$({ echo "Summarize the key claims:"; cat report/ch2.txt; } | wrk ./workspa
 job3=$({ echo "Summarize the key claims:"; cat report/ch3.txt; } | wrk ./workspace -)
 
 # Wait for all
-result1=$(flw ./workspace -w $job1)
-result2=$(flw ./workspace -w $job2)
-result3=$(flw ./workspace -w $job3)
+result1=$(flw ./workspace "$job1" -w)
+result2=$(flw ./workspace "$job2" -w)
+result3=$(flw ./workspace "$job3" -w)
 
 # Fan-in: synthesize
 wrk ./workspace "Merge these chapter summaries into one digest.

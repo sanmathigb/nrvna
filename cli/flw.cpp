@@ -28,9 +28,9 @@ void printUsage() {
     std::cout << "Usage:\n";
     std::cout << "  flw <workspace> [job_id] [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "  -w, --wait        Wait for a job\n";
-    std::cout << "  -W, --wait-idle   Wait for the workspace to become idle\n";
-    std::cout << "      --json        Print JSON\n";
+    std::cout << "  -w, --wait        Wait for the positional job ID (or read it from stdin)\n";
+    std::cout << "  -W, --wait-idle   Wait for the workspace or selected set to become idle\n";
+    std::cout << "      --json        Print JSON for status/results; waits print no selected results\n";
     std::cout << "      --tag <t>       Select all jobs with tag (ids; with --json, NDJSON)\n";
     std::cout << "      --children <id> Select all jobs with parent <id>\n";
     std::cout << "  -h, --help        Show help\n";
@@ -38,13 +38,16 @@ void printUsage() {
     std::cout << "\n";
     std::cout << "Examples:\n";
     std::cout << "  flw ./ws                          workspace status\n";
-    std::cout << "  flw ./ws <job-id>                 print a job's result\n";
+    std::cout << "  flw ./ws <job-id> -w              wait for and print one result\n";
     std::cout << "  wrk ./ws \"prompt\" | flw ./ws -w   submit and wait in one pipe\n";
     std::cout << "  flw ./ws -W                       block until all jobs finish\n";
-    std::cout << "  flw ./ws --tag nightly --json | jq .   collect a whole batch\n";
-    std::cout << "  flw ./ws -W --tag nightly         wait for YOUR jobs, not the world's\n";
+    std::cout << "  flw ./ws -W --tag nightly         wait for this batch (no result output)\n";
+    std::cout << "  flw ./ws --tag nightly --json     then collect the batch as NDJSON\n";
     std::cout << "\n";
-    std::cout << "Exit codes: 0 done, 1 failed, 2 not ready\n";
+    std::cout << "Exit codes:\n";
+    std::cout << "  Job result: 0 done, 1 failed/missing/error, 2 queued or running\n";
+    std::cout << "  JSON set collection and waits: 1 if the selected scope has failures; otherwise 0\n";
+    std::cout << "  Workspace status and plain ID selection: 0 unless the command errors\n";
 }
 
 std::string readFileRaw(const std::filesystem::path& path) {

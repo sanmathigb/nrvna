@@ -48,24 +48,32 @@ The answer also lives at `$WS/output/<job-id>/result.txt` as a plain file.
 With no job ID, `flw` shows workspace counts and recent jobs. Exit codes when
 reading a job: `0` done, `1` failed, `2` not ready.
 
-## Submit, Walk Away, Collect
+## Submit Now, Drain Later, Collect
 
-`wrk` returns a job ID immediately — you never wait at submit time. Queue a
-batch, close the terminal, come back whenever:
+`wrk` returns a job ID immediately. Jobs remain queued even when no daemon or
+submitting process exists. Queue a batch now:
 
 ```bash
+BATCH="summary-$(date +%s)"
 for f in *.md; do
-  { echo "Summarize in three bullets:"; cat "$f"; } | ./build/wrk /tmp/ws -
+  { echo "Summarize in three bullets:"; cat "$f"; } \
+    | ./build/wrk /tmp/ws - --tag "$BATCH"
 done
 
-# ...later, from any terminal...
-./build/flw /tmp/ws                    # how's it going?
-./build/flw /tmp/ws -W                 # or block until the workspace is idle
-cat /tmp/ws/output/*/result.txt        # collect everything
+# ...when compute is available, load once and drain the queued work...
+./build/nrvnad "$MODEL" /tmp/ws --drain
+
+# ...then collect this batch as NDJSON
+./build/flw /tmp/ws --tag "$BATCH" --json
 
 # or submit and block for one result in a single pipe
 { echo "Extract every action item:"; cat notes.md; } | ./build/wrk /tmp/ws - | ./build/flw /tmp/ws -w
 ```
+
+The tag groups jobs; it does not order them, share context, or choose a model.
+If a persistent daemon already owns the workspace, wait for just this batch
+with `flw /tmp/ws -W --tag "$BATCH"`, then run the separate collection command.
+The barrier prints no selected results.
 
 ## Other Job Types
 
