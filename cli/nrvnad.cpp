@@ -313,8 +313,8 @@ void printHelp() {
     std::cout << "  nrvnad stop <workspace> [--timeout <1-3600>]\n";
     std::cout << "                                           Stop gracefully (default timeout 20s)\n\n";
     std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
-    std::cout << "A matching mmproj or vocoder .gguf next to the model is auto-detected —\n";
-    std::cout << "you rarely need to pass them explicitly.\n\n";
+    std::cout << "nrvnad detects a matching mmproj or vocoder .gguf beside the model.\n";
+    std::cout << "Use an explicit path to override automatic detection.\n\n";
     std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
     std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
     std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
@@ -463,9 +463,9 @@ int main(int argc, char * argv[]) {
     std::signal(SIGTERM, signalHandler);
 
     if (drainMode && lifecycle::daemonPresent(std::filesystem::path(workspace))) {
-        // Drain's postcondition is "queue is quiet" — the running daemon does
+        // Drain completes when the queue is quiet. The running daemon does
         // the work; we watch. If it dies with work still queued, take over.
-        std::cerr << "nrvnad: workspace already has a running daemon — it will drain the queue\n";
+        std::cerr << "nrvnad: workspace has a running daemon. It will drain the queue.\n";
         Flow watchFlow((std::filesystem::path(workspace)));
         auto before = watchFlow.counts();
         bool delegated = true;
@@ -475,7 +475,7 @@ int main(int argc, char * argv[]) {
                 return c.failed > before.failed ? 1 : 0;
             }
             if (!lifecycle::daemonPresent(std::filesystem::path(workspace))) {
-                std::cerr << "nrvnad: daemon exited with work still queued — taking over the drain\n";
+                std::cerr << "nrvnad: daemon exited with queued work. This process will try to drain it.\n";
                 delegated = false;  // fall through to normal startup + drain
             } else {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));

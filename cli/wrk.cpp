@@ -38,8 +38,9 @@ void printUsage() {
     std::cout << "  { echo \"Summarize:\"; cat notes.md; } | wrk ./ws -\n";
     std::cout << "  wrk ./ws \"What is this screenshot about?\" --image shot.png\n";
     std::cout << "\n";
-    std::cout << "The workspace is created if missing. Prints the job ID on stdout;\n";
-    std::cout << "collect the result later with: flw <workspace> -w <job-id>\n";
+    std::cout << "wrk creates the workspace when it is missing.\n";
+    std::cout << "It prints only the job ID on stdout. Collect the result with:\n";
+    std::cout << "  flw <workspace> -w <job-id>\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]) {
     if (readStdin) {
         prompt.assign((std::istreambuf_iterator<char>(std::cin)),
                        std::istreambuf_iterator<char>());
-        // Remove strictly trailing newline if prompt is just a one-liner
+        // Remove one trailing newline from stdin input.
         if (!prompt.empty() && prompt.back() == '\n') {
             prompt.pop_back();
         }

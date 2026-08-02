@@ -31,7 +31,7 @@ void printUsage() {
     std::cout << "  -w, --wait        Wait for the positional job ID (or read it from stdin)\n";
     std::cout << "  -W, --wait-idle   Wait for the workspace or selected set to become idle\n";
     std::cout << "      --json        Print JSON for status/results; waits print no selected results\n";
-    std::cout << "      --tag <t>       Select all jobs with tag (ids; with --json, NDJSON)\n";
+    std::cout << "      --tag <t>     Select all jobs with tag (ids; with --json, NDJSON)\n";
     std::cout << "      --children <id> Select all jobs with parent <id>\n";
     std::cout << "  -h, --help        Show help\n";
     std::cout << "  -v, --version     Show version\n";
@@ -107,7 +107,7 @@ std::vector<SetMatch> selectSet(const std::filesystem::path& ws,
     return matches;  // std::map iterates id-sorted
 }
 
-// One JSON object for one job — the single-job --json shape, reused per
+// Use the single-job JSON object for each selected job.
 // NDJSON line for sets. Returns the exit code the single-job path uses.
 int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job) {
     auto meta = flow.meta(job.id);
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]) {
                       << "failed:     " << c.failed << "\n";
 
             if (c.queued + c.running + c.done + c.failed == 0) {
-                std::cout << "\nno jobs yet — submit one:  wrk " << workspace << " \"your prompt\"\n";
+                std::cout << "\nno jobs yet. Submit one:  wrk " << workspace << " \"your prompt\"\n";
                 return 0;
             }
 
@@ -391,7 +391,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (job->status == Status::Done) {
-                // Audio output — print path instead of binary content
+                // Print the audio path instead of binary content.
                 auto artifact = contract::findOutputArtifact(
                     contract::jobDir(std::filesystem::path(workspace), Status::Done, jobId));
                 if (artifact && artifact->kind == contract::ArtifactKind::Audio) {

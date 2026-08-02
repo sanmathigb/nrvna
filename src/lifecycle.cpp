@@ -57,8 +57,8 @@ int readPidFile(const std::filesystem::path& ws) {
     return pid;
 }
 
-// The lock file's content is written by the current holder while holding
-// the flock — the authoritative pid, immune to a lagging .nrvnad.pid.
+// The current holder writes its PID while it holds the lock. This PID is
+// authoritative when .nrvnad.pid is stale.
 int readLockHolderPid(const std::filesystem::path& ws) {
     std::ifstream f(ws / kLockFile);
     int pid = 0;
@@ -66,8 +66,8 @@ int readLockHolderPid(const std::filesystem::path& ws) {
     return pid;
 }
 
-// Safety interlock before signaling: is this pid actually an nrvnad?
-// Used only pre-kill — liveness detection stays with the flock.
+// Confirm that the PID belongs to nrvnad before sending a signal.
+// The lock remains the source of liveness state.
 bool pidLooksLikeNrvnad(int pid) {
 #ifdef __APPLE__
     char name[2 * MAXCOMLEN] = {0};
@@ -147,12 +147,12 @@ DaemonInfo query(const std::filesystem::path& ws) {
 int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     auto info = query(ws);
     if (info.state == DaemonState::NotRunning) return 0;
-    // The lock file's pid is written by the holder under the flock —
-    // prefer it over the separately-written (and possibly lagging) pidfile.
+    // The lock holder writes its PID while it holds the flock. Prefer this PID
+    // over the separate PID file, which can be stale.
     if (int lockPid = readLockHolderPid(ws); lockPid > 0) info.pid = lockPid;
     if (info.pid <= 0) return 1;  // lock held but pid unknown: refuse to guess
-    // Never signal a process we can't identify: if the pid doesn't look like
-    // an nrvnad, someone else holds the lock (or the file is garbage) — refuse.
+    // Refuse when the PID does not identify the nrvnad process that owns this
+    // workspace.
     if (!workspaceOwnedByNrvnad(ws, info.pid)) return 1;
 
     (void)::kill(info.pid, SIGTERM);

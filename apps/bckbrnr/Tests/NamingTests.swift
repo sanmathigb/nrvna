@@ -1,7 +1,7 @@
 import Foundation
 
 // Test harness for Naming. Compiled with Sources/Bckbrnr/Naming.swift into a
-// standalone binary by `make test` — no SPM, matching the app's build style.
+// `make test` builds this file without Swift Package Manager.
 
 @main
 enum NamingTests {
@@ -45,7 +45,7 @@ enum NamingTests {
         expect(Naming.deriveStem(from: longWord),
                String(repeating: "x", count: 40), "long single word")
 
-        // uniqueStem: suffixes -2, -3… instead of ever reusing a taken name
+        // uniqueStem adds -2, -3, and later numbers to avoid an existing name.
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("naming-tests-\(ProcessInfo.processInfo.processIdentifier)")
         try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

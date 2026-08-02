@@ -5,7 +5,7 @@
  *
  * The daemon lifecycle contract. nrvnad owns these files; this module is
  * the blessed reader/writer. Deliberately separate from the job contract
- * (nrvna/contract.hpp) — see CONTEXT.md.
+ * (nrvna/contract.hpp). See CONTEXT.md.
  */
 #pragma once
 #include "nrvna/flow.hpp"

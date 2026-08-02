@@ -22,7 +22,7 @@
 
 namespace nrvna {
 
-// Static member definitions — TTS model is separate from text/vision model
+// The TTS model is separate from the text and vision model.
 std::shared_ptr<llama_model> TtsRunner::shared_tts_model_ = nullptr;
 std::shared_ptr<llama_model> TtsRunner::shared_vocoder_ = nullptr;
 std::string TtsRunner::current_tts_model_path_ = "";
@@ -61,7 +61,7 @@ void restrictModelToCpu(llama_model_params& params) {
 }
 
 // ============================================================================
-// Spectral ops (from tts.cpp — pure math, safe to borrow)
+// These spectral operations come from llama.cpp tools/tts/tts.cpp.
 // ============================================================================
 
 void fill_hann_window(int length, bool periodic, float* output) {
@@ -424,7 +424,7 @@ TtsRunner::TtsRunner(const std::string& modelPath, const std::string& vocoderPat
     if (!shared_tts_model_ || current_tts_model_path_ != modelPath) {
         LOG_INFO("Loading TTS model: " + modelPath);
         llama_model_params model_params = llama_model_default_params();
-        // TTS: always CPU — discrete Metal GPU hangs on longer sequences
+        // Use CPU because discrete Metal GPUs can hang on long TTS sequences.
         model_params.n_gpu_layers = 0;
         restrictModelToCpu(model_params);
         llama_model* model = llama_model_load_from_file(modelPath.c_str(), model_params);
@@ -516,7 +516,7 @@ TtsRunner::TtsRunner(const std::string& modelPath, const std::string& vocoderPat
             LOG_DEBUG("v0.3 speaker data cached (" + std::to_string(v3_audio_data_.size()) + " chars)");
         }
 
-        // Validate model has essential TTS tokens — fail fast at startup
+        // Stop startup when the model lacks required TTS tokens.
         {
             auto probe = [&](const char* token_str) -> bool {
                 llama_token buf[4];
@@ -607,7 +607,7 @@ TtsResult TtsRunner::run(const std::string& text) {
         ctx_params.n_ctx = n_ctx;
         ctx_params.n_batch = std::max(1, std::min(n_ctx, env_positive_int("NRVNA_BATCH", 8192)));
         ctx_params.no_perf = false;
-        // TTS: CPU-only — model loaded with n_gpu_layers=0, context must match
+        // Match the CPU-only TTS context to n_gpu_layers=0.
         ctx_params.offload_kqv = false;
         ctx_params.op_offload = false;
 
@@ -616,7 +616,7 @@ TtsResult TtsRunner::run(const std::string& text) {
             return {false, {}, 24000, "Failed to create TTS context"};
         }
 
-        // Build sampler — TTS uses top_k=4 (matches upstream tts.cpp)
+        // Build the upstream TTS sampler with top_k=4.
         // Optional repetition penalty for narration stability
         auto sparams = llama_sampler_chain_default_params();
         sparams.no_perf = false;
@@ -708,7 +708,7 @@ TtsResult TtsRunner::run(const std::string& text) {
         voc_params.n_batch = n_codes;
         voc_params.n_ubatch = n_codes;
         voc_params.embeddings = true;
-        // Vocoder: CPU-only — model loaded with n_gpu_layers=0, context must match
+        // Match the CPU-only vocoder context to n_gpu_layers=0.
         voc_params.offload_kqv = false;
         voc_params.op_offload = false;
 

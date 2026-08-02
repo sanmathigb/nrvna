@@ -170,7 +170,7 @@ struct PopoverView: View {
 
     private var controls: some View {
         HStack {
-            Button(controller.isStopping ? "Stopping…" : (controller.isRunning ? "Stop" : "Start")) {
+            Button(controller.isStopping ? "Stopping..." : (controller.isRunning ? "Stop" : "Start")) {
                 if controller.isStopping {
                     return
                 } else if controller.isRunning {

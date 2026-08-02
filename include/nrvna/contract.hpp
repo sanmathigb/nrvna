@@ -74,7 +74,7 @@ inline const char* toString(JobType t) {
     }
 }
 
-// Unknown or empty spellings mean text — a job with no type.txt is a text job.
+// Unknown or empty values mean text. A job without type.txt is a text job.
 inline JobType parseJobType(const std::string& s) {
     if (s == "embed")  return JobType::Embed;
     if (s == "vision") return JobType::Vision;

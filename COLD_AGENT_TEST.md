@@ -1,33 +1,31 @@
 # Cold-agent test
 
-Use this runbook to test whether a new agent can discover `imgsrch`, use an
-existing index safely, and understand the nrvna primitives underneath it.
-The test is about documentation and agent behavior, not model downloads.
+Use this runbook to test a new agent. The agent must discover `imgsrch`, use an
+existing index safely, and understand nrvna. This test measures documentation
+and agent behavior. It does not measure model downloads.
 
-Run the same test in each agent before changing the prompt. Using the same
-model in multiple agents is useful: it isolates differences in the agent
-harness, shell access, approvals, and instruction discovery.
+Run the same test in each agent before you change the prompt. You can use the
+same model in multiple agents. This isolates differences in the harness, shell
+access, approvals, and instruction discovery.
 
 Use two test tracks:
 
-1. **One full-install canary per release and platform:** one agent downloads
-   the public archive and models, creates a new project, indexes a small real
-   corpus, searches it, and verifies the report. This tests the entire user
-   journey and the installation documentation.
-2. **Many reuse tests:** Claude, Codex, Pi, and OpenCode share the completed
-   canary project and model cache. They test discovery, retrieval, evidence
-   selection, and nrvna comprehension without repeating expensive work.
+1. **Run one full-install canary for each release and platform.** One agent
+   downloads the archive and models. It creates a project and indexes a small
+   real corpus. It then searches the corpus and verifies the report.
+2. **Run many reuse tests.** Claude, Codex, Pi, and OpenCode share the completed
+   project and model cache. They test discovery, retrieval, evidence selection,
+   and nrvna comprehension.
 
-Do not make every agent download 3.4 GB and index the same images. That mostly
-measures bandwidth and CPU time, not documentation quality.
+Do not make every agent download 3.4 GB or index the same images. Those steps
+measure bandwidth and CPU time. They do not measure documentation quality.
 
 ## 1. Run one full-install canary
 
-Do this once before comparing agents, and repeat it when the public package,
-setup flow, model manifest, or supported platform changes. Use a new empty
-model directory, a new project, and three to ten representative screenshots.
-Do not use the source checkout or an existing installation: this test is for
-the public release journey.
+Run this test once before you compare agents. Repeat it after a package, setup,
+model manifest, or platform change. Use an empty model directory and a new
+project. Use three to ten representative screenshots. Do not use the source
+checkout or an existing installation.
 
 Start one cold agent in an empty directory with an isolated model cache:
 
@@ -40,36 +38,36 @@ IMGSRCH_MODELS_DIR="$HOME/imgsrch-cold-canary/models" claude
 Paste:
 
 ```text
-Set up imgsrch for me by following
+Set up imgsrch. Follow
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/INSTALL.md
-exactly. This is a full clean-install canary: you may download the public
-release and its models. Use the IMGSRCH_MODELS_DIR already present in your
-environment. Run the steps yourself, verify each gate, and ask me only where
-the guide says to. Do not inspect an existing nrvna source checkout.
+exactly. This is a clean-install test. You may download the public release and
+its models. Use the existing IMGSRCH_MODELS_DIR value. Run and verify each
+step. Ask a question only when the guide tells you. Do not inspect a local
+nrvna source checkout.
 
-After I provide an image folder, create a new project under
-$HOME/imgsrch-cold-canary/project, index it, and hand off as documented. Do not
-poll background work. When I return after indexing completes, check status
-once, run one useful search, inspect search-results.md, and open at most three
-returned originals. Record the complete journey in AGENT_REPORT.md in your
-current working directory.
+After I provide an image folder, create a project under
+$HOME/imgsrch-cold-canary/project. Index the images. Complete the documented
+handoff. Do not poll background work. When I return, check status once. If
+indexing is complete, run one useful search. Inspect search-results.md. Open at
+most three returned originals. Record the journey in AGENT_REPORT.md in the
+current directory.
 ```
 
-This canary is not complete merely because setup succeeds. It must eventually
-verify all of these transitions:
+Setup alone does not complete this test. The test must verify these
+transitions:
 
 ```text
 archive -> doctor -> init -> index -> background completion -> search -> preview
 ```
 
-Indexing may outlive the first agent session. Preserve the project path and
-resume later; that durability is part of the test. Once complete, use this
-project and model directory as the reusable assets in the remaining sections.
+Indexing can outlive the first agent session. Preserve the project path and
+resume later. This durability is part of the test. Reuse the completed project
+and model directory in later tests.
 
 ## 2. Check the reusable assets
 
-Run this yourself before starting an agent. Do not paste the output into the
-agent until it asks for paths.
+Run this check before you start an agent. Do not give the output to the agent
+until it asks for paths.
 
 ```bash
 IMGSRCH_BIN="$HOME/ws/nrvna/apps/imgsrch/imgsrch"
@@ -102,26 +100,26 @@ fi
 
 Interpret the result strictly:
 
-- **`search: N indexed`, where `N > 0`:** a usable index exists. The agent may
-  search it without downloading models or indexing images.
-- **Initialized but `search: 0 indexed`:** no useful search corpus exists.
-  Do not ask the agent to evaluate retrieval.
-- **Project directory exists but either manifest is missing:** it is stale or
-  incomplete, not an existing index. Do not reuse it.
-- **Models ready but no usable index:** the model download can be skipped,
-  but a future hands-on test still needs a new project and source images.
-- **Binary missing:** use the current source-built binary above if present, or
-  provide a packaged binary. Do not make a cold documentation test build it.
+- **`search: N indexed`, where `N > 0`:** The index is usable. The agent can
+  search without another download or index run.
+- **Initialized but `search: 0 indexed`:** The project has no searchable
+  corpus. Do not test retrieval.
+- **A manifest is missing:** The project is stale or incomplete. Do not reuse
+  it.
+- **Models exist but no index exists:** Skip the model download. A later test
+  still needs a project and source images.
+- **The binary is missing:** Use the source-built binary when available.
+  Otherwise, provide a packaged binary. Do not make a documentation test build
+  it.
 
-At the time this file was written, the model cache existed, but the old test
-project was not a usable index: its manifests were missing. Re-run the check;
-`/tmp` state is temporary.
+When this file was written, the model cache existed. The old project was not
+usable because its manifests were missing. Always run the check again. `/tmp`
+state is temporary.
 
 ## 3. Start each agent cold
 
-Use a different empty working directory for every run. Do not start inside the
-nrvna checkout: repository instructions and local files would make the test
-warm rather than cold.
+Use a different empty directory for every run. Do not start inside the nrvna
+checkout. Repository instructions and local files would make the test warm.
 
 ```bash
 mkdir -p /tmp/nrvna-cold/{claude,codex,pi,opencode}
@@ -136,34 +134,34 @@ cd /tmp/nrvna-cold/pi && pi
 cd /tmp/nrvna-cold/opencode && opencode
 ```
 
-If a launcher depends on a runtime missing from its shebang, invoke it through
-the runtime already used to install it. For example:
+If a launcher cannot find its runtime, invoke it through the installation
+runtime. For example:
 
 ```bash
 bun /usr/local/bin/codex
 ```
 
-An empty directory removes repository context, not the agent's global config,
-memories, or provider account. Use a fresh session and record any prior
-knowledge the agent reveals.
+An empty directory removes repository context. It does not remove global
+configuration, memory, or the provider account. Use a fresh session. Record
+any prior knowledge that the agent reveals.
 
 ## 4. Paste this first
 
 Paste the same block into every agent:
 
 ```text
-Explore https://github.com/sanmathigb/nrvna as a completely new user.
+Explore https://github.com/sanmathigb/nrvna as a new user.
 
-Start with the first useful application you discover. Explain what problem it
-solves, the normal human journey, and how an agent could use it without loading
-an entire image collection into context. Then explain what powers that
-application and why it exists.
+Start with the first useful application that you discover. Explain its problem
+and normal human journey. Explain how an agent can avoid loading the full image
+collection into context. Then explain what powers the application and why that
+system exists.
 
-Do not install anything, download models, index images, run local binaries, or
-inspect files elsewhere on this machine yet. Use only the public repository
-documentation. Clearly separate documented facts from your own inferences.
+Do not install software or download models. Do not index images or run local
+binaries. Do not inspect other local files. Use only public repository
+documentation. Separate documented facts from your inferences.
 
-Return a short onboarding report containing:
+Return a short onboarding report. Include:
 - agent, harness version, model if known, date, and working directory;
 - token usage, wall time, tool calls, and images opened when exposed;
 - the constraints you followed;
@@ -174,50 +172,48 @@ Return a short onboarding report containing:
 - anything ambiguous, missing, or surprising;
 - the smallest hands-on test you would run next.
 
-Also write the report to AGENT_REPORT.md in your current empty working
-directory. Do not write anywhere else on the machine.
+Write the report to AGENT_REPORT.md in the current empty directory. Do not
+write elsewhere on the machine.
 ```
 
-This phase should reveal whether the repository naturally leads from a real
-problem (`imgsrch`) to the underlying primitives (`wrk`, `nrvnad`, and `flw`).
-Do not tell the agent that answer in advance.
+This phase tests the repository path from `imgsrch` to `wrk`, `nrvnad`, and
+`flw`. Do not give that path to the agent.
 
-Treat repository discovery and documentation comprehension as separate gates.
-If the agent says the repository has no README, cannot read the landing page,
-or starts inventing command syntax, preserve that report as a discovery
-failure. Then continue the same session with this control prompt:
+Test repository discovery and document comprehension as separate gates. A
+missing README report is a discovery failure. Invented commands are also a
+discovery failure. Preserve the report. Then use this control prompt in the
+same session:
 
 ```text
-The public repository does have a README. Your browsing path did not retrieve
-it. Record that as a discovery failure, then read these public raw documents:
+The public repository has a README. Your browsing path did not retrieve it.
+Record this discovery failure. Then read these public raw documents:
 
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/DOCUMENTATION.md
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md
 
-Do not inspect local files or implementation code. Correct every unsupported
-claim and placeholder command in AGENT_REPORT.md using only those documents.
-Keep the original discovery failure in its own section so it is not erased.
+Do not inspect local files or implementation code. Use only these documents.
+Correct each unsupported claim and placeholder command in AGENT_REPORT.md.
+Keep the original discovery failure in a separate section.
 ```
 
-If the control succeeds, the documentation is comprehensible but natural
-repository discovery failed. If it still fails, record the agent harness's
-public-web limitation; do not misclassify that as missing repository content.
+If the control succeeds, the documents are clear but repository discovery
+failed. If it fails, record the harness web limit. Do not report missing
+repository content.
 
-For normal use, an agent should run `status` once and then `search`. It should
-not run `eval` without a labeled hard set, use `add` when `index` is intended,
-or assume imgsrch supports `--json`. Search has concise terminal output and a
-rich `search-results.md`; JSON flags belong to the underlying nrvna commands.
+For normal use, run `status` once and then run `search`. Do not run `eval`
+without a labeled hard set. Use `index`, not `add`, for normal ingestion.
+imgsrch does not support `--json`. Search prints concise output and writes
+`search-results.md`. JSON flags belong to nrvna commands.
 
 ## 5. If a usable index exists
 
 After reading its report, provide only these paths:
 
-The agent must have write access to the project. Search submits a query
-embedding job and writes `search-results.md`; a read-only sandbox can inspect
-status but cannot search. Codex CLI v0.144.6 may resume a prior session in
-read-only mode unless `-s workspace-write` is supplied again. Record that as a
-harness failure, not an imgsrch failure.
+The agent needs project write access. Search submits a query embedding job and
+writes `search-results.md`. A read-only sandbox can inspect status but cannot
+search. Codex CLI v0.144.6 can resume in read-only mode. Supply
+`-s workspace-write` again. Report sandbox denial as a harness failure.
 
 ```text
 An existing local test is available. Use only these paths:
@@ -226,88 +222,85 @@ binary: <IMGSRCH_BIN>
 models: <IMGSRCH_MODELS>
 project: <IMGSRCH_PROJECT>
 
-Check status once. If at least one image is indexed, run one natural-language
-search, inspect search-results.md, and assess whether the results help answer
-the query. You may open at most three returned originals for verification.
-Do not run setup, init, index, add, or eval. Do not enumerate the image folder.
-Do not inspect other files on this machine. Report commands, outputs, evidence,
-and any confusion separately. Update AGENT_REPORT.md with this hands-on phase.
+Check status once. If an image is indexed, run one natural-language search.
+Inspect search-results.md. Decide whether the results help answer the query.
+Open at most three returned originals for verification. Do not run setup, init,
+index, add, or eval. Do not list the image folder. Do not inspect other local
+files. Report commands, output, evidence, and confusion separately. Update
+AGENT_REPORT.md with this phase.
 ```
 
-Replace the angle-bracketed values with the paths from section 2. This tests
-retrieval and agent judgment without repeating setup or indexing.
+Replace the angle-bracketed values with paths from section 2. This tests
+retrieval and judgment without another setup or index run.
 
 ## 6. If no usable index exists
 
-Do not pretend the stale directory is indexed. Keep the run read-only and ask:
+Do not report a stale directory as indexed. Keep the run read-only. Use this
+prompt:
 
 ```text
-There is currently no reusable imgsrch index. Do not download models, create a
-project, or index images. Based on the public documentation and your first
-report, write the exact safe handoff you would give a user who already had a
-completed index. Include how you would check status, search iteratively, limit
-the originals opened, cite evidence, and stop when the index is not ready.
+There is no reusable imgsrch index. Do not download models, create a project,
+or index images. Use the public documentation and your first report. Write the
+exact handoff for a user with a completed index. Include one status check and
+iterative search. Limit the original images that you open. Cite evidence. Stop
+when the index is not ready.
 
-Then explain which parts are imgsrch product behavior and which parts are
-nrvna primitive behavior. Do not invent context inheritance, dependency
-execution, model routing, retries, or semantic artifact search in nrvna.
-Update AGENT_REPORT.md with this analysis and state clearly that retrieval was
-not executed.
+Separate imgsrch behavior from nrvna behavior. Do not invent inherited context,
+dependency execution, model routing, retries, or semantic artifact search.
+Update AGENT_REPORT.md. State that you did not execute retrieval.
 ```
 
-This still tests comprehension. Create a small reusable index once, separately,
-before running the hands-on phase across all agents. Do not make every cold
-agent repeat expensive setup and indexing.
+This still tests comprehension. Create one small reusable index before the
+hands-on tests. Do not make each cold agent repeat setup and indexing.
 
 ## 7. Optional nrvna smoke test
 
-Only after the agent understands imgsrch, let it verify the substrate:
+Run this test only after the agent understands imgsrch:
 
 ```text
-Now run the smallest isolated nrvna smoke test documented by the repository.
-Use a new workspace under /tmp, a compatible model path I explicitly provide,
-and --drain. Submit work before starting the daemon, retrieve the result, and
-report the job states, artifacts, exit codes, and what remained the caller's
-responsibility. Make no repository changes and inspect no unrelated files.
-Update AGENT_REPORT.md with the commands, exit codes, and observed artifacts.
+Run the smallest documented nrvna test. Use a new workspace under /tmp. Use the
+compatible model path that I provide. Use --drain. Submit work before you start
+the daemon. Retrieve the result. Report job states, artifacts, and exit codes.
+Report the caller's remaining responsibilities. Do not change the repository.
+Do not inspect unrelated files. Update AGENT_REPORT.md with the observed
+commands and results.
 ```
 
-Prefer an embedding model for a cheap deterministic lifecycle test. Provide
-the model path only when asked. The agent should discover the documented
-`wrk -> nrvnad --drain -> flw` contract itself.
+Prefer an embedding model for a small deterministic lifecycle test. Give the
+model path only when the agent asks. The agent must discover the documented
+`wrk -> nrvnad --drain -> flw` contract.
 
 ## 8. Test retention and transfer
 
-After the hands-on phases, keep the same agent session but prohibit further
-reading and tool use. This is intentionally a warm, closed-book test: it
-measures whether the agent retained nrvna's boundaries and can transfer them
-to a new application. It does not measure cold discovery or originality.
+After the hands-on phases, keep the same agent session. Prohibit more reading
+and tool use. This warm, closed-book test measures retained boundaries and
+transfer to a new application. It does not measure cold discovery or
+originality.
 
 ```text
-Without rereading documentation, inspecting code, browsing, or running tools,
-choose one application other than image search that you would genuinely build
-with the nrvna primitives. Do not give a wishlist.
+Do not read documentation, inspect code, browse, or run tools. Choose one
+application that you would build with nrvna. Do not choose image search. Do
+not give a feature list.
 
-Name the user and recurring problem. Show files in, model-role workspaces,
-wrk submissions, nrvnad lifecycle, flw retrieval, application-owned
-transitions, and files out. Separate what nrvna provides today from the
-application code and future work. Explain failure, retry, duplicate execution,
-context, validation, and why nrvna helps more than a direct model loop for this
-specific workload. State what must remain outside nrvna core.
+Name the user and recurring problem. Show input files, model workspaces, `wrk`
+submissions, `nrvnad` lifecycle, and `flw` retrieval. Show application-owned
+transitions and output files. Separate current nrvna behavior from application
+code and future work. Explain failure, retry, duplicate execution, context,
+and validation. Compare nrvna with a direct model loop for this workload. State
+what must stay outside nrvna core.
 
-Clearly distinguish documented or observed behavior from inference. Do not
-invent inherited context, dependency execution, model routing, retries, or
-semantic search in nrvna.
+Separate documented or observed behavior from inference. Do not invent
+inherited context, dependencies, model routing, retries, or semantic search.
 ```
 
-Grade the architecture, not the novelty of the idea. A successful answer uses
-the primitives as a small substrate, keeps product orchestration in the app,
-and names where a direct script or conventional queue would be a better fit.
+Grade the architecture, not the idea's novelty. A successful answer keeps
+product orchestration in the application. It also identifies when a script or
+conventional queue is a better choice.
 
 ## 9. Required report
 
-Each agent must leave `AGENT_REPORT.md` in its own cold-start directory. The
-report is the test artifact, not a polished review. Require this structure:
+Each agent must create `AGENT_REPORT.md` in its cold-start directory. The report
+is test evidence. It is not a polished review. Use this structure:
 
 ```markdown
 # nrvna cold-agent report
@@ -316,8 +309,8 @@ report is the test artifact, not a polished review. Require this structure:
 Agent, harness version, model if known, date, working directory.
 
 ## Agent usage
-Input, cached-input, output, and reasoning tokens if the harness exposes them;
-wall time; tool calls; images opened. Write "not exposed" rather than estimate.
+Record input, cached input, output, and reasoning tokens when available. Record
+wall time, tool calls, and images opened. Write "not exposed" when necessary.
 
 ## Constraints followed
 What the agent was and was not allowed to inspect, download, or execute.
@@ -346,9 +339,8 @@ Could a new user or agent succeed? What single documentation change would
 help most?
 ```
 
-Do not grade prose quality. Grade whether claims are grounded, commands are
-correct, constraints were respected, and the agent completed the intended
-journey without hidden help.
+Do not grade prose quality. Grade evidence, command accuracy, constraint
+compliance, and task completion. Do not give hidden help.
 
 ## 10. Compare the runs
 
@@ -370,16 +362,16 @@ Record evidence, not general impressions:
 | Reported tokens, wall time, tool calls, and images opened? | | | | |
 | Hallucinations or unnecessary questions | | | | |
 
-Test different agent harnesses first. After fixing documentation failures,
-repeat the hardest run with a smaller model. That separates documentation
-quality from frontier-model reasoning ability.
+Test different agent harnesses first. Fix observed documentation failures.
+Then repeat the hardest test with a smaller model. This separates document
+quality from model reasoning ability.
 
 ## 11. Field record
 
-Keep this table short. Add an entry only after an observed agent run changes a
-document, command contract, or test. Raw transcripts may contain private local
-paths and stay in the private session archive; this is the versioned public
-record of what the incident changed.
+Keep this table short. Add an entry only when an observed run changes a
+document, command contract, or test. Raw transcripts can contain private local
+paths. Keep them in the private session archive. This table is the public
+record of each resulting change.
 
 | Observed incident | What it established | Enforced response |
 | --- | --- | --- |

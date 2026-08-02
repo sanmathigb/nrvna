@@ -1,4 +1,4 @@
-# Primitive Quick Start
+# nrvna Quickstart
 
 This guide is for builders using `nrvnad`, `wrk`, and `flw` directly. For the
 packaged image-search product, start with [apps/imgsrch/README.md](apps/imgsrch/README.md).
@@ -13,10 +13,10 @@ cmake -S . -B build && cmake --build build -j4
 
 ## Get a Model
 
-Use a llama.cpp-compatible instruct GGUF that your current build supports. Put
-it in `./models/` or point to it with a full path (`NRVNA_MODELS_DIR` changes
-the search path). If you don't have one yet, use the pinned, checksum-verified
-model under [Run one job](README.md#run-one-job).
+Use a llama.cpp-compatible instruct GGUF that your build supports. Put it in
+`./models/`, or use a full path. `NRVNA_MODELS_DIR` changes the search path.
+The README provides a pinned model and checksum under
+[Run one job](README.md#run-one-job).
 
 ## First Job
 
@@ -28,15 +28,15 @@ MODEL=./models/smollm2-1.7b.gguf
 JOB=$(./build/wrk "$WS" "Reply with exactly: hello")
 ```
 
-Run the model against the queued work, then retrieve the answer:
+Run the model against the queued work. Then retrieve the answer:
 
 ```bash
 ./build/nrvnad "$MODEL" "$WS" --drain
 ./build/flw "$WS" "$JOB"
 ```
 
-The answer also lives at `$WS/output/<job-id>/result.txt` as a plain file.
-`wrk` did not need a running daemon; the job was already durable on disk.
+The answer also exists as `$WS/output/<job-id>/result.txt`. `wrk` did not need
+a running daemon. It made the job durable before the daemon started.
 
 ## Workspace Status
 
@@ -45,13 +45,14 @@ The answer also lives at `$WS/output/<job-id>/result.txt` as a plain file.
 ./build/flw /tmp/ws --json
 ```
 
-With no job ID, `flw` shows workspace counts and recent jobs. Exit codes when
-reading a job: `0` done, `1` failed, `2` not ready.
+Without a job ID, `flw` shows workspace counts and recent jobs. Job retrieval
+uses three exit codes: `0` done, `1` failed or missing, and `2` queued or
+running.
 
 ## Submit Now, Drain Later, Collect
 
-`wrk` returns a job ID immediately. Jobs remain queued even when no daemon or
-submitting process exists. Queue a batch now:
+`wrk` returns a job ID immediately. Jobs stay queued without a daemon or
+submitting process. Queue a batch now:
 
 ```bash
 BATCH="summary-$(date +%s)"
@@ -70,29 +71,28 @@ done
 { echo "Extract every action item:"; cat notes.md; } | ./build/wrk /tmp/ws - | ./build/flw /tmp/ws -w
 ```
 
-The tag groups jobs; it does not order them, share context, or choose a model.
-If a persistent daemon already owns the workspace, wait for just this batch
-with `flw /tmp/ws -W --tag "$BATCH"`, then run the separate collection command.
-The barrier prints no selected results.
+The tag groups jobs. It does not order jobs, share context, or choose a model.
+If a daemon owns the workspace, wait with `flw /tmp/ws -W --tag "$BATCH"`.
+Then run the collection command. The barrier prints no results.
 
 ## Other Job Types
 
-Each needs a model built for the job (and mmproj/vocoder files where noted —
-`nrvnad` auto-detects them next to the model):
+Each job type needs a compatible model. Some models also need an `mmproj` or
+vocoder. `nrvnad` detects these files beside the model.
 
 ```bash
-# Vision — caption or OCR screenshots (vision model + mmproj)
+# Vision: caption or OCR screenshots (vision model + mmproj)
 for img in ~/Screenshots/*.png; do
   ./build/wrk /tmp/ws-vision "What is this screenshot about?" --image "$img"
 done
 
-# Speech-to-text — transcribe a voice memo (audio-capable model + mmproj)
+# Speech-to-text: transcribe a voice memo (audio-capable model + mmproj)
 ./build/wrk /tmp/ws-stt --audio memo.mp3 --stt
 
-# Text-to-speech — narrate text (OuteTTS model + vocoder)
+# Text-to-speech: narrate text (OuteTTS model + vocoder)
 cat article-intro.txt | ./build/wrk /tmp/ws-tts - --tts
 
-# Embeddings — vectors for search and similarity (embedding model)
+# Embeddings: vectors for search and similarity (embedding model)
 for f in docs/*.md; do cat "$f" | ./build/wrk /tmp/ws-embed - --embed; done
 ```
 
@@ -102,7 +102,7 @@ side by side.
 ## Next Steps
 
 - [README.md](README.md)
-- [ADVANCED.md](ADVANCED.md) — batch, fan-out, chaining, multi-model patterns
-- [CONFIGURATION.md](CONFIGURATION.md) — model and runtime settings
+- [ADVANCED.md](ADVANCED.md): batch, fan-out, chaining, multi-model patterns
+- [CONFIGURATION.md](CONFIGURATION.md): model and runtime settings
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [apps/imgsrch/README.md](apps/imgsrch/README.md)

@@ -69,7 +69,7 @@ inline int effective_gpu_layers() {
     return env_int("NRVNA_GPU_LAYERS", 0);
 }
 
-// Configurable llama.cpp log filtering — keep UI clean
+// Filter llama.cpp logs to keep application output clean.
 inline void filtered_llama_log(enum ggml_log_level level, const char* text, void* /*user_data*/) {
     if (!text || text[0] == '.' || text[0] == '\n' || text[0] == '\0') return;
 

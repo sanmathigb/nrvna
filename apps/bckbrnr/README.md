@@ -7,8 +7,8 @@
 Type a prompt. Walk away. The answer is a file.
 
 `bckbrnr` is a macOS menu-bar app for local prompt work. It runs a GGUF model
-on your Mac, accepts more work while earlier prompts are running, and writes
-every answer to a folder.
+on your Mac. You can submit more work while earlier prompts run. The app writes
+each answer to a folder.
 
 ```text
 prompt  ->  local model  ->  notification  ->  answer.txt
@@ -29,11 +29,12 @@ Download the archive for your Mac from the
 | Apple Silicon | `bckbrnr-darwin-arm64.zip` |
 | Intel | `bckbrnr-darwin-x86_64.zip` |
 
-Unzip it, move `bckbrnr.app` to Applications, then right-click the app and
-choose **Open** on first launch.
+Unzip the archive. Move `bckbrnr.app` to Applications. Right-click the app and
+choose **Open** on the first launch.
 
-The developer preview is ad-hoc signed but not notarized, so macOS may block a
-normal double-click the first time. It requires macOS 13.3 or newer.
+The developer preview has an ad-hoc signature. It is not notarized. macOS can
+block a normal double-click on the first launch. The app requires macOS 13.3
+or newer.
 
 ## Run your first prompt
 
@@ -42,15 +43,14 @@ normal double-click the first time. It requires macOS 13.3 or newer.
    [`LFM2.5-1.2B-Instruct-Q4_K_M.gguf`](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/blob/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf).
 3. Press **Start** and wait for **Ready**.
 4. Type a prompt and press Return.
-5. Leave. A notification opens the answer when it is ready.
+5. Leave the app. A notification opens the answer when it is ready.
 
-The model is the only separate download. The app bundles the `nrvnad`, `wrk`,
-and `flw` engine binaries. Inference, prompts, jobs, and answers stay on this
-Mac.
+The model is the only separate download. The app includes `nrvnad`, `wrk`, and
+`flw`. Inference, prompts, jobs, and answers stay on this Mac.
 
-The first launch asks permission to send notifications. Grant it to receive
-the ready banner; answers are written to disk either way. **Help** in the
-popover opens this guide.
+The first launch asks for permission to send notifications. Grant permission
+to receive the ready notice. The app writes answers without this permission.
+**Help** in the popover opens this guide.
 
 ## Answers are files
 
@@ -69,24 +69,27 @@ The complete local state is:
 └── .ws/               durable nrvna jobs
 ```
 
-- answers are `response/<prompt>.txt`;
-- failures are `response/<prompt>.error.txt`;
-- prompts are durable before earlier answers finish;
-- completed answers are recovered when the app reopens;
-- unfinished jobs resume the next time you press **Start**.
+- Answers use `response/<prompt-stem>.txt`.
+- Failures use `response/<prompt-stem>.error.txt`.
+- The stem comes from the first non-empty prompt line. It is cleaned and capped
+  at 40 characters. A numeric suffix prevents collisions.
+- Prompts become durable before earlier answers finish.
+- The app recovers completed answers when it opens.
+- The app resumes unfinished jobs when you press **Start**.
 
-You may change the answer folder while the utility is stopped. The app never
-uploads or deletes your model, prompts, jobs, or answers.
+You can change the utility root while the utility is stopped. This changes the
+folders for prompts, jobs, and answers. The app does not upload, move, or delete
+your model, prompts, jobs, or answers.
 
 ## Human app, reusable primitives
 
-bckbrnr is the human interface: a menu-bar prompt box, notifications, and an
-answer folder. Scripts and agents should use
-[nrvna's three CLI primitives](https://github.com/sanmathigb/nrvna) directly
-rather than automate the app's UI.
+bckbrnr provides a menu-bar prompt box, notifications, and an answer folder.
+Scripts and agents should use
+[nrvna's three CLI primitives](https://github.com/sanmathigb/nrvna) directly.
+They should not automate the app interface.
 
-That separation is deliberate. bckbrnr owns the product experience; nrvna
-owns the durable local work underneath it.
+This separation is intentional. bckbrnr owns the product experience. nrvna
+owns the durable local work.
 
 ## Build from source
 
@@ -99,9 +102,9 @@ make app
 open .build/bckbrnr.app
 ```
 
-`make app` builds portable, statically linked nrvna engine binaries and
-bundles them under `Contents/Resources/bin/`. Use `make run` to build and open
-in one command. Maintainers can run the model-backed controller journey with:
+`make app` builds static nrvna engine binaries. It puts them under
+`Contents/Resources/bin/`. Use `make run` to build and open the app. Maintainers
+can run the model-backed controller test with:
 
 ```bash
 make integration-test MODEL=/path/to/model.gguf
@@ -112,9 +115,9 @@ Engine, model, and runtime environment overrides are listed in the
 
 ## Limits
 
-bckbrnr is for independent text prompts, not chat history, token streaming,
-vision, or tool use. It requires macOS 13.3+ and a local instruct GGUF. Apple
-Silicon and Intel archives are built and smoke-tested; signed and notarized
-distribution remains to be done.
+bckbrnr processes independent text prompts. It does not provide chat history,
+token streaming, vision, or tool use. It requires macOS 13.3+ and a local
+instruct GGUF. Tests cover Apple Silicon and Intel archives. Distribution is
+ad-hoc signed but not Developer ID signed or notarized.
 
 MIT licensed. Model licenses remain model-specific.

@@ -63,7 +63,7 @@ final class BckbrnrController: ObservableObject {
         let code = engineStatusCode()
         if Self.isLive(code) {
             isRunning = true
-            statusText = code == 0 ? "Ready" : "Warming up…"
+            statusText = code == 0 ? "Ready" : "Warming up..."
             if code == 2 { awaitReadiness(launched: nil) }
         }
         recoverCompletedResponses()
@@ -101,7 +101,7 @@ final class BckbrnrController: ObservableObject {
                 try startDaemon(model: model, engine: engine)
             }
             isRunning = true
-            statusText = "Warming up…"
+            statusText = "Warming up..."
             awaitReadiness(launched: daemon)
             recoverCompletedResponses()
         } catch {
@@ -129,25 +129,23 @@ final class BckbrnrController: ObservableObject {
                     if launched == nil || launched?.isRunning != true {
                         if self.stopping() { return }
                         DispatchQueue.main.async { self.isRunning = false }
-                        self.setStatus("Engine stopped during startup — see bckbrnr-engine.log")
+                        self.setStatus("Engine stopped during startup. See bckbrnr-engine.log")
                         return
                     }
                 }
                 Thread.sleep(forTimeInterval: 1)
             }
             if self.stopping() { return }
-            self.setStatus("Engine is taking unusually long to load")
+            self.setStatus("Engine is still loading")
         }
     }
 
-    /// Re-check whether a daemon is actually alive and flip the UI to match.
-    /// Called when the popover opens so the prompt box reflects daemon state.
-    /// If the daemon disappears after a prompt is accepted, wrk still queues it
-    /// durably for the next Start.
+    /// Check the daemon and update the interface.
+    /// The popover calls this method when it opens.
+    /// If the daemon stops after submission, wrk keeps the job for the next Start.
     func refresh() {
         guard !isStopping else { return }
-        // Status is a subprocess call; keep it off the main thread so opening
-        // the popover never hitches on it.
+        // Run status outside the main thread. The popover must remain responsive.
         queue.async { [weak self] in
             guard let self else { return }
             let code = self.engineStatusCode()
@@ -155,18 +153,18 @@ final class BckbrnrController: ObservableObject {
             DispatchQueue.main.async {
                 guard !self.isStopping else { return }
                 self.isRunning = alive
-                // Always refresh the label: starting → ready flips the text even
-                // when the running boolean hasn't changed.
-                self.statusText = alive ? (code == 0 ? "Ready" : "Warming up…") : Self.restingHint
+                // Always refresh the label. Startup can change the text without
+                // changing the running value.
+                self.statusText = alive ? (code == 0 ? "Ready" : "Warming up...") : Self.restingHint
             }
             if alive { self.recoverCompletedResponses() }
         }
     }
 
-    /// On app quit, shut down the daemon bound to this utility workspace.
-    /// bckbrnr owns this workspace; leaving it headless is more surprising than
-    /// stopping it. The engine identifies and stops its own process — we never
-    /// signal a pid ourselves.
+    /// Stop the daemon when the application quits.
+    /// bckbrnr owns this workspace and must not leave its daemon running.
+    /// The engine identifies and stops its process. The application does not
+    /// signal a PID directly.
     func terminateWorkspaceDaemon() {
         cancelWaiters()
         engineStop()
@@ -176,7 +174,7 @@ final class BckbrnrController: ObservableObject {
     func stop() {
         guard !isStopping else { return }
         isStopping = true
-        statusText = "Stopping…"
+        statusText = "Stopping..."
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             self.engineStop()
             DispatchQueue.main.async {
@@ -203,7 +201,7 @@ final class BckbrnrController: ObservableObject {
             setStatus("Engine binaries not found (set BCKBRNR_ENGINE_DIR)")
             return false
         }
-        setStatus("Working…")
+        setStatus("Working...")
         let stem = Naming.uniqueStem(Naming.deriveStem(from: text), in: promptDir, ext: "txt")
         let promptFile = promptDir.appendingPathComponent("\(stem).txt")
         let responseFile = responseDir.appendingPathComponent("\(stem).txt")
@@ -229,7 +227,7 @@ final class BckbrnrController: ObservableObject {
                     )
                     try result.write(to: responseFile, atomically: true, encoding: .utf8)
                     self.setStatus("Ready")
-                    self.notify(title: "bckbrnr — your answer is ready", body: stem, path: responseFile.path)
+                    self.notify(title: "bckbrnr: your answer is ready", body: stem, path: responseFile.path)
                 } catch is WaitCancelled {
                     return
                 } catch {
@@ -265,7 +263,7 @@ final class BckbrnrController: ObservableObject {
         // Don't claim "Ready": a dead daemon is a likely cause of the
         // failure, so re-derive the status from the engine.
         refresh()
-        notify(title: "bckbrnr — couldn’t finish", body: stem, path: errorFile.path)
+        notify(title: "bckbrnr: could not finish", body: stem, path: errorFile.path)
     }
 
     private func recoverCompletedResponses() {
@@ -308,7 +306,7 @@ final class BckbrnrController: ObservableObject {
                     continue
                 }
                 self.notify(
-                    title: failed ? "bckbrnr — couldn’t finish" : "bckbrnr — your answer is ready",
+                    title: failed ? "bckbrnr: could not finish" : "bckbrnr: your answer is ready",
                     body: stem,
                     path: target.path
                 )
@@ -328,15 +326,15 @@ final class BckbrnrController: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             defaults.set(url.path, forKey: "textModelPath")
             modelName = url.lastPathComponent
-            setStatus("Model selected — press Start")
+            setStatus("Model selected. Press Start.")
         }
     }
 
     // MARK: root directory
 
-    /// Point the daemon at a different root. Only allowed while stopped — a
-    /// running daemon is bound to the old workspace, so changing under it
-    /// would split the queue. Takes effect on the next Start.
+    /// Change the root directory while the daemon is stopped.
+    /// A running daemon remains bound to its current workspace.
+    /// The new root takes effect on the next Start.
     func chooseRoot() {
         guard !isRunning && !isStopping else { setStatus("Stop before changing the root"); return }
         let panel = NSOpenPanel()
@@ -356,7 +354,7 @@ final class BckbrnrController: ObservableObject {
         applyDesk(URL(fileURLWithPath: expanded, isDirectory: true))
         defaults.set(desk.path, forKey: "deskPath")
         if let model = resolveModel() { modelName = model.lastPathComponent }
-        setStatus("Root set — press Start")
+        setStatus("Folder selected. Press Start.")
     }
 
     private func applyDesk(_ url: URL) {
