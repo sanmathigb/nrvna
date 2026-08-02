@@ -347,7 +347,7 @@ int main(int argc, char * argv[]) {
             printStatusHelp();
             return 0;
         }
-        if (argc < 3) {
+        if (argc < 3 || argv[2][0] == '\0' || argv[2][0] == '-') {
             std::cerr << "Usage: nrvnad status <workspace> [--json]\n";
             return 1;
         }
@@ -387,7 +387,7 @@ int main(int argc, char * argv[]) {
             printStopHelp();
             return 0;
         }
-        if (argc < 3) {
+        if (argc < 3 || argv[2][0] == '\0' || argv[2][0] == '-') {
             std::cerr << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n";
             return 1;
         }

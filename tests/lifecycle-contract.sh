@@ -17,6 +17,20 @@ case "$stop_help" in
     *) echo "stop --help did not show stop help" >&2; exit 1 ;;
 esac
 
+# An option cannot stand in for the required workspace.
+status_out="$tmp/status-option.out"
+status_err="$tmp/status-option.err"
+if "$bin_dir/nrvnad" status --json >"$status_out" 2>"$status_err"; then
+    echo "status accepted --json as a workspace" >&2; exit 1
+fi
+[ ! -s "$status_out" ] || { echo "invalid status wrote to stdout" >&2; exit 1; }
+grep -q 'Usage: nrvnad status' "$status_err" || {
+    echo "invalid status did not print usage" >&2; exit 1;
+}
+if "$bin_dir/nrvnad" stop --bogus >/dev/null 2>&1; then
+    echo "stop accepted an option as a workspace" >&2; exit 1
+fi
+
 # status on a workspace with no daemon: exit 1, says not running
 mkdir -p "$tmp/ws1"
 if "$bin_dir/nrvnad" status "$tmp/ws1"; then
