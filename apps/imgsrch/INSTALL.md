@@ -48,13 +48,9 @@ tar -xzf "$kit.tar.gz"
 cd "$kit"
 ```
 
-Keep `imgsrch` and `bin/` together. macOS can block the unsigned preview. Run
-the next command only after checksum verification succeeds. It removes macOS
-quarantine metadata from the extracted release:
-
-```bash
-xattr -dr com.apple.quarantine .
-```
+Keep `imgsrch` and `bin/` together. macOS can block the unsigned preview. If it
+does, stop and ask the person to approve it in **System Settings → Privacy &
+Security**. Do not remove quarantine metadata.
 
 ## 2. Fetch and verify models
 
