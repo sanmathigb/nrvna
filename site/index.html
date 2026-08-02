@@ -229,8 +229,23 @@
         </div>
       </div>
       <p class="caption">Submit now. Start later. Collect whenever.</p>
+      <p class="quiet">Experimental developer preview. The filesystem and
+      lifecycle contracts are tested; production behavior is not claimed.</p>
     </div>
   </div>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="eyebrow">~/why</div>
+      <h2>Built for interrupted time and finite machines</h2>
+      <p>I built nrvna on a 2017 Intel MacBook while caring for two young
+      children. My time and compute both came in fragments. I wanted to leave
+      work in a folder, bring a local model to it when the machine was
+      available, and return to ordinary files later.</p>
+      <p class="quiet">Local compute is finite and intermittent. Work should
+      not disappear because the caller, model process, or terminal is gone.</p>
+    </div>
+  </section>
 
   <section id="primitives">
     <div class="wrap">
@@ -306,6 +321,8 @@ Explain nrvna's job, context, drain, and failure contracts before using it.
 Use an isolated workspace and an existing local model. Do not download models
 or modify existing workspaces without asking me first.</pre>
       </div>
+      <p class="quiet">The agent still owns context selection, model routing,
+      validation, and retries. nrvna keeps the inference work durable.</p>
     </div>
   </section>
 </main>

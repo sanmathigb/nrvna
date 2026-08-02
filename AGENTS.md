@@ -49,12 +49,15 @@ when their models cannot coexist in memory.
 ## Machine Contract
 
 - Prefer `--json` when consuming status or results programmatically.
-- `flw <ws> <job>` exits `0` when done, `1` when failed, and `2` when not ready.
+- `flw <ws> <job>` exits `0` when done, `1` when failed or missing, and `2`
+  when queued or running.
 - `nrvnad status <ws>` exits `0` when ready, `2` while starting, and `1` when
   not running. `nrvnad stop <ws>` exits `0` when stopped or already absent.
 - Use `flw <ws> -w <job>` to wait for one job handled by a persistent daemon.
 - Use a repeated `--tag <name>` on `wrk`, then `flw <ws> -W --tag <name>` as a
-  barrier for that batch.
+  barrier for that batch. The barrier prints no selected results. Collect them
+  separately with `flw <ws> --tag <name> --json`, which emits NDJSON and exits
+  `1` if any selected job failed.
 - Use `wrk --parent <job-id>` for lineage and `flw --children <job-id>` to read
   direct descendants.
 - One daemon owns a workspace at a time. `nrvnad status <ws> --json` is the

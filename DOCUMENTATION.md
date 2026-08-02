@@ -24,8 +24,8 @@ status and results.
 
 ## Validate
 
-- [Cold-agent test](COLD_AGENT_TEST.md) — compare clean onboarding and hands-on
-  behavior across agent harnesses without repeating model downloads
+- [Cold-agent test](COLD_AGENT_TEST.md) — compare discovery, hands-on behavior,
+  and closed-book transfer across agent harnesses without repeating downloads
 
 ## Source of truth
 

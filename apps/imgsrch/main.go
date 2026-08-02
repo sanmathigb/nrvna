@@ -24,7 +24,7 @@ Commands:
   search <project> <query> [--top-k n] [--scorer s]    Search a project
   status <project>                                     Show indexing status
   add <project> <image...>                             Stage images without indexing
-  eval <project> <hardset.json> [--top-k n]            Evaluate scorers on a hard set
+  eval <project> <hardset.json> [--top-k n] [--scorer s] Evaluate scorers on a hard set
   doctor [project]                                     Check the installation
 
 Scorers:

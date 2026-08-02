@@ -77,7 +77,16 @@ IMGSRCH_MODELS=/tmp/imgsrch-fresh/models
 IMGSRCH_PROJECT=/tmp/imgsrch-fresh/test-project
 
 test -x "$IMGSRCH_BIN" && echo "binary: ready" || echo "binary: missing"
-test -d "$IMGSRCH_MODELS" && echo "models: present" || echo "models: missing"
+models_ready=true
+for model in \
+  LFM2.5-VL-1.6B-Q8_0.gguf \
+  mmproj-LFM2.5-VL-1.6b-Q8_0.gguf \
+  GLM-OCR-Q8_0.gguf \
+  mmproj-GLM-OCR-Q8_0.gguf \
+  nomic-embed-text-v1.5.Q8_0.gguf; do
+  test -f "$IMGSRCH_MODELS/$model" || models_ready=false
+done
+$models_ready && echo "models: ready" || echo "models: missing or incomplete"
 test -f "$IMGSRCH_PROJECT/.imgsrch/items.tsv" \
   && test -f "$IMGSRCH_PROJECT/.imgsrch/index/index.tsv" \
   && echo "project: initialized" \
@@ -99,7 +108,7 @@ Interpret the result strictly:
   Do not ask the agent to evaluate retrieval.
 - **Project directory exists but either manifest is missing:** it is stale or
   incomplete, not an existing index. Do not reuse it.
-- **Models present but no usable index:** the model download can be skipped,
+- **Models ready but no usable index:** the model download can be skipped,
   but a future hands-on test still needs a new project and source images.
 - **Binary missing:** use the current source-built binary above if present, or
   provide a packaged binary. Do not make a cold documentation test build it.
@@ -155,6 +164,9 @@ inspect files elsewhere on this machine yet. Use only the public repository
 documentation. Clearly separate documented facts from your own inferences.
 
 Return a short onboarding report containing:
+- agent, harness version, model if known, date, and working directory;
+- token usage, wall time, tool calls, and images opened when exposed;
+- the constraints you followed;
 - what you discovered first and why;
 - the commands you expect a human to use;
 - the workflow you expect an agent to use;
@@ -170,6 +182,28 @@ This phase should reveal whether the repository naturally leads from a real
 problem (`imgsrch`) to the underlying primitives (`wrk`, `nrvnad`, and `flw`).
 Do not tell the agent that answer in advance.
 
+Treat repository discovery and documentation comprehension as separate gates.
+If the agent says the repository has no README, cannot read the landing page,
+or starts inventing command syntax, preserve that report as a discovery
+failure. Then continue the same session with this control prompt:
+
+```text
+The public repository does have a README. Your browsing path did not retrieve
+it. Record that as a discovery failure, then read these public raw documents:
+
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/DOCUMENTATION.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md
+
+Do not inspect local files or implementation code. Correct every unsupported
+claim and placeholder command in AGENT_REPORT.md using only those documents.
+Keep the original discovery failure in its own section so it is not erased.
+```
+
+If the control succeeds, the documentation is comprehensible but natural
+repository discovery failed. If it still fails, record the agent harness's
+public-web limitation; do not misclassify that as missing repository content.
+
 For normal use, an agent should run `status` once and then `search`. It should
 not run `eval` without a labeled hard set, use `add` when `index` is intended,
 or assume imgsrch supports `--json`. Search has concise terminal output and a
@@ -178,6 +212,12 @@ rich `search-results.md`; JSON flags belong to the underlying nrvna commands.
 ## 5. If a usable index exists
 
 After reading its report, provide only these paths:
+
+The agent must have write access to the project. Search submits a query
+embedding job and writes `search-results.md`; a read-only sandbox can inspect
+status but cannot search. Codex CLI v0.144.6 may resume a prior session in
+read-only mode unless `-s workspace-write` is supplied again. Record that as a
+harness failure, not an imgsrch failure.
 
 ```text
 An existing local test is available. Use only these paths:
@@ -236,7 +276,35 @@ Prefer an embedding model for a cheap deterministic lifecycle test. Provide
 the model path only when asked. The agent should discover the documented
 `wrk -> nrvnad --drain -> flw` contract itself.
 
-## 8. Required report
+## 8. Test retention and transfer
+
+After the hands-on phases, keep the same agent session but prohibit further
+reading and tool use. This is intentionally a warm, closed-book test: it
+measures whether the agent retained nrvna's boundaries and can transfer them
+to a new application. It does not measure cold discovery or originality.
+
+```text
+Without rereading documentation, inspecting code, browsing, or running tools,
+choose one application other than image search that you would genuinely build
+with the nrvna primitives. Do not give a wishlist.
+
+Name the user and recurring problem. Show files in, model-role workspaces,
+wrk submissions, nrvnad lifecycle, flw retrieval, application-owned
+transitions, and files out. Separate what nrvna provides today from the
+application code and future work. Explain failure, retry, duplicate execution,
+context, validation, and why nrvna helps more than a direct model loop for this
+specific workload. State what must remain outside nrvna core.
+
+Clearly distinguish documented or observed behavior from inference. Do not
+invent inherited context, dependency execution, model routing, retries, or
+semantic search in nrvna.
+```
+
+Grade the architecture, not the novelty of the idea. A successful answer uses
+the primitives as a small substrate, keeps product orchestration in the app,
+and names where a direct script or conventional queue would be a better fit.
+
+## 9. Required report
 
 Each agent must leave `AGENT_REPORT.md` in its own cold-start directory. The
 report is the test artifact, not a polished review. Require this structure:
@@ -282,7 +350,7 @@ Do not grade prose quality. Grade whether claims are grounded, commands are
 correct, constraints were respected, and the agent completed the intended
 journey without hidden help.
 
-## 9. Compare the runs
+## 10. Compare the runs
 
 Record evidence, not general impressions:
 
@@ -294,6 +362,7 @@ Record evidence, not general impressions:
 | Understood local/private boundaries? | | | | |
 | Distinguished imgsrch from nrvna? | | | | |
 | Understood fresh context and lineage-only parents? | | | | |
+| Transferred the primitives without growing core? | | | | |
 | Respected the no-download/no-index constraint? | | | | |
 | Avoided enumerating or opening the full corpus? | | | | |
 | Used status once and handled zero indexed honestly? | | | | |
@@ -304,3 +373,18 @@ Record evidence, not general impressions:
 Test different agent harnesses first. After fixing documentation failures,
 repeat the hardest run with a smaller model. That separates documentation
 quality from frontier-model reasoning ability.
+
+## 11. Field record
+
+Keep this table short. Add an entry only after an observed agent run changes a
+document, command contract, or test. Raw transcripts may contain private local
+paths and stay in the private session archive; this is the versioned public
+record of what the incident changed.
+
+| Observed incident | What it established | Enforced response |
+| --- | --- | --- |
+| A cold Codex session failed to retrieve the repository README, then invented placeholder commands. The same session understood nrvna after receiving exact raw-document URLs. | Repository discovery and documentation comprehension are separate gates. | Section 4 preserves the discovery failure and runs a raw-document control instead of rewriting good documentation to fix a harness limitation. |
+| A resumed Codex session could read an existing imgsrch project but search failed before inference because the sandbox was read-only. | Search is not read-only: it submits a query embedding and updates `search-results.md`. | Section 5 and the [imgsrch README](apps/imgsrch/README.md) require project write access and classify sandbox denial as a harness failure. |
+| A completed three-image canary survived the initiating session, reached three searchable items, and returned the meeting-transcription screenshot first. | The packaged `doctor -> init -> index -> background completion -> search -> preview` journey works with cached, checksum-matched models. | Section 1 requires that full transition rather than treating setup alone as success. |
+| A two-job embedding audit queued work before a daemon, drained with two workers, and retrieved two 768-dimensional artifacts. `flw -W --tag ... --json` exited `0` with empty stdout; plain tagged retrieval emitted NDJSON. | The bounded primitive path works, and a batch barrier is not result collection. | `flw --help`, `AGENTS.md`, `QUICKSTART.md`, and `tests/primitive-contract.sh` now state and enforce the distinction. |
+| The same trained session designed a separate meeting-inbox application without rereading docs and kept routing, validation, retries, and dependencies outside core. | The agent retained and transferred the foundation after hands-on use. It did not prove cold originality. | Section 8 labels this a warm, closed-book transfer test and grades architectural boundaries rather than novelty. |

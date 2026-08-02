@@ -20,6 +20,13 @@ for a person or agent to inspect.
 **Pre-beta.** imgsrch is the first application built with
 [nrvna](https://github.com/sanmathigb/nrvna).
 
+## Why
+
+My iPhone screenshots kept accumulating. The useful ones were there, but
+giving hundreds of images to an agent was impractical and wasteful. imgsrch
+processes them locally once and retrieves a small relevant set, so a person or
+agent opens only the evidence needed for the task.
+
 ## Install
 
 Download the archive for your platform from the
@@ -92,7 +99,8 @@ Search prints ranked paths and the evidence behind each match:
 ```
 
 It also writes `shots/search-results.md` with inline, clickable previews of
-the original images.
+the original images. Search requires write access to the project because it
+submits a query-embedding job and updates this report.
 
 ## Give it to an agent
 

@@ -13,6 +13,7 @@ func TestUsageListsPublicCommandsAndFlags(t *testing.T) {
 		"setup",
 		"search",
 		"eval",
+		"eval <project> <hardset.json> [--top-k n] [--scorer s]",
 		"--scorer",
 		"IMGSRCH_MODELS_DIR",
 		"CONFIGURATION.md",
