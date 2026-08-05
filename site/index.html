@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nrvna | durable local inference primitives</title>
-<meta name="description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
+<meta name="description" content="Durable local inference without an HTTP server or message broker. Submit jobs now, run a local model later, and read file results.">
 <meta property="og:title" content="nrvna | durable local inference primitives">
-<meta property="og:description" content="With nrvna, models get wrk. You get flw. Three Unix-like primitives for durable, asynchronous local inference.">
+<meta property="og:description" content="Durable local inference without an HTTP server or message broker. Submit jobs now, run a local model later, and read file results.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
 <style>
@@ -206,10 +206,9 @@
 <main>
   <div class="hero">
     <div class="wrap">
-      <h1>With nrvna, models get <span class="bin">wrk</span>.<br>You get <span class="bin">flw</span>.</h1>
-      <p>Unix-like primitives for durable, asynchronous local inference. <code>nrvnad</code> runs a model.
-      <code>wrk</code> submits jobs. <code>flw</code> collects results.
-      The filesystem is the queue.</p>
+      <h1>Submit now.<br>Run the model later.</h1>
+      <p>Unix-like primitives for durable local inference. No HTTP server or
+      message broker is required. Jobs and results are files.</p>
 
       <div class="termstack" role="img" aria-label="Three terminal windows: work is submitted before anything runs, a model is started later, and the answer is collected by job ID.">
         <div class="terminal">
@@ -228,7 +227,7 @@
 <span class="o">A KV cache is why the model doesn't re-read…</span></pre>
         </div>
       </div>
-      <p class="caption">Submit now. Start later. Collect whenever.</p>
+      <p class="caption">The workspace remembers. The model does not.</p>
       <p class="quiet">Experimental developer preview. Tests cover the
       filesystem and lifecycle contracts. nrvna does not claim production readiness.</p>
     </div>
@@ -285,7 +284,7 @@
       <div class="eyebrow">~/where-it-fits</div>
       <h2>Bigger than one prompt, smaller than a framework</h2>
       <ul class="nots">
-        <li><b>Not a chat app</b> <span>Async jobs, not conversations</span></li>
+        <li><b>Not a chat app</b> <span>Independent jobs, not conversations</span></li>
         <li><b>Not an agent framework</b> <span>Primitives that applications use</span></li>
         <li><b>Not a model runtime</b> <span>llama.cpp runs the model. nrvna provides jobs and workspaces for application-side composition.</span></li>
       </ul>

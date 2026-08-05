@@ -11,6 +11,7 @@ collect only that batch:
 
 ```bash
 BATCH="captions-$(date +%s)"
+: > jobs.txt
 
 for img in photos/*.jpg; do
   wrk ./workspace "Caption this image" --image "$img" --tag "$BATCH" \
@@ -36,22 +37,27 @@ run the collection command.
 Fan-out sends parts to independent jobs. Fan-in combines their results.
 
 ```bash
+MODEL=/path/to/model.gguf
+
 # Fan-out: summarize each chapter independently
 job1=$({ echo "Summarize the key claims:"; cat report/ch1.txt; } | wrk ./workspace -)
 job2=$({ echo "Summarize the key claims:"; cat report/ch2.txt; } | wrk ./workspace -)
 job3=$({ echo "Summarize the key claims:"; cat report/ch3.txt; } | wrk ./workspace -)
 
-# Wait for all
-result1=$(flw ./workspace "$job1" -w)
-result2=$(flw ./workspace "$job2" -w)
-result3=$(flw ./workspace "$job3" -w)
+# Load once and finish the queued summaries
+nrvnad "$MODEL" ./workspace --drain
+result1=$(flw ./workspace "$job1")
+result2=$(flw ./workspace "$job2")
+result3=$(flw ./workspace "$job3")
 
 # Fan-in: synthesize
-wrk ./workspace "Merge these chapter summaries into one digest.
+final_job=$(wrk ./workspace "Merge these chapter summaries into one digest.
 Preserve exact terms and numbers. Do not add new facts.
 $result1
 $result2
-$result3"
+$result3")
+nrvnad "$MODEL" ./workspace --drain
+flw ./workspace "$final_job"
 ```
 
 Each job uses one bounded context. The final job receives only the selected
@@ -64,20 +70,29 @@ results.
 Generate a draft. Critique it. Then improve it.
 
 ```bash
+MODEL=/path/to/model.gguf
+WS=./workspace
 GOAL="Write a cover letter for a senior engineer position"
+nrvnad "$MODEL" "$WS" &
+DAEMON_PID=$!
 
 # First draft
-draft=$(wrk ./workspace "$GOAL" | xargs flw ./workspace -w)
+draft_job=$(wrk "$WS" "$GOAL")
+draft=$(flw "$WS" "$draft_job" -w)
 
 # Critique
-critique=$(wrk ./workspace "Critique this draft. What's weak? $draft" | xargs flw ./workspace -w)
+critique_job=$(wrk "$WS" "Critique this draft. What's weak? $draft")
+critique=$(flw "$WS" "$critique_job" -w)
 
 # Improve
-final=$(wrk ./workspace "Improve this draft based on feedback:
+final_job=$(wrk "$WS" "Improve this draft based on feedback:
 Draft: $draft
-Feedback: $critique" | xargs flw ./workspace -w)
+Feedback: $critique")
+final=$(flw "$WS" "$final_job" -w)
 
 echo "$final"
+nrvnad stop "$WS"
+wait "$DAEMON_PID"
 ```
 
 ---
@@ -87,13 +102,18 @@ echo "$final"
 Iterate until done:
 
 ```bash
+MODEL=/path/to/model.gguf
+WS=./workspace
 GOAL="Write a Python tutorial covering variables, loops, and functions"
 memory=""
+nrvnad "$MODEL" "$WS" &
+DAEMON_PID=$!
 
 for i in {1..5}; do
-  result=$(wrk ./workspace "Goal: $GOAL
+  job=$(wrk "$WS" "Goal: $GOAL
 Previous work: $memory
-Continue. Write the next section. Say DONE if complete." | xargs flw ./workspace -w)
+Continue. Write the next section. Say DONE if complete.")
+  result=$(flw "$WS" "$job" -w)
 
   echo "=== Iteration $i ==="
   echo "$result"
@@ -102,8 +122,15 @@ Continue. Write the next section. Say DONE if complete." | xargs flw ./workspace
     break
   fi
 
-  memory="$memory\n---\n$result"
+  if [ -z "$memory" ]; then
+    memory="$result"
+  else
+    memory=$(printf '%s\n---\n%s' "$memory" "$result")
+  fi
 done
+
+nrvnad stop "$WS"
+wait "$DAEMON_PID"
 ```
 
 ---
@@ -113,17 +140,20 @@ done
 Caption or analyze each image in a directory:
 
 ```bash
-nrvnad qwen-vl.gguf ./ws-vision    # mmproj auto-detected
+: > jobs.txt
 
 for img in photos/*.jpg; do
   wrk ./ws-vision "Describe this image in detail" --image "$img" >> jobs.txt
 done
 
+# Load once, drain the image jobs, and release the model
+nrvnad qwen-vl.gguf ./ws-vision --drain    # mmproj auto-detected
+
 # Collect all captions
-for job in $(cat jobs.txt); do
+while IFS= read -r job; do
   echo "=== $job ==="
-  flw ./ws-vision -w $job
-done
+  flw ./ws-vision "$job"
+done < jobs.txt
 ```
 
 ---
@@ -133,12 +163,17 @@ done
 Generate embeddings for similarity search:
 
 ```bash
+: > embed-jobs.txt
+
 # Generate embeddings for a corpus
 for doc in docs/*.txt; do
   content=$(cat "$doc")
   job=$(wrk ./workspace "$content" --embed)
   echo "$doc $job" >> embed-jobs.txt
 done
+
+# Process the queued work
+nrvnad embedding-model.gguf ./workspace --drain
 
 # Results are JSON files in output/<job-id>/embedding.json
 # Each contains: { "dim": N, "vector": [...] }
@@ -151,10 +186,9 @@ done
 Generate audio from text:
 
 ```bash
-nrvnad outetts.gguf ./ws-tts    # vocoder auto-detected
-
 job=$(cat article-intro.txt | wrk ./ws-tts - --tts)
-flw ./ws-tts -w $job
+nrvnad outetts.gguf ./ws-tts --drain    # vocoder auto-detected
+flw ./ws-tts "$job"
 
 # Result is a WAV file at workspace/output/<job-id>/audio.wav
 # Keep each job to a few sentences; chunk longer text into multiple jobs
@@ -172,7 +206,10 @@ fswatch -0 ./workspace/output | while read -d '' path; do
   [[ "$path" == */result.txt ]] && cat "$path"
 done
 
-# Terminal 2: Submit jobs
+# Terminal 2: Keep the model ready. This command stays open.
+nrvnad text-model.gguf ./workspace
+
+# Terminal 3: Submit jobs
 for f in inbox/*.txt; do
   { echo "Summarize:"; cat "$f"; } | wrk ./workspace -
 done
@@ -185,43 +222,42 @@ done
 Save results and include them in a later prompt:
 
 ```bash
-# Save results to memory
-flw ./workspace $job1 >> memory.txt
-flw ./workspace $job2 >> memory.txt
-flw ./workspace $job3 >> memory.txt
+MODEL=/path/to/model.gguf
 
-# Use memory as context
-wrk ./workspace "Given these earlier findings:
-$(cat memory.txt)
+first=$(wrk ./workspace "Extract the important facts")
+nrvnad "$MODEL" ./workspace --drain
 
-What themes appear in all of them? List contradictions separately."
+# Put the prior result in the next prompt
+second=$({
+  echo "Given these earlier findings:"
+  flw ./workspace "$first"
+  echo
+  echo "What themes appear? List contradictions separately."
+} | wrk ./workspace - --parent "$first")
+
+nrvnad "$MODEL" ./workspace --drain
+flw ./workspace "$second"
 ```
 
 ---
 
-## Multi-Model Routing
+## One Model, One Workspace, One Drain
 
-Use separate workspaces for different model roles:
+Use a separate workspace for each model role. Drain them in sequence when the
+models cannot share memory:
 
 ```bash
-# Start specialized daemons
-nrvnad qwen-vl.gguf    ./ws-vision &    # mmproj auto-detected
-nrvnad codellama.gguf  ./ws-code   &
-nrvnad phi-3-mini.gguf ./ws-fast   &
-nrvnad outetts.gguf    ./ws-tts    &    # vocoder auto-detected
+vision_job=$(wrk ./ws-vision "Describe this image" --image screenshot.png)
+code_job=$({ echo "Review this code:"; cat app.py; } | wrk ./ws-code -)
+text_job=$(wrk ./ws-fast "Classify this request: reset my password")
 
-# Route by task type
-classify() {
-  case "$1" in
-    *.jpg|*.png) echo "./ws-vision" ;;
-    *.py|*.js)   echo "./ws-code" ;;
-    *)           echo "./ws-fast" ;;
-  esac
-}
+nrvnad qwen-vl.gguf    ./ws-vision --drain    # mmproj auto-detected
+nrvnad codellama.gguf  ./ws-code   --drain
+nrvnad phi-3-mini.gguf ./ws-fast   --drain
 
-# Submit to appropriate workspace
-ws=$(classify "$input")
-wrk "$ws" "Process this: $input"
+flw ./ws-vision "$vision_job"
+flw ./ws-code "$code_job"
+flw ./ws-fast "$text_job"
 ```
 
 ---

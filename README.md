@@ -4,10 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built on llama.cpp](https://img.shields.io/badge/llama.cpp-00fa7cb-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/00fa7cb284cbf133fc426733bd64238a3588a33e)
 
-Unix-like primitives for durable, asynchronous local inference.
+Unix-like primitives for durable local inference.
 
-Submit work now. Run the model when compute is available. Read ordinary files
-later.
+Submit work before any model process is running. No HTTP server or message
+broker is required. Run the model when compute is available. Read ordinary
+files later.
 
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
@@ -17,6 +18,8 @@ wrk  ->  workspace  <->  nrvnad + model
             |
            flw
 ```
+
+The workspace remembers. The model does not.
 
 [llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs the GGUF
 models. nrvna adds durable jobs, workspaces, process lifecycle, and file-based
@@ -83,8 +86,16 @@ fi
 | `nrvnad` | Load one model and process one workspace |
 | `flw` | Inspect status or read terminal results |
 
-The CLI is the API. Humans, scripts, applications, and agents compose it with
-stdin, files, JSON, and exit codes.
+The commands and published job artifacts form the interface. Humans, scripts,
+applications, and agents compose them with stdin, files, JSON, and exit codes.
+
+## One model, one workspace, one drain
+
+One daemon loads one model and owns one workspace. `wrk` can submit jobs while
+no daemon is running. `nrvnad --drain` processes that workspace and then exits.
+
+Use separate workspaces for different model roles. Drain them in sequence when
+their models cannot share memory.
 
 ## Why
 
@@ -134,7 +145,8 @@ between jobs.
 job, or impose execution order. Put prior evidence needed by a new job into
 its prompt explicitly.
 
-The workspace remembers; the model does not.
+Job isolation makes recovery possible. A new daemon can reconstruct each job
+from files without hidden session state.
 
 ## Work it can run
 
@@ -167,12 +179,18 @@ lineage, daemon lifecycle, artifacts, and recovery.
 ## Applications built with nrvna
 
 - [imgsrch](apps/imgsrch/README.md) searches local screenshots by visible
-  words and meaning.
+  words and meaning. It coordinates caption, OCR, and embedding models through
+  three durable workspaces.
 - [bckbrnr](apps/bckbrnr/README.md) runs local prompt work from the macOS menu
   bar and writes answers back as files.
 
 The applications call `nrvnad`, `wrk`, and `flw` directly. They add product
 behavior. They do not add another inference path.
+
+imgsrch is the first proof. Its current 3.4 GB model set has run end to end on
+the 2017 Intel MacBook used to build nrvna. It can resume unfinished indexing
+from persisted jobs. This is a compatibility result, not a performance
+benchmark.
 
 ## Boundaries
 

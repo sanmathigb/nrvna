@@ -38,9 +38,9 @@ A successful job has one primary artifact. `flw` resolves it in this order:
 result.txt -> transcript.txt -> audio.wav -> embedding.json
 ```
 
-`include/nrvna/contract.hpp` defines the job contract. Applications use `wrk`
-and `flw` instead of reading workspace directories. imgsrch still reads some
-engine artifacts inside its private collection path.
+`include/nrvna/contract.hpp` defines the public job contract. Applications can
+use `flw` or read terminal artifacts from `output/` and `failed/`. They must not
+edit or move published job directories.
 
 ## Language Boundary
 
@@ -50,9 +50,10 @@ The engine uses C++17. Applications use their native language:
 - Swift for macOS applications.
 - Bash for small composition scripts.
 
-Applications cross the nrvna boundary through the three commands. Do not add
-an FFI, language binding, or second engine language. Tracked programs do not
-use Python as a runtime dependency.
+Applications submit work through `wrk`. They start models through `nrvnad`.
+They use `flw` or published artifacts to read results. Do not add an FFI,
+language binding, or second engine language. Tracked programs do not use
+Python as a runtime dependency.
 
 ## Daemon Lifecycle
 

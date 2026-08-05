@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>imgsrch: search screenshots by what they say and what they mean</title>
-<meta name="description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
+<meta name="description" content="Local image search. Caption and OCR models read screenshots on your machine. Text embeddings and BM25 find them by meaning and keyword.">
 <meta property="og:title" content="imgsrch: search screenshots by what they say and what they mean">
-<meta property="og:description" content="Local image search. Small vision models caption and OCR your screenshots on your machine; search finds them by meaning and keyword. One binary, plain files.">
+<meta property="og:description" content="Local image search. Caption and OCR models read screenshots on your machine. Text embeddings and BM25 find them by meaning and keyword.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23D96B2B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -140,7 +140,7 @@
   <div class="hero">
     <div class="wrap">
       <h1>Search screenshots by what they <em>say</em> and what they <em>mean</em>.</h1>
-      <p class="sub">Small vision models read each image once, on your machine.
+      <p class="sub">Caption and OCR models read each image once, on your machine.
       Natural language finds it again. Your images never leave your machine.
       For humans and agents.</p>
 
@@ -181,7 +181,7 @@
       <div class="eyebrow">workflow</div>
       <h2>The whole tool</h2>
       <div class="code"><pre><span class="p">$</span> ./imgsrch init shots
-<span class="p">$</span> ./imgsrch index shots ~/Screenshots/*.png
+<span class="p">$</span> ./imgsrch index shots ~/Screenshots/*
 <span class="c">queued: 24 image(s) · skipped: 46 already indexed · work continues in the background</span>
 <span class="p">$</span> ./imgsrch search shots <span class="q">"diagram explaining KV cache"</span></pre></div>
       <ul class="cmds">
