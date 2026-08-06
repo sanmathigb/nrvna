@@ -1,0 +1,100 @@
+ok all yours - go run your audit and do a thorough review ..  Implemented and opened PR #30 (https://github.com/sanmathigb/nrvna/pull/30).
+
+  The new documentation system provides:
+
+  - Human path: README.md → QUICKSTART.md → focused references.
+  - Agent path: paste-ready prompt → AGENTS.md.
+  - Discovery path: llms.txt.
+  - Canonical settings: CONFIGURATION.md.
+  - Navigation: DOCUMENTATION.md.
+  - Consistent nrvna, imgsrch, and bckbrnr READMEs and site pages.
+  - Matching nrvnad and imgsrch help output.
+  - Test coverage locking the configuration link.
+
+  Verified:
+
+  - C++ build succeeded.
+  - All 5 CTest suites passed.
+  - imgsrch Go tests passed.
+  - bckbrnr tests and full Swift typecheck passed.
+  - Markdown links and staged whitespace passed.
+
+  Commit: 4d95000. GitHub reports the PR mergeable; CI and CodeRabbit are currently
+  running. Local metadata, rendered images, and old prototypes remain untouched and
+  uncommitted.
+
+---
+
+bckbrnr is not running somehow
+
+---
+
+it is always in ~/bckbrnr/text/?
+
+---
+
+so it is just going to have my questions and the answers in one file?
+
+---
+
+lets say i miss the notification . what happens? how do i know results are available?
+
+---
+
+please do a thorough review of the documentation .. check for accuracy and usefulness .. make sure all that is written is current and reprodicble with current code base?
+
+---
+
+can you put this into your relevant files?  Merged PR #32 into main as 23e1fcd.
+
+  - GitHub Actions build: passed
+  - CodeRabbit: passed
+  - Feature branches: deleted locally and remotely
+  - Stale imgsrch branch: deleted
+  - Unrelated untracked files: preserved
+  - Local main: synchronized with origin/main
+
+  Reading Order
+
+  1. DOCUMENTATION.md - documentation map
+  2. README.md - nrvna’s purpose and first run
+  3. apps/imgsrch/README.md - imgsrch product
+  4. apps/bckbrnr/README.md - bckbrnr product
+  5. QUICKSTART.md - verified commands
+  6. AGENTS.md - agent-facing contract
+  7. CONTEXT.md - product language and decisions
+  8. ADVANCED.md - composition patterns
+  9. CONFIGURATION.md - settings and defaults
+  10. ARCHITECTURE.md - implementation model
+  11. COLD_AGENT_TEST.md - repeatable agent evaluation
+
+  The repository is now at a clean documentation review point.
+
+---
+
+also we must follow this for ALL WRITING Brendan Eggers • @egggdev. 1d
+  The buzz around the ASD-STE100 language helped me a lot. I added this to my AGENTS.md,
+  and l've noticed that the responses just make more sense.
+  111
+  These rules apply to all prose you write: docs, commit messages, PR descriptions,
+  reports, and replies.
+  Follow ASD-STE100 Simplified Technical
+  English for technical text:
+  - Use approved words only. Each word has one meaning.
+  - Use one word for one idea. Do not use two words for the same thing.
+  - Write short sentences. Use 20 words or less for instructions.
+  - Use active voice. Write "Turn the switch" , not
+  "The switch must be turned"
+  - Write short paragraphs. Keep one topic in each paragraph. so make sure you commit to this to right files so you do the same
+
+---
+
+are gou rewriting?
+
+---
+
+yes and also ste for your reaponses now onward
+
+---
+
+i keep seeing users have thousands of agents and sub agents for running research ? how do i manually fire sub agents? how can i use you more effeciently

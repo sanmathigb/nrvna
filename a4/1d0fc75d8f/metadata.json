@@ -3,7 +3,7 @@
   "checkpoint_id": "a41d0fc75d8f",
   "strategy": "manual-commit",
   "branch": "feature/structured-output",
-  "checkpoints_count": 5,
+  "checkpoints_count": 11,
   "files_touched": [
     "AGENTS.md",
     "ARCHITECTURE.md",
@@ -31,13 +31,20 @@
       "compact_transcript": "/a4/1d0fc75d8f/0/transcript.jsonl",
       "content_hash": "/a4/1d0fc75d8f/0/content_hash.txt",
       "prompt": "/a4/1d0fc75d8f/0/prompt.txt"
+    },
+    {
+      "metadata": "/a4/1d0fc75d8f/1/metadata.json",
+      "transcript": "/a4/1d0fc75d8f/1/full.jsonl",
+      "compact_transcript": "/a4/1d0fc75d8f/1/transcript.jsonl",
+      "content_hash": "/a4/1d0fc75d8f/1/content_hash.txt",
+      "prompt": "/a4/1d0fc75d8f/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 49812512,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 903322240,
-    "output_tokens": 1770652,
-    "api_call_count": 6185
+    "input_tokens": 49878649,
+    "cache_creation_tokens": 26100555,
+    "cache_read_tokens": 1064235332,
+    "output_tokens": 2475822,
+    "api_call_count": 6665
   }
 }
