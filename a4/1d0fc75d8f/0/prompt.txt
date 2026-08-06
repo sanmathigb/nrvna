@@ -1,0 +1,247 @@
+are you sure you have all those summaries you suggested saved .. those were real good
+
+---
+
+merge and clean up? i want to read all the documentation once after all the ci/cd stuff
+
+---
+
+i saw this on linkedin .. this was the video use repo i think [Image #1]
+
+---
+
+also we must follow this for ALL WRITING Brendan Eggers • @egggdev. 1d
+The buzz around the ASD-STE100 language helped me a lot. I added this to my AGENTS.md, and l've noticed that the responses just make more sense.
+111
+These rules apply to all prose you write: docs, commit messages, PR descriptions, reports, and replies.
+Follow ASD-STE100 Simplified Technical
+English for technical text:
+- Use approved words only. Each word has one meaning.
+- Use one word for one idea. Do not use two words for the same thing.
+- Write short sentences. Use 20 words or less for instructions.
+- Use active voice. Write "Turn the switch" , not
+"The switch must be turned"
+- Write short paragraphs. Keep one topic in each paragraph.
+111
+
+---
+
+but can we rewrite everything with this lens? it is useful right? we got to be compliant to this standard? no harm?
+
+---
+
+is this ste standard used for even comments and github commits and PR descroptionms?
+
+---
+
+also can we read all articlea jn this series and see   ▕
+    if our cli can be inproved or modified https://        ▕
+    jmmv.dev/series/cli-design/ you can maek auggestions
+
+---
+
+and this? One real fix — flw accepts unknown flags silently.      
+  - flw <ws> --nonsense prints normal output and exits 0. 
+  - wrk and nrvnad reject unknown flags and exit 1.       
+  - flw is the outlier. An agent typo like --jsonn passes 
+  silently, exit 0, no error.                             
+  - Make flw reject an unknown flag. Print a usage error  
+  to stderr. Exit nonzero.                                
+  - This protects agents most. A typo must fail loud, not 
+  pass quiet.
+
+---
+
+ok what next
+
+---
+
+ok let's go
+
+---
+
+i have gathered some feedback for our our dicumenation overhaul The async recommendation, in full:
+
+**Cut it from the tagline.** "Unix-like primitives for durable, asynchronous local inference" → "Unix-like primitives for durable local inference." Tighter, loses nothing. Durable is the differentiator; async is the mechanism that delivers it.
+
+**Why, specifically:** the evidence was that LinkedIn thread you showed me. That audience reads "async" as asyncio — and they're correct that an event loop doesn't help CPU-bound local inference. Asyncio optimizes *waiting* on idle sockets; local inference is saturated matmul with no await point, and the single-threaded event loop blocks entirely on a CPU-bound call. So the word invites an argument you'd win but shouldn't have to have. One commenter in that thread landed on the right answer — use a job queue — then named Celery, which means a broker on a laptop. That's the gap you fill, and "async" doesn't communicate it.
+
+**Where async stays:** the blog essay, where you have room to define it. The arc holds without retraction — async enters as a felt need, then durability is revealed as what async costs to fulfill. That's a different job than a tagline does.
+
+**And the spoken form keeps "batch," not "async":** "Durable batch inference on one machine." Enterprises know what batch means and know there's no local equivalent. Here it is, consolidated.
+
+## Defects — examples that break if copied
+
+**ADVANCED.md, three sections hang forever.** Self-Refinement Loop, Fan-Out/Fan-In, and Agent Loop all call `flw -w` but never start a daemon. Batch Processing gets it right with `--drain`; the others were never updated. Fix: add `nrvnad "$MODEL" ./workspace &` up front, or insert `--drain` between submit and collect.
+
+**Vision Batch and Text-to-Speech block the terminal.** `nrvnad qwen-vl.gguf ./ws-vision` with no `&`, then a loop that never runs. Multi-Model Routing does use `&` — inconsistent within one file.
+
+**Agent Loop emits literal `\n`.** `memory="$memory\n---\n$result"` in double quotes gives you backslash-n. Needs `$'\n'` or `printf`.
+
+This is the 20-minute fix before you hand out the URL.
+
+## Positioning
+
+- **"No server required" appears nowhere in the corpus.** Your only uncopyable claim, missing from the headline.
+- **Drop "asynchronous" from the standard line.** Durable carries it; async is the mechanism. Gives you "Unix-like primitives for durable local inference."
+- **The site hero is your weakest surface.** The wrk/flw pun needs the binary names to parse, and the real value prop sits below three terminal blocks. bckbrnr already solved this: "Type a prompt. Walk away. The answer is a file."
+- **Never claim chat is a dying phase.** Defensible version: a growing share of AI work was never chat-shaped.
+
+## Underselling
+
+- **Multi-model is scattered across four docs and never named.** Make it a headline pattern: *one model, one workspace, one drain.*
+- **imgsrch is never cited as proof in nrvna's README.** Three models, 3.4GB, one 2017 laptop, resumable after a crash. Your strongest evidence, invisible from the front door.
+- **"The workspace remembers. The model does not."** Best sentence in the repo, buried in AGENTS.md.
+- **Statelessness is a precondition for durability, not a side effect.** All-intra vs long-GOP.
+
+## Smaller
+
+imgsrch site globs `*.png` while the README supports more; "vision models" described as doing embedding; DOCUMENTATION.md points at an ignored `docs/` readers can't see; nine root docs for three binaries.  we are still adhering to ste guidelines wdyt?
+
+---
+
+so this was the summary of my recomendation ## Positioning
+
+**The core claim.** The cloud has two API shapes — chat and batch. Local AI cloned only the chat half. nrvna is the other half. Verifiable, requires no prediction, and OpenAI's own Batch API proves the shape exists because chat completions doesn't fit this work.
+
+**"No server required" appears nowhere in the corpus.** Your single uncopyable claim. Ollama can add a queue tomorrow; it can't stop being an OpenAI-compatible server without losing its distribution advantage. This should be in the headline.
+
+**Drop the Redis/Kafka framing.** Both are servers you talk to over a socket. Your thesis is the opposite. The honest lineage is the print spooler (fast compute, slow scarce serial device — the constraint returned on laptops) and Maildir (`tmp/` → rename → `new/` is literally your `writing/` → `ready/`).
+
+**Cut "asynchronous" from the standard line.** Durable carries the weight; async is mechanism. Also cut "agentic," and never claim chat is a phase people are leaving — the defensible version is that a growing share of AI work was never chat-shaped.
+
+**Don't compete on tokens/sec.** That benchmarks your own dependency.
+
+## Underselling
+
+**Multi-model is your best capability and it's scattered** across four documents as a bullet, a closing line, and a section at the bottom of ADVANCED.md. Never named. It should be a headline pattern: *one model, one workspace, one drain.*
+
+**imgsrch is never cited as proof in nrvna's own README.** Three models, 3.4 GB, one 2017 laptop, no broker, resumable after a crash. The strongest evidence you have is invisible from the front door.
+
+**"The workspace remembers. The model does not."** Best sentence in the repo, buried in AGENTS.md.
+
+**COLD_AGENT_TEST.md is the most original artifact you've built** and it's also your adoption mechanism — if a cold agent can use the contract unassisted, you don't need evangelists.
+
+**Statelessness is undersold as a property.** It's the precondition for durability, not a side effect. All-intra vs long-GOP.
+
+## Weak links
+
+**The site hero** — "models get `wrk`, you get `flw`" requires knowing the binary names to parse the joke, and the actual value proposition sits below three terminal blocks. Your own child page does it right: "Type a prompt. Walk away. The answer is a file."
+
+**"Close the laptop" is false** — I wrote it and it was wrong. Nothing runs while the lid is shut. The true claim is that work *survives* being closed, and the strongest demo is `kill -9` the daemon, restart, result is there.
+
+**imgsrch routes around `flw`** — one call in 3,251 lines of Go; everything else reads `output/` and `failed/` directly. Not necessarily a defect, but it forces the question: is the frozen contract the CLI, the layout, or both?
+
+**No structured output.** No GBNF, no schema, no per-job sampling. Every consumption improvement is plumbing around an unparseable payload. `LLAMA_BUILD_COMMON` is already ON, so the converter is in your build tree.
+
+**ADVANCED.md defects** — three examples hang forever (no daemon before `flw -w`), two block the terminal (missing `&`), and the agent loop emits literal `\n`.
+
+**Stdin only auto-detects at `argc == 2`**, and `-` appears nowhere in `wrk`'s usage.
+
+**Poison pill has no ceiling** — no attempt counter, so a crash-inducing job loops forever through recovery.
+
+**Nine root docs for three binaries.** DOCUMENTATION.md exists to navigate sprawl, which is the symptom.
+
+**Small inconsistencies** — imgsrch site globs `*.png` while the README supports more; "vision models" described as doing embedding work; DOCUMENTATION.md points at an ignored `docs/` readers can't see.
+
+**Terminology** — my own "models are directories" collided with "jobs are directories." Lock it: workspace is what a daemon owns, job is a directory inside it, model is a GGUF file. Routing is a path.
+
+---
+
+Yes — let me read it rather than comment on a summary of it.
+
+Read the actual diff. This is better than the summary suggested — the ADVANCED.md fixes go beyond what I proposed.
+
+**The defects are genuinely closed.** The loops now start the daemon with `&`, capture `DAEMON_PID`, and finish with `nrvnad stop` + `wait`. Sequential patterns switched to `--drain` and dropped `-w` entirely. The literal `\n` became `printf '%s\n---\n%s'` with an empty-memory guard. Multi-Model Routing now drains in sequence instead of backgrounding three daemons at once, which matches "one model, one workspace, one drain" instead of contradicting it.
+
+**The site hero is fixed.** "Submit now. Run the model later." — no vocabulary required, and the caption is now the best sentence in the repo.
+
+**The imgsrch proof paragraph is well done,** particularly *"This is a compatibility result, not a performance benchmark."* That sentence is why the claim will survive scrutiny.
+
+**You resolved the contract question, and I want to make sure you saw what you decided.** CONTEXT.md now says applications *may* read terminal artifacts from `output/` and `failed/`, and must not edit or move published job directories. That's the "both" answer — it legitimizes imgsrch retroactively, which is honest. But it means **the directory layout is now public API too**, not just the CLI. `output/`, `failed/`, and the artifact filenames can't be renamed after 1.0. That's a real constraint you've accepted; worth stating it as such so future-you doesn't discover it during a refactor.
+
+**Two things still open:**
+
+The short form never landed. Six instances of "No HTTP server or message broker is required," zero of **"No server required."** The long version is accurate and belongs in the body. The three-word version is what someone repeats to a colleague.
+
+And the hang class isn't fully gone — it's just conditional now. If `$MODEL` is a bad path, the daemon exits, and `flw -w` blocks forever with no daemon. A one-line `nrvnad status "$WS"` gate before the first `wrk` would close it. Low priority, but it's the same failure wearing a smaller hat.
+
+---
+
+Both items closed, and one of them corrected my advice rather than following it.
+
+**"No always-on server" is better than what I suggested.** "No server required" would have been slightly false — `nrvnad` *is* a daemon. "No always-on server" is exactly true, still four words, and "always-on" is ops vocabulary that lands with the enterprise crowd. Right call.
+
+**The layout commitment is now explicit:** *"The state directories and artifact names are compatibility commitments. Change them only with a documented contract migration."* That's the sentence that keeps future-you honest.
+
+**And you found one I missed.** The QUICKSTART pipe `wrk ... | flw -w` had the same hang class, and it's gone. Good sweep rather than a spot fix.
+
+**Two notes on the readiness gate:**
+
+`exit 1` inside a doc example is a papercut. These blocks are meant to be pasted, and pasting `exit` into an interactive shell closes the terminal. `return 1` won't work at top level either — the safest doc form is to print an error and skip the rest, or wrap the whole example in a function.
+
+More interesting: **`scripts/nrvna-lib.sh` already has `nrvna_start`**, and it's strictly better than the inline loop — it adopts a starting daemon (status 2) instead of double-launching, has a `NRVNA_START_TIMEOUT`, tails the log on failure, and finds the binary three ways. It handles a race the inline version doesn't: if another process is mid-startup, the doc example launches a second daemon that will lose the flock.
+
+And `nrvna-lib` is referenced in **zero** markdown files. You have the correct implementation shipped and invisible, with a weaker copy pasted twice in the docs. That's the same shape as the imgsrch problem — the proof exists, nothing points at it.
+
+Worth considering: `source scripts/nrvna-lib.sh` + `nrvna_start "$MODEL" "$WS"` as the one-line form in ADVANCED.md, with the raw loop kept once as the no-dependencies version.
+
+---
+
+Good work — and there's one gap.
+
+**What landed well:**
+
+Removing `set -euo pipefail` from a sourced file is the right call and easy to miss. Sourcing it was silently changing the caller's shell semantics; a `grep` returning 1 in someone's script would have exited their shell. Same for dropping `nrvna_ensure` — one name per thing.
+
+The doc examples now use `name() ( ... )` subshells with `set -e` and an EXIT trap. That solves the `exit 1` papercut properly rather than papering over it, and the trap means a mid-script failure still stops the daemon. More sophisticated than I'd have suggested.
+
+And the test fakes `nrvnad` with a shell stub — status codes, a startup delay, a `fail` model that exits 7. It tests the helper's logic without needing a model, which is why it can run anywhere.
+
+**The gap: that test doesn't run in CI.**
+
+`CMakeLists.txt` registers `add_test(NAME shell_helper ...)`, but the workflow doesn't call `ctest` — it enumerates the shell tests by hand:
+
+```
+bash tests/primitive-contract.sh build
+bash tests/lifecycle-contract.sh build
+bash tests/contract-literals.sh
+```
+
+`nrvna-lib-contract.sh` isn't in that list, so it's green by absence. Two fixes: add the line, or switch the step to `ctest --test-dir build --output-on-failure` so registration is enough and this can't recur. The second is better — the hand-maintained list is the defect that will produce this again.
+
+**One judgment call worth noticing.** ADVANCED.md is now harder to read. A reader wanting to learn the composition pattern has to parse a subshell function, a trap, and a sourced library before reaching `wrk`. Correctness went up, legibility went down. Defensible in *Advanced* patterns — but make sure QUICKSTART still shows the naked three-command form, because that's where someone decides whether this is simple.
+
+Also: `source ./scripts/nrvna-lib.sh` only works from a source tree. Your prose says "source-tree helper," so it's honest — just know it means these examples don't work for anyone who installs a binary later.
+
+---
+
+That's the right fix — six hand-maintained lines became one, so a future `add_test` can't be silently skipped again.
+
+**Verified it isn't vacuously green:** `include(CTest)` at line 4 sets `BUILD_TESTING` to ON by default, CI doesn't override it, and the four binaries the tests need (`contract_test`, `meta_test`, `flw`, `nrvnad`) are all in the explicit build target list. So ctest will find and run all six registered tests, including `shell_helper`.
+
+**One residual worth knowing about, not fixing:** `ctest` now runs whatever is registered, but the build step still names targets by hand. If you add a test that needs a *new* binary, ctest will discover the test and fail because the binary wasn't built. That's a loud failure rather than a silent pass, which is the right direction — just don't be surprised by it.
+
+**Where this leaves you.** Documentation defects closed, positioning consistent across README/site/llms.txt, layout commitment written down, the helper documented and tested, CI wired so it stays that way. Four PRs in a few hours, each one small and reversible. That's the change discipline you said you wanted, actually held under time pressure.
+
+The remaining work is the two runtime issues — #36 recovery ceiling, #37 per-job controls and structured output — and my earlier note stands that #37 is really two things and structured output is the one with leverage.
+
+---
+
+whats this 36
+
+---
+
+and the othwr 2?
+
+---
+
+gnbf?
+
+---
+
+so this is also oart of the issue list?
+
+---
+
+ok lets go then

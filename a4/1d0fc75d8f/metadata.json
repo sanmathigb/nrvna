@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "a41d0fc75d8f",
+  "strategy": "manual-commit",
+  "branch": "feature/structured-output",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "AGENTS.md",
+    "ARCHITECTURE.md",
+    "CONTEXT.md",
+    "QUICKSTART.md",
+    "README.md",
+    "cli/flw.cpp",
+    "cli/wrk.cpp",
+    "include/nrvna/contract.hpp",
+    "include/nrvna/meta.hpp",
+    "include/nrvna/processor.hpp",
+    "include/nrvna/runner.hpp",
+    "include/nrvna/work.hpp",
+    "src/meta.cpp",
+    "src/processor.cpp",
+    "src/runner.cpp",
+    "src/work.cpp",
+    "tests/meta_test.cpp",
+    "tests/primitive-contract.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a4/1d0fc75d8f/0/metadata.json",
+      "transcript": "/a4/1d0fc75d8f/0/full.jsonl",
+      "compact_transcript": "/a4/1d0fc75d8f/0/transcript.jsonl",
+      "content_hash": "/a4/1d0fc75d8f/0/content_hash.txt",
+      "prompt": "/a4/1d0fc75d8f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 49812512,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 903322240,
+    "output_tokens": 1770652,
+    "api_call_count": 6185
+  }
+}
