@@ -2,8 +2,6 @@
 # Courtesy wrapper over nrvnad's own lifecycle interface.
 # The daemon owns state. This file starts it and sends control commands.
 
-set -euo pipefail
-
 NRVNA_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NRVNA_BUILD_DIR="${NRVNA_BUILD_DIR:-$(cd "$NRVNA_LIB_DIR/.." && pwd)/build}"
 : "${NRVNA_START_TIMEOUT:=120}"
@@ -15,20 +13,51 @@ nrvna__bin() {
     else command -v nrvnad; fi
 }
 
-nrvna_status() { "$(nrvna__bin)" status "$1" >/dev/null 2>&1; }
+nrvna_status() {
+    [ "$#" -eq 1 ] || {
+        echo "usage: nrvna_status <workspace>" >&2
+        return 2
+    }
+    local daemon
+    daemon="$(nrvna__bin)" || return 1
+    "$daemon" status "$1" >/dev/null 2>&1
+}
 
-nrvna_stop() { "$(nrvna__bin)" stop "$1"; }
+nrvna_stop() {
+    [ "$#" -eq 1 ] || {
+        echo "usage: nrvna_stop <workspace>" >&2
+        return 2
+    }
+    local daemon
+    daemon="$(nrvna__bin)" || return 1
+    "$daemon" stop "$1"
+}
 
 nrvna_start() {
+    [ "$#" -ge 2 ] || {
+        echo "usage: nrvna_start <model> <workspace> [nrvnad options]" >&2
+        return 2
+    }
+    case "$NRVNA_START_TIMEOUT" in
+        ''|*[!0-9]*)
+            echo "nrvna-lib: NRVNA_START_TIMEOUT must be a nonnegative integer" >&2
+            return 2
+            ;;
+    esac
     local model="$1" ws="$2"; shift 2
-    # status exit codes: 0 ready, 2 starting (adopt, don't double-launch), 1 absent
-    local code=0 launcher="" log=""
-    "$(nrvna__bin)" status "$ws" >/dev/null 2>&1 || code=$?
+    local code=0 daemon launcher="" log=""
+    daemon="$(nrvna__bin)" || {
+        echo "nrvna-lib: nrvnad not found" >&2
+        return 1
+    }
+    # Exit 0 means ready. Exit 2 means starting; use that process.
+    "$daemon" status "$ws" >/dev/null 2>&1 || code=$?
     [ "$code" -eq 0 ] && return 0
     if [ "$code" -ne 2 ]; then
-        mkdir -p "$ws"
+        mkdir -p "$ws" || return 1
+        mkdir -p "$NRVNA_LOG_DIR" || return 1
         log="${NRVNA_LOG_DIR%/}/nrvna-$(basename "$ws").log"
-        "$(nrvna__bin)" "$model" "$ws" "$@" >"$log" 2>&1 &
+        "$daemon" "$model" "$ws" "$@" >"$log" 2>&1 &
         launcher=$!
     fi
     local waited=0
@@ -40,5 +69,3 @@ nrvna_start() {
         sleep 1; waited=$((waited + 1))
     done
 }
-
-nrvna_ensure() { nrvna_start "$@"; }
