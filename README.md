@@ -131,7 +131,7 @@ workspace/
 ├── input/ready/   queued
 ├── processing/    claimed
 ├── output/        successful jobs and artifacts
-└── failed/        terminal failures and error.txt
+└── failed/        terminal failures, error.txt, and response.txt
 ```
 
 Atomic filesystem renames publish, claim, and complete jobs. After a crash,
@@ -189,8 +189,8 @@ options are mutually exclusive.
 
 `result.txt` contains the generated JSON when the job completes cleanly. If
 the model stops early or emits invalid JSON, the job fails and lands in
-`failed/`. `flw --json` returns the result string for successful jobs and
-reports `output_format`.
+`failed/` with `error.txt` and the partial `response.txt`. `flw --json`
+returns the result string for successful jobs and reports `output_format`.
 
 ## Give it to an agent
 
@@ -231,6 +231,7 @@ distributed queue.
 It does not assemble parent context, execute DAGs, choose models, parse
 documents, or retry failures automatically. Structured JSON jobs are
 validated before publication, but general model output is still caller-owned.
+Failed structured jobs preserve their partial `response.txt` for inspection.
 
 llama.cpp owns model inference. The calling application owns orchestration and
 product behavior. nrvna keeps the local work durable between them.

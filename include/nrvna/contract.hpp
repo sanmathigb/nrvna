@@ -34,6 +34,7 @@ inline constexpr const char* kTranscriptFile = "transcript.txt";
 inline constexpr const char* kAudioFile      = "audio.wav";
 inline constexpr const char* kEmbeddingFile  = "embedding.json";
 inline constexpr const char* kErrorFile      = "error.txt";
+inline constexpr const char* kResponseFile   = "response.txt";
 inline constexpr const char* kSchemaFile     = "schema.json";
 inline constexpr const char* kGrammarFile    = "grammar.gbnf";
 inline constexpr const char* kImagesDir      = "images";

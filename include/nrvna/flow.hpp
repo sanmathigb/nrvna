@@ -20,6 +20,7 @@ struct Job {
     JobId id;
     Status status;
     std::string content;
+    std::string partial;
     std::chrono::system_clock::time_point timestamp;
 };
 
@@ -50,6 +51,7 @@ public:
     [[nodiscard]] std::optional<std::string> error(const JobId& id) const;
     [[nodiscard]] std::optional<std::string> prompt(const JobId& id) const;
     [[nodiscard]] std::optional<JobMeta> meta(const JobId& id) const noexcept;
+    [[nodiscard]] std::optional<std::string> partial(const JobId& id) const;
 
 private:
     std::filesystem::path workspace_;

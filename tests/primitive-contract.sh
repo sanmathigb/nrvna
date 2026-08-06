@@ -165,6 +165,7 @@ printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night"]\n}\n' 
 printf 'beta\n' > "$tmp/output/$tag_b/result.txt"
 printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night", "extra"]\n}\n' > "$tmp/output/$tag_b/meta.json"
 printf 'boom\n' > "$tmp/failed/$child/error.txt"
+printf '{"answer":"first"\n' > "$tmp/failed/$child/response.txt"
 printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "parent": "%s"\n}\n' "$tag_a" > "$tmp/failed/$child/meta.json"
 
 # plain mode: ids one per line, both tagged jobs, nothing else
@@ -182,6 +183,7 @@ case "$nd" in *'"artifact_kind":"result"'*'"result":"alpha'*) ;; *) echo "ndjson
 kids_rc=0
 kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)" || kids_rc=$?
 case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "children selection broken: $kids" >&2; exit 1 ;; esac
+case "$kids" in *'"partial":"{\"answer\":\"first\"'* ) ;; *) echo "children selection missing partial payload: $kids" >&2; exit 1 ;; esac
 [ "$kids_rc" -eq 1 ] || { echo "json collect of failed set should exit 1, got $kids_rc" >&2; exit 1; }
 
 # scoped -W on an already-finished set returns immediately; failed child = exit 1

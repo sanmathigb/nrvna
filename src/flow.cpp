@@ -97,11 +97,12 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
             auto timestamp = std::filesystem::last_write_time(outputDir);
             auto sctp = toSystemTime(timestamp);
 
-            return Job{id, Status::Done, content, sctp};
+            return Job{id, Status::Done, content, "", sctp};
 
         } else if (jobStatus == Status::Failed) {
             auto failedDir = contract::jobDir(workspace_, Status::Failed, id);
             auto errorFile = failedDir / contract::kErrorFile;
+            auto partialFile = failedDir / contract::kResponseFile;
 
             std::string errorContent = "";
             if (std::filesystem::exists(errorFile)) {
@@ -111,14 +112,23 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
                     errorContent += line + "\n";
                 }
             }
+            std::string partialContent = "";
+            if (std::filesystem::exists(partialFile)) {
+                std::ifstream file(partialFile);
+                std::string line;
+                while (std::getline(file, line)) {
+                    if (!partialContent.empty()) partialContent += "\n";
+                    partialContent += line;
+                }
+            }
 
             auto timestamp = std::filesystem::last_write_time(failedDir);
             auto sctp = toSystemTime(timestamp);
-            return Job{id, Status::Failed, errorContent, sctp};
+            return Job{id, Status::Failed, errorContent, partialContent, sctp};
 
         } else if (jobStatus == Status::Queued || jobStatus == Status::Running) {
             auto sctp = std::chrono::system_clock::now();
-            return Job{id, jobStatus, "", sctp};
+            return Job{id, jobStatus, "", "", sctp};
         }
 
         return std::nullopt;
@@ -147,7 +157,7 @@ std::vector<Job> Flow::list(std::size_t max) const noexcept {
                     if (!isValidJobId(id)) continue;
                     auto ts = std::filesystem::last_write_time(entry);
                     auto sctp = toSystemTime(ts);
-                    jobs.push_back({id, status, "", sctp});
+                    jobs.push_back({id, status, "", "", sctp});
                 }
             }
         }
@@ -214,6 +224,27 @@ std::optional<std::string> Flow::error(const JobId& id) const {
 
     } catch (const std::exception& e) {
         LOG_ERROR("Error reading error file for job " + id + ": " + e.what());
+        return std::nullopt;
+    }
+}
+
+std::optional<std::string> Flow::partial(const JobId& id) const {
+    try {
+        if (!isValidJobId(id)) return std::nullopt;
+        auto partialFile = contract::jobDir(workspace_, Status::Failed, id) / contract::kResponseFile;
+        if (!std::filesystem::exists(partialFile)) {
+            return std::nullopt;
+        }
+
+        std::ifstream file(partialFile);
+        std::string content, line;
+        while (std::getline(file, line)) {
+            if (!content.empty()) content += "\n";
+            content += line;
+        }
+        return content;
+    } catch (const std::exception& e) {
+        LOG_ERROR("Error reading partial file for job " + id + ": " + e.what());
         return std::nullopt;
     }
 }
@@ -307,7 +338,7 @@ std::optional<Job> Flow::latestInDir(const std::filesystem::path& dir) const noe
             if (!isValidJobId(jobId)) continue;
             auto ts = toSystemTime(std::filesystem::last_write_time(entry));
             if (!newest || ts > newest->timestamp) {
-                newest = Job{jobId, Status::Missing, "", ts};
+                newest = Job{jobId, Status::Missing, "", "", ts};
             }
         }
         return newest;

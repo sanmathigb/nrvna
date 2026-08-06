@@ -279,8 +279,10 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 auto structuredError = validateStructuredOutput(result.output, jobMeta->output_format);
                 if (structuredError) {
                     printJobStatus(jobId, contract::toString(Status::Failed), elapsed, "invalid structured output");
-                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
-                    if (!finalizeFailure(jobId, *structuredError)) {
+                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed,
+                                {contract::kErrorFile, contract::kResponseFile},
+                                contract::toString(Status::Failed));
+                    if (!finalizeFailure(jobId, *structuredError, result.output)) {
                         LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. The next daemon will try recovery.");
                     }
                     return ProcessResult::Failed;
@@ -293,8 +295,10 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
                 return ProcessResult::Success;
             } else {
                 LOG_ERROR("Failed to finalize successful job: " + jobId);
-                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
-                if (!finalizeFailure(jobId, "Failed to write result to output directory")) {
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed,
+                            {contract::kErrorFile, contract::kResponseFile},
+                            contract::toString(Status::Failed));
+                if (!finalizeFailure(jobId, "Failed to write result to output directory", result.output)) {
                     LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. The next daemon will try recovery.");
                 }
                 return ProcessResult::SystemError;
@@ -456,12 +460,13 @@ bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transc
     }
 }
 
-bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) noexcept {
+bool Processor::finalizeFailure(const JobId& jobId, const std::string& error,
+                                const std::string& partialOutput) noexcept {
     try {
         auto processingPath = getJobPath(contract::kProcessingDir, jobId);
         auto failedPath = getJobPath(contract::kFailedDir, jobId);
         
-        // Write error to file
+        // Write the error first so failures always carry a diagnosis.
         auto errorPath = processingPath / contract::kErrorFile;
         {
             std::ofstream file(errorPath, std::ios::binary);
@@ -473,6 +478,21 @@ bool Processor::finalizeFailure(const JobId& jobId, const std::string& error) no
             file.flush();
             if (!file.good()) {
                 LOG_ERROR("Error artifact write failed; job remains in processing: " + jobId);
+                return false;
+            }
+        }
+
+        if (!partialOutput.empty()) {
+            auto partialPath = processingPath / contract::kResponseFile;
+            std::ofstream file(partialPath, std::ios::binary);
+            if (!file) {
+                LOG_ERROR("Cannot publish failed job without partial artifact: " + jobId);
+                return false;
+            }
+            file << partialOutput;
+            file.flush();
+            if (!file.good()) {
+                LOG_ERROR("Partial artifact write failed; job remains in processing: " + jobId);
                 return false;
             }
         }
