@@ -97,6 +97,10 @@ no daemon is running. `nrvnad --drain` processes that workspace and then exits.
 Use separate workspaces for different model roles. Drain them in sequence when
 their models cannot share memory.
 
+Shell applications can source [`scripts/nrvna-lib.sh`](scripts/nrvna-lib.sh).
+`nrvna_start` starts a daemon or uses one that is already starting. It waits
+for readiness and reports startup failures from the daemon log.
+
 ## Why
 
 I built nrvna on a 2017 Intel MacBook while caring for two young children. I

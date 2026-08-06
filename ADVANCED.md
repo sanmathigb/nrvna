@@ -69,34 +69,40 @@ results.
 
 Generate a draft. Critique it. Then improve it.
 
+The source-tree helper starts one daemon or uses one that is already starting.
+It waits for readiness and reports startup failures from the daemon log.
+
 ```bash
-MODEL=/path/to/model.gguf
-WS=./workspace
-GOAL="Write a cover letter for a senior engineer position"
-nrvnad "$MODEL" "$WS" &
-DAEMON_PID=$!
-until nrvnad status "$WS" >/dev/null 2>&1; do
-  kill -0 "$DAEMON_PID" 2>/dev/null || { wait "$DAEMON_PID"; exit 1; }
-  sleep 1
-done
+source ./scripts/nrvna-lib.sh
 
-# First draft
-draft_job=$(wrk "$WS" "$GOAL")
-draft=$(flw "$WS" "$draft_job" -w)
+self_refine() (
+  set -e
+  local model=/path/to/model.gguf
+  local ws=./workspace
+  local goal="Write a cover letter for a senior engineer position"
+  trap 'nrvna_stop "$ws" >/dev/null 2>&1 || true' EXIT
+  nrvna_start "$model" "$ws"
 
-# Critique
-critique_job=$(wrk "$WS" "Critique this draft. What's weak? $draft")
-critique=$(flw "$WS" "$critique_job" -w)
+  # First draft
+  draft_job=$(wrk "$ws" "$goal")
+  draft=$(flw "$ws" "$draft_job" -w)
 
-# Improve
-final_job=$(wrk "$WS" "Improve this draft based on feedback:
+  # Critique
+  critique_job=$(wrk "$ws" "Critique this draft. What's weak? $draft")
+  critique=$(flw "$ws" "$critique_job" -w)
+
+  # Improve
+  final_job=$(wrk "$ws" "Improve this draft based on feedback:
 Draft: $draft
 Feedback: $critique")
-final=$(flw "$WS" "$final_job" -w)
+  final=$(flw "$ws" "$final_job" -w)
 
-echo "$final"
-nrvnad stop "$WS"
-wait "$DAEMON_PID"
+  echo "$final"
+  nrvna_stop "$ws"
+  trap - EXIT
+)
+
+self_refine
 ```
 
 ---
@@ -106,39 +112,42 @@ wait "$DAEMON_PID"
 Iterate until done:
 
 ```bash
-MODEL=/path/to/model.gguf
-WS=./workspace
-GOAL="Write a Python tutorial covering variables, loops, and functions"
-memory=""
-nrvnad "$MODEL" "$WS" &
-DAEMON_PID=$!
-until nrvnad status "$WS" >/dev/null 2>&1; do
-  kill -0 "$DAEMON_PID" 2>/dev/null || { wait "$DAEMON_PID"; exit 1; }
-  sleep 1
-done
+source ./scripts/nrvna-lib.sh
 
-for i in {1..5}; do
-  job=$(wrk "$WS" "Goal: $GOAL
+write_tutorial() (
+  set -e
+  local model=/path/to/model.gguf
+  local ws=./workspace
+  local goal="Write a Python tutorial covering variables, loops, and functions"
+  local memory=""
+  trap 'nrvna_stop "$ws" >/dev/null 2>&1 || true' EXIT
+  nrvna_start "$model" "$ws"
+
+  for i in {1..5}; do
+    job=$(wrk "$ws" "Goal: $goal
 Previous work: $memory
 Continue. Write the next section. Say DONE if complete.")
-  result=$(flw "$WS" "$job" -w)
+    result=$(flw "$ws" "$job" -w)
 
-  echo "=== Iteration $i ==="
-  echo "$result"
+    echo "=== Iteration $i ==="
+    echo "$result"
 
-  if echo "$result" | grep -q "DONE"; then
-    break
-  fi
+    if echo "$result" | grep -q "DONE"; then
+      break
+    fi
 
-  if [ -z "$memory" ]; then
-    memory="$result"
-  else
-    memory=$(printf '%s\n---\n%s' "$memory" "$result")
-  fi
-done
+    if [ -z "$memory" ]; then
+      memory="$result"
+    else
+      memory=$(printf '%s\n---\n%s' "$memory" "$result")
+    fi
+  done
 
-nrvnad stop "$WS"
-wait "$DAEMON_PID"
+  nrvna_stop "$ws"
+  trap - EXIT
+)
+
+write_tutorial
 ```
 
 ---

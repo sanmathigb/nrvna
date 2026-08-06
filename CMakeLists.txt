@@ -89,6 +89,7 @@ if(BUILD_TESTING)
     add_test(NAME metadata COMMAND meta_test)
     add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
+    add_test(NAME shell_helper COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/nrvna-lib-contract.sh ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME contract_literals COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/contract-literals.sh)
 endif()
 
