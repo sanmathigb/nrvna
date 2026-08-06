@@ -105,7 +105,8 @@ their models cannot fit in memory together.
 - Use `wrk --json-schema <file>` for schema-constrained text or vision output.
   Use `wrk --grammar <file>` for existing GBNF. Do not combine these options.
 - Structured jobs preserve `schema.json` when provided and always preserve the
-  effective `grammar.gbnf`. `flw --json` reports `output_format`.
+  effective `grammar.gbnf`. Invalid JSON from `--json-schema` jobs fails the
+  job before publication. `flw --json` reports `output_format`.
 
 Put required prior evidence in the next prompt. Keep lineage separate.
 

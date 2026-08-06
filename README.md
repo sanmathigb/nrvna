@@ -187,8 +187,10 @@ it publishes the job. The job keeps both `schema.json` and the effective
 `grammar.gbnf`. Use `--grammar <file>` when you already have GBNF. The two
 options are mutually exclusive.
 
-`result.txt` contains the generated JSON. `flw --json` returns it in the
-`result` string and reports `output_format`.
+`result.txt` contains the generated JSON when the job completes cleanly. If
+the model stops early or emits invalid JSON, the job fails and lands in
+`failed/`. `flw --json` returns the result string for successful jobs and
+reports `output_format`.
 
 ## Give it to an agent
 
@@ -227,7 +229,8 @@ nrvna is not a chat API, agent framework, model router, semantic index, or
 distributed queue.
 
 It does not assemble parent context, execute DAGs, choose models, parse
-documents, validate model output, or retry failures automatically.
+documents, or retry failures automatically. Structured JSON jobs are
+validated before publication, but general model output is still caller-owned.
 
 llama.cpp owns model inference. The calling application owns orchestration and
 product behavior. nrvna keeps the local work durable between them.

@@ -1,5 +1,6 @@
 // Unit tests for the job contract. Plain asserts, no framework, no llama.
 #include "nrvna/contract.hpp"
+#include "nrvna/structured_output.hpp"
 #include "nrvna/terminal.hpp"
 #include <cstdio>
 #include <fstream>
@@ -84,6 +85,12 @@ int main() {
 
         fs::remove_all(tmp);
     }
+
+    // Structured output validation: valid JSON passes, truncated JSON fails.
+    CHECK(!validateStructuredOutput("{\"answer\":\"first\"}", "json_schema").has_value());
+    auto structured_error = validateStructuredOutput("{\"answer\":\"first\"", "json_schema");
+    CHECK(structured_error.has_value());
+    CHECK(validateStructuredOutput("anything", "gbnf").has_value() == false);
 
     if (failures) { std::printf("%d failure(s)\n", failures); return 1; }
     std::printf("contract_test: all checks passed\n");

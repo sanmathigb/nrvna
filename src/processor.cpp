@@ -9,6 +9,7 @@
 #include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"
 #include "nrvna/runner_tts.hpp"
+#include "nrvna/structured_output.hpp"
 #include "nrvna/logger.hpp"
 #include "nrvna/terminal.hpp"
 #include "llama_util.hpp"
@@ -274,6 +275,17 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
         if (result.ok) {
+            if (jobMeta && jobMeta->output_format == "json_schema") {
+                auto structuredError = validateStructuredOutput(result.output, jobMeta->output_format);
+                if (structuredError) {
+                    printJobStatus(jobId, contract::toString(Status::Failed), elapsed, "invalid structured output");
+                    completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
+                    if (!finalizeFailure(jobId, *structuredError)) {
+                        LOG_ERROR("STUCK JOB: " + jobId + " remains in processing/. The next daemon will try recovery.");
+                    }
+                    return ProcessResult::Failed;
+                }
+            }
             completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kResultFile}, contract::toString(Status::Done));
             if (finalizeSuccess(jobId, result.output)) {
                 printJobStatus(jobId, contract::toString(Status::Done), elapsed);

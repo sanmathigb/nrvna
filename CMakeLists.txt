@@ -51,6 +51,7 @@ endif()
 target_include_directories(nrvna_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/vendor
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/tools/mtmd
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/common
 )
@@ -80,7 +81,10 @@ endforeach()
 if(BUILD_TESTING)
     # This contract test uses headers and does not link llama.cpp.
     add_executable(contract_test tests/contract_test.cpp)
-    target_include_directories(contract_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(contract_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/vendor
+    )
 
     add_executable(meta_test tests/meta_test.cpp src/meta.cpp)
     target_include_directories(meta_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

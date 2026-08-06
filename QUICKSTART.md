@@ -102,6 +102,9 @@ for f in docs/*.md; do cat "$f" | ./build/wrk /tmp/ws-embed - --embed; done
   --json-schema fields.schema.json
 ```
 
+If the model stops early or emits invalid JSON, the structured job fails and
+publishes `error.txt` under `failed/`.
+
 One daemon per model, one workspace per daemon. Different workspaces run
 side by side.
 
