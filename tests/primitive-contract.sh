@@ -16,6 +16,12 @@ case "$flw_help" in
     *'wait for this batch (no result output)'*'then collect the batch as NDJSON'*) ;;
     *) echo "flw help does not distinguish batch barriers from collection" >&2; exit 1 ;;
 esac
+
+wrk_help="$("$bin_dir/wrk" --help)"
+case "$wrk_help" in
+    *'--json-schema <path>'*'--grammar <path>'*) ;;
+    *) echo "wrk help omits structured output options" >&2; exit 1 ;;
+esac
 case "$flw_help" in
     *'Job result: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
     *) echo "flw help does not scope job-result exit codes" >&2; exit 1 ;;
@@ -53,6 +59,59 @@ fi
 
 if "$bin_dir/wrk" "$tmp" "audio" --tts --stt >/dev/null 2>&1; then
     echo "wrk accepted contradictory TTS and STT modes" >&2; exit 1
+fi
+
+# Structured output is part of the durable job contract. JSON Schema input is
+# preserved, converted to effective GBNF before publication, and identified in
+# metadata so consumers do not need to infer the format from filenames.
+schema="$tmp/answer.schema.json"
+structured_ws="$tmp/structured"
+printf '{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}\n' > "$schema"
+structured_id="$("$bin_dir/wrk" "$structured_ws" "Return the answer" --json-schema "$schema")"
+structured_dir="$structured_ws/input/ready/$structured_id"
+[ -s "$structured_dir/schema.json" ] || { echo "schema.json was not preserved" >&2; exit 1; }
+[ -s "$structured_dir/grammar.gbnf" ] || { echo "effective grammar.gbnf was not written" >&2; exit 1; }
+cmp -s "$schema" "$structured_dir/schema.json" || { echo "schema.json changed during submission" >&2; exit 1; }
+grep -q '^root ::=' "$structured_dir/grammar.gbnf" || { echo "effective GBNF has no root rule" >&2; exit 1; }
+case "$(cat "$structured_dir/meta.json")" in
+    *'"output_format": "json_schema"'*) ;;
+    *) echo "structured output format missing from metadata" >&2; exit 1 ;;
+esac
+structured_rc=0
+structured_json="$("$bin_dir/flw" "$structured_ws" "$structured_id" --json)" || structured_rc=$?
+[ "$structured_rc" -eq 2 ] || { echo "queued structured job should exit 2" >&2; exit 1; }
+case "$structured_json" in
+    *'"output_format":"json_schema"'*) ;;
+    *) echo "flw JSON omitted output_format: $structured_json" >&2; exit 1 ;;
+esac
+
+grammar="$tmp/answer.gbnf"
+printf 'root ::= "yes" | "no"\n' > "$grammar"
+grammar_id="$("$bin_dir/wrk" "$structured_ws" "Answer yes or no" --grammar "$grammar")"
+grammar_dir="$structured_ws/input/ready/$grammar_id"
+cmp -s "$grammar" "$grammar_dir/grammar.gbnf" || { echo "GBNF grammar was not preserved" >&2; exit 1; }
+case "$(cat "$grammar_dir/meta.json")" in
+    *'"output_format": "gbnf"'*) ;;
+    *) echo "GBNF output format missing from metadata" >&2; exit 1 ;;
+esac
+
+if "$bin_dir/wrk" "$structured_ws" "embed this" --embed --json-schema "$schema" >/dev/null 2>&1; then
+    echo "wrk accepted structured output for an embedding job" >&2; exit 1
+fi
+
+printf '{not json}\n' > "$tmp/invalid.schema.json"
+if "$bin_dir/wrk" "$structured_ws" "invalid" --json-schema "$tmp/invalid.schema.json" >/dev/null 2>&1; then
+    echo "wrk accepted invalid JSON Schema" >&2; exit 1
+fi
+if "$bin_dir/wrk" "$structured_ws" "missing" --grammar "$tmp/missing.gbnf" >/dev/null 2>&1; then
+    echo "wrk accepted a missing GBNF file" >&2; exit 1
+fi
+if "$bin_dir/wrk" "$structured_ws" "ambiguous" --json-schema "$schema" --grammar "$grammar" >/dev/null 2>&1; then
+    echo "wrk accepted two structured output formats" >&2; exit 1
+fi
+ln -s "$schema" "$tmp/schema-link.json"
+if "$bin_dir/wrk" "$structured_ws" "linked" --json-schema "$tmp/schema-link.json" >/dev/null 2>&1; then
+    echo "wrk accepted a symlinked JSON Schema" >&2; exit 1
 fi
 
 bad_id="00001781482179019397_4090_000001"

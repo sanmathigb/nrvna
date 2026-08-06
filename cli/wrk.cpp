@@ -6,8 +6,12 @@
 
 #include "nrvna/work.hpp"
 #include "nrvna/flow.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/logger.hpp"
+#include "json-schema-to-grammar.h"
+#include <nlohmann/json.hpp>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <iterator>
@@ -16,6 +20,48 @@
 using namespace nrvna;
 
 constexpr const char* VERSION = NRVNA_VERSION;
+
+namespace {
+
+bool readStructuredFile(const std::filesystem::path& path, std::string& content,
+                        std::string& error) {
+    std::error_code ec;
+    const auto status = std::filesystem::symlink_status(path, ec);
+    if (ec || !std::filesystem::exists(status)) {
+        error = "file does not exist";
+        return false;
+    }
+    if (std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+        error = "path is not a regular file";
+        return false;
+    }
+    const auto bytes = std::filesystem::file_size(path, ec);
+    if (ec) {
+        error = "cannot determine file size";
+        return false;
+    }
+    if (bytes == 0) {
+        error = "file is empty";
+        return false;
+    }
+    if (bytes > contract::kMaxStructuredOutputBytes) {
+        error = "file exceeds the 1000000-byte limit";
+        return false;
+    }
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        error = "cannot open file";
+        return false;
+    }
+    content.assign(std::istreambuf_iterator<char>(file), {});
+    if (content.size() != bytes) {
+        error = "cannot read file";
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 void printUsage() {
     std::cout << "Submit work to an nrvna workspace.\n\n";
@@ -30,6 +76,8 @@ void printUsage() {
     std::cout << "      --stt            Transcribe audio\n";
     std::cout << "      --parent <id>    Set the parent job\n";
     std::cout << "      --tag <tag>      Add a tag (repeatable)\n";
+    std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
+    std::cout << "      --grammar <path>      Constrain text or vision output with GBNF\n";
     std::cout << "  -h, --help           Show help\n";
     std::cout << "  -v, --version        Show version\n";
     std::cout << "\n";
@@ -37,6 +85,7 @@ void printUsage() {
     std::cout << "  cat report.txt | wrk ./ws -\n";
     std::cout << "  { echo \"Summarize:\"; cat notes.md; } | wrk ./ws -\n";
     std::cout << "  wrk ./ws \"What is this screenshot about?\" --image shot.png\n";
+    std::cout << "  wrk ./ws \"Extract the fields\" --json-schema fields.schema.json\n";
     std::cout << "\n";
     std::cout << "wrk creates the workspace when it is missing.\n";
     std::cout << "It prints only the job ID on stdout. Collect the result with:\n";
@@ -75,6 +124,8 @@ int main(int argc, char* argv[]) {
     std::string mode;
     bool sawTts = false, sawStt = false;
     SubmitOptions submitOptions;
+    std::filesystem::path schemaPath;
+    std::filesystem::path grammarPath;
 
     // Detect stdin input: `wrk ws` with piped stdin, or `wrk ws - ...`
     bool readStdin = false;
@@ -122,6 +173,18 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             submitOptions.tags.push_back(tag);
+        } else if (arg == "--json-schema") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --json-schema requires a path\n";
+                return 1;
+            }
+            schemaPath = argv[++i];
+        } else if (arg == "--grammar") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --grammar requires a path\n";
+                return 1;
+            }
+            grammarPath = argv[++i];
         } else if (arg == "--embed") {
             useEmbed = true;
         } else if (arg == "--tts") {
@@ -185,6 +248,39 @@ int main(int argc, char* argv[]) {
     if (mode == "stt" && !imagePaths.empty()) {
         std::cerr << "Error: --stt and --image are mutually exclusive\n";
         return 1;
+    }
+
+    if (!schemaPath.empty() && !grammarPath.empty()) {
+        std::cerr << "Error: --json-schema and --grammar are mutually exclusive\n";
+        return 1;
+    }
+
+    if ((!schemaPath.empty() || !grammarPath.empty()) && (useEmbed || !mode.empty())) {
+        std::cerr << "Error: structured output requires a text or vision job\n";
+        return 1;
+    }
+
+    if (!schemaPath.empty()) {
+        try {
+            std::string error;
+            if (!readStructuredFile(schemaPath, submitOptions.schema, error)) {
+                std::cerr << "Error: cannot read JSON Schema " << schemaPath << ": " << error << "\n";
+                return 1;
+            }
+            auto schema = nlohmann::ordered_json::parse(submitOptions.schema);
+            submitOptions.grammar = json_schema_to_grammar(schema, true);
+            submitOptions.output_format = "json_schema";
+        } catch (const std::exception& e) {
+            std::cerr << "Error: invalid JSON Schema: " << e.what() << "\n";
+            return 1;
+        }
+    } else if (!grammarPath.empty()) {
+        std::string error;
+        if (!readStructuredFile(grammarPath, submitOptions.grammar, error)) {
+            std::cerr << "Error: cannot read GBNF grammar " << grammarPath << ": " << error << "\n";
+            return 1;
+        }
+        submitOptions.output_format = "gbnf";
     }
 
     try {

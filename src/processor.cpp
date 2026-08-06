@@ -115,6 +115,11 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         // Step 2: Read prompt and route metadata
         PromptReadResult promptRead = readPrompt(jobId);
+        PromptReadResult grammarRead = readGrammar(jobId);
+        const auto jobMeta = readMetaJson(getJobPath(contract::kProcessingDir, jobId));
+        if (grammarRead.ok && grammarRead.content.empty() && jobMeta && !jobMeta->output_format.empty()) {
+            grammarRead = {false, "", "Structured job is missing grammar.gbnf"};
+        }
         auto jobTypeRead = readJobType(jobId);
         std::vector<std::filesystem::path> imagePaths = readImages(jobId);
         std::vector<std::filesystem::path> audioPaths = readAudio(jobId);
@@ -122,6 +127,13 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
             completeJob(getJobPath(contract::kProcessingDir, jobId), 0.0, {contract::kErrorFile}, contract::toString(Status::Failed));
             printJobStatus(jobId, contract::toString(Status::Failed), 0.0, "prompt read error");
             (void)finalizeFailure(jobId, promptRead.error);
+            return ProcessResult::Failed;
+        }
+
+        if (!grammarRead.ok) {
+            completeJob(getJobPath(contract::kProcessingDir, jobId), 0.0, {contract::kErrorFile}, contract::toString(Status::Failed));
+            printJobStatus(jobId, contract::toString(Status::Failed), 0.0, "grammar read error");
+            (void)finalizeFailure(jobId, grammarRead.error);
             return ProcessResult::Failed;
         }
 
@@ -253,10 +265,11 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         }
 
         RunResult result;
+        GenerationOptions generationOptions{grammarRead.content};
         if (imagePaths.empty()) {
-            result = runner->run(prompt);
+            result = runner->run(prompt, generationOptions);
         } else {
-            result = runner->run(prompt, imagePaths);
+            result = runner->run(prompt, imagePaths, generationOptions);
         }
 
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
@@ -584,6 +597,31 @@ PromptReadResult Processor::readPrompt(const JobId& jobId) const noexcept {
     } catch (...) {
         LOG_ERROR("Unknown error reading prompt for job: " + jobId);
         return {false, "", "Unknown error reading prompt"};
+    }
+}
+
+PromptReadResult Processor::readGrammar(const JobId& jobId) const noexcept {
+    try {
+        const auto path = getJobPath(contract::kProcessingDir, jobId) / contract::kGrammarFile;
+        std::error_code ec;
+        const auto st = std::filesystem::symlink_status(path, ec);
+        if (ec || !std::filesystem::exists(st)) {
+            return {true, "", ""};
+        }
+        if (std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
+            return {false, "", "Grammar file is not a regular file"};
+        }
+        const auto bytes = std::filesystem::file_size(path, ec);
+        if (ec) return {false, "", "Failed to stat grammar file"};
+        if (bytes == 0) return {false, "", "Grammar file is empty"};
+        if (bytes > contract::kMaxStructuredOutputBytes) return {false, "", "Grammar file is too large"};
+
+        std::ifstream file(path, std::ios::binary);
+        if (!file) return {false, "", "Failed to open grammar file"};
+        std::string content((std::istreambuf_iterator<char>(file)), {});
+        return {true, std::move(content), ""};
+    } catch (...) {
+        return {false, "", "Failed to read grammar file"};
     }
 }
 

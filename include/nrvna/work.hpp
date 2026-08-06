@@ -15,6 +15,9 @@ namespace nrvna {
 struct SubmitOptions {
     JobId parent;
     std::vector<std::string> tags;
+    std::string output_format;
+    std::string schema;
+    std::string grammar;
 };
 
 enum class SubmissionError : uint8_t {
@@ -67,6 +70,7 @@ private:
     [[nodiscard]] bool writeImageFiles(const JobId& jobId, const std::vector<std::filesystem::path>& imagePaths) const noexcept;
     [[nodiscard]] bool writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem::path>& audioPaths) const noexcept;
     [[nodiscard]] bool writeTypeFile(const JobId& jobId, JobType type) const noexcept;
+    [[nodiscard]] bool writeStructuredOutputFiles(const JobId& jobId, const SubmitOptions& opts) const noexcept;
     [[nodiscard]] bool writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& opts) const noexcept;
     [[nodiscard]] bool atomicPublish(const JobId& jobId) const noexcept;
     void cleanupFailedJob(const JobId& jobId) const noexcept;

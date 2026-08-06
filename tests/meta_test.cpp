@@ -16,6 +16,7 @@ int main() {
     in.mode = "text";
     in.parent = "123_456";
     in.tags = {"night", "quoted-tag"};
+    in.output_format = "json_schema";
     in.completed_at = "2026-07-11T00:00:01.000000Z";
     in.duration_s = 1.25;
     in.artifacts = {"result.txt"};
@@ -25,6 +26,7 @@ int main() {
     auto out = readMetaJson(dir);
     if (!out || out->submitted_at != in.submitted_at || out->mode != in.mode ||
         out->parent != in.parent || out->tags != in.tags ||
+        out->output_format != in.output_format ||
         out->artifacts != in.artifacts || out->status != in.status) return 2;
 
     std::ofstream(dir / "meta.json") << "{\"status\":\"done\"}\n";

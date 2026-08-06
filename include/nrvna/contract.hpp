@@ -10,6 +10,7 @@
 #pragma once
 #include "nrvna/types.hpp"
 #include <cctype>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -33,8 +34,11 @@ inline constexpr const char* kTranscriptFile = "transcript.txt";
 inline constexpr const char* kAudioFile      = "audio.wav";
 inline constexpr const char* kEmbeddingFile  = "embedding.json";
 inline constexpr const char* kErrorFile      = "error.txt";
+inline constexpr const char* kSchemaFile     = "schema.json";
+inline constexpr const char* kGrammarFile    = "grammar.gbnf";
 inline constexpr const char* kImagesDir      = "images";
 inline constexpr const char* kAudioInputDir  = "audio";
+inline constexpr std::uintmax_t kMaxStructuredOutputBytes = 1'000'000;
 
 // Directory a job in state `s` lives under. Missing has no directory.
 inline std::filesystem::path stateDir(const std::filesystem::path& ws, Status s) {

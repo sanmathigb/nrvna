@@ -427,10 +427,20 @@ void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llam
     }
 }
 
-llama_sampler* Runner::buildSampler(const SamplingConfig& config) const {
+llama_sampler* Runner::buildSampler(const SamplingConfig& config, const llama_vocab* vocab,
+                                    const std::string& grammar) const {
     auto sparams = llama_sampler_chain_default_params();
     sparams.no_perf = false;
     llama_sampler* smpl = llama_sampler_chain_init(sparams);
+
+    if (!grammar.empty()) {
+        llama_sampler* grammarSampler = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
+        if (!grammarSampler) {
+            llama_sampler_free(smpl);
+            throw std::runtime_error("invalid GBNF grammar");
+        }
+        llama_sampler_chain_add(smpl, grammarSampler);
+    }
 
     llama_sampler_chain_add(smpl, llama_sampler_init_penalties(
         config.repeat_last_n,
@@ -448,8 +458,8 @@ llama_sampler* Runner::buildSampler(const SamplingConfig& config) const {
     return smpl;
 }
 
-RunResult Runner::run(const std::string& prompt) {
-    return runText(prompt);
+RunResult Runner::run(const std::string& prompt, const GenerationOptions& options) {
+    return runText(prompt, options);
 }
 
 RunResult Runner::transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths) {
@@ -666,14 +676,15 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
     }
 }
 
-RunResult Runner::run(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths) {
+RunResult Runner::run(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths,
+                      const GenerationOptions& options) {
     if (imagePaths.empty()) {
-        return runText(prompt);
+        return runText(prompt, options);
     }
-    return runVision(prompt, imagePaths);
+    return runVision(prompt, imagePaths, options);
 }
 
-RunResult Runner::runText(const std::string& prompt) {
+RunResult Runner::runText(const std::string& prompt, const GenerationOptions& options) {
     if (!shared_model_) {
         return {false, "", "Model not loaded"};
     }
@@ -713,7 +724,7 @@ RunResult Runner::runText(const std::string& prompt) {
 
         LOG_DEBUG("Context: " + std::to_string(ctx_params.n_ctx) + " tokens");
 
-        LlamaSamplerPtr smpl(buildSampler(config));
+        LlamaSamplerPtr smpl(buildSampler(config, vocab, options.grammar));
 
         llama_token decoder_start_token_id = 0;
         if (llama_model_has_encoder(shared_model_.get())) {
@@ -787,7 +798,8 @@ RunResult Runner::runText(const std::string& prompt) {
     }
 }
 
-RunResult Runner::runVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths) {
+RunResult Runner::runVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths,
+                            const GenerationOptions& options) {
     if (!shared_model_) {
         return {false, "", "Model not loaded"};
     }
@@ -852,7 +864,8 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
             return {false, "", "Failed to create context"};
         }
 
-        LlamaSamplerPtr smpl(buildSampler(config));
+        const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
+        LlamaSamplerPtr smpl(buildSampler(config, vocab, options.grammar));
         llama_pos n_past = 0;
 
         // CRITICAL: Serialize vision encoding across all workers
@@ -873,7 +886,6 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         LOG_INFO("Vision encoding: " + std::to_string(encodeTime) + "s for " + std::to_string(n_past) + " tokens");
 
         // Token generation loop with explicit position tracking (matches reference)
-        const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
         std::string output;
         llama_token new_token_id;
         LlamaBatchOwner batchOwner(1);
@@ -992,7 +1004,8 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
             return {false, "", "Failed to create STT context"};
         }
 
-        LlamaSamplerPtr smpl(buildSampler(config));
+        const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
+        LlamaSamplerPtr smpl(buildSampler(config, vocab, ""));
         llama_pos n_past = 0;
         {
             std::lock_guard<std::mutex> media_lock(vision_encoding_mutex_);
@@ -1004,7 +1017,6 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         chunks.reset();
         audioBitmaps.clear();
 
-        const llama_vocab* vocab = llama_model_get_vocab(shared_model_.get());
         std::string output;
         LlamaBatchOwner batchOwner(1);
         llama_batch& batch = batchOwner.value;

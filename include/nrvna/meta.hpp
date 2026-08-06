@@ -18,6 +18,7 @@ struct JobMeta {
     std::string mode;           // "text", "embed", "vision", "tts", "stt"
     JobId parent;               // empty if none
     std::vector<std::string> tags;
+    std::string output_format;  // "json_schema" or "gbnf"; empty if unconstrained
 
     // Completion phase (written by Processor)
     std::string completed_at;

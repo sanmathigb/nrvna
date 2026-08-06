@@ -42,7 +42,7 @@ WORKSPACE/
 2. Create directory: input/writing/<job_id>/
          |
          v
-3. Write prompt to: input/writing/<job_id>/prompt.txt
+3. Write prompt and optional structured-output files under input/writing/<job_id>/
    (+ type.txt for embed/tts, images/ for vision)
          |
          v
@@ -78,10 +78,10 @@ SERVER (main thread)
          v
 3. Processor::process() called:
    a. ATOMIC RENAME: input/ready/<job_id> -> processing/<job_id>
-   b. Read prompt from processing/<job_id>/prompt.txt
+   b. Read prompt and optional grammar from processing/<job_id>/
    c. Read type from processing/<job_id>/type.txt (default: text)
    d. Route by type:
-      - text/vision → Runner::run()       → result.txt
+      - text/vision → Runner::run()       → result.txt (optional GBNF constraint)
       - embed       → Runner::embed()     → embedding.json
       - stt (--audio) → Runner::transcribe() → transcript.txt
       - tts         → TtsRunner::run()    → audio.wav

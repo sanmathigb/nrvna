@@ -123,6 +123,7 @@ int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job
         if (!meta->completed_at.empty()) out << ",\"completed_at\":\"" << escapeJson(meta->completed_at) << "\"";
         if (meta->duration_s >= 0.0) out << ",\"duration_s\":" << meta->duration_s;
         if (!meta->parent.empty()) out << ",\"parent\":\"" << escapeJson(meta->parent) << "\"";
+        if (!meta->output_format.empty()) out << ",\"output_format\":\"" << escapeJson(meta->output_format) << "\"";
         if (!meta->tags.empty()) {
             out << ",\"tags\":[";
             for (size_t i = 0; i < meta->tags.size(); ++i) {

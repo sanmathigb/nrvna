@@ -183,6 +183,10 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
             json << "]";
         }
 
+        if (!meta.output_format.empty()) {
+            json << ",\n  \"output_format\": \"" << escapeJson(meta.output_format) << "\"";
+        }
+
         if (!meta.status.empty()) {
             json << ",\n  \"completed_at\": \"" << escapeJson(meta.completed_at) << "\"";
             json << ",\n  \"duration_s\": " << std::fixed << std::setprecision(2) << meta.duration_s;
@@ -231,6 +235,7 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
         meta.mode = extractString(content, "mode");
         meta.parent = extractString(content, "parent");
         meta.tags = extractStringArray(content, "tags");
+        meta.output_format = extractString(content, "output_format");
         meta.completed_at = extractString(content, "completed_at");
         meta.duration_s = extractDouble(content, "duration_s");
         meta.artifacts = extractStringArray(content, "artifacts");

@@ -102,6 +102,10 @@ their models cannot fit in memory together.
   `audio.wav`; failures use `error.txt`. Completed embedding JSON includes the
   full vector, so use workspace status rather than job retrieval when only
   counts are needed.
+- Use `wrk --json-schema <file>` for schema-constrained text or vision output.
+  Use `wrk --grammar <file>` for existing GBNF. Do not combine these options.
+- Structured jobs preserve `schema.json` when provided and always preserve the
+  effective `grammar.gbnf`. `flw --json` reports `output_format`.
 
 Put required prior evidence in the next prompt. Keep lineage separate.
 

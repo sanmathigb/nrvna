@@ -96,6 +96,10 @@ cat article-intro.txt | ./build/wrk /tmp/ws-tts - --tts
 
 # Embeddings: vectors for search and similarity (embedding model)
 for f in docs/*.md; do cat "$f" | ./build/wrk /tmp/ws-embed - --embed; done
+
+# Structured text: constrain one result with JSON Schema
+./build/wrk /tmp/ws-text "Extract the requested fields" \
+  --json-schema fields.schema.json
 ```
 
 One daemon per model, one workspace per daemon. Different workspaces run

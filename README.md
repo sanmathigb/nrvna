@@ -165,6 +165,31 @@ from files without hidden session state.
 Vision and speech models can require an `mmproj`. TTS can require a vocoder.
 Place matching files beside the model. `nrvnad` detects them automatically.
 
+## Structured output
+
+Constrain one text or vision job with JSON Schema:
+
+```json
+{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}
+```
+
+Save the schema as `answer.schema.json`. Then submit and drain the job:
+
+```bash
+JOB=$(./build/wrk "$WS" "Return the answer as JSON" \
+  --json-schema answer.schema.json)
+./build/nrvnad "$MODEL" "$WS" --drain
+./build/flw "$WS" "$JOB" --json
+```
+
+GBNF is llama.cpp's grammar format. `wrk` converts the schema to GBNF before
+it publishes the job. The job keeps both `schema.json` and the effective
+`grammar.gbnf`. Use `--grammar <file>` when you already have GBNF. The two
+options are mutually exclusive.
+
+`result.txt` contains the generated JSON. `flw --json` returns it in the
+`result` string and reports `output_format`.
+
 ## Give it to an agent
 
 Paste this into Codex CLI, Claude Code, OpenCode, Pi, Hermes, OpenClaw, or

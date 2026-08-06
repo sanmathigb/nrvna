@@ -16,6 +16,7 @@ struct llama_model;
 struct llama_context;
 struct llama_context_params;
 struct llama_sampler;
+struct llama_vocab;
 struct mtmd_context;
 struct mtmd_bitmap;
 struct common_chat_templates;
@@ -40,6 +41,10 @@ struct RunResult {
     std::string error;
 };
 
+struct GenerationOptions {
+    std::string grammar;
+};
+
 struct EmbedResult {
     bool ok = false;
     std::vector<float> embedding;
@@ -57,8 +62,9 @@ public:
     Runner(Runner&&) = delete;
     Runner& operator=(Runner&&) = delete;
 
-    [[nodiscard]] RunResult run(const std::string& prompt);
-    [[nodiscard]] RunResult run(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
+    [[nodiscard]] RunResult run(const std::string& prompt, const GenerationOptions& options = {});
+    [[nodiscard]] RunResult run(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths,
+                                const GenerationOptions& options = {});
     [[nodiscard]] RunResult transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     [[nodiscard]] EmbedResult embed(const std::string& text);
     [[nodiscard]] EmbedResult embedVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
@@ -104,9 +110,11 @@ private:
     std::string formatMultimodalPrompt(const std::string& prompt, size_t imageCount, const char* marker);
     SamplingConfig buildSamplingConfig() const;
     void buildContextParams(int n_prompt, const SamplingConfig& config, llama_context_params& params) const;
-    llama_sampler* buildSampler(const SamplingConfig& config) const;
-    RunResult runText(const std::string& prompt);
-    RunResult runVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
+    llama_sampler* buildSampler(const SamplingConfig& config, const llama_vocab* vocab,
+                                const std::string& grammar) const;
+    RunResult runText(const std::string& prompt, const GenerationOptions& options);
+    RunResult runVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths,
+                        const GenerationOptions& options);
     RunResult runStt(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     std::vector<mtmd_bitmap*> loadImages(const std::vector<std::filesystem::path>& imagePaths) const;
     std::vector<mtmd_bitmap*> loadAudio(const std::vector<std::filesystem::path>& audioPaths) const;

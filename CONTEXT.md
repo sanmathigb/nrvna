@@ -38,6 +38,10 @@ A successful job has one primary artifact. `flw` resolves it in this order:
 result.txt -> transcript.txt -> audio.wav -> embedding.json
 ```
 
+Structured text jobs can also contain `schema.json` and `grammar.gbnf`.
+`grammar.gbnf` is the effective generation constraint. These files remain with
+the job through every state transition.
+
 `include/nrvna/contract.hpp` defines the public job contract. Applications can
 use `flw` or read terminal artifacts from `output/` and `failed/`. They must not
 edit or move published job directories.
