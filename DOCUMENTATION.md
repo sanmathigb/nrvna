@@ -1,8 +1,8 @@
 # Documentation
 
-nrvna provides three Unix-like primitives for durable, asynchronous local
-inference. `wrk` submits work. `nrvnad` runs a model against a workspace. `flw`
-reads status and results.
+nrvna provides three Unix-like primitives for durable local inference. `wrk`
+submits work. `nrvnad` runs a model against a workspace. `flw` reads status and
+results. No HTTP server or message broker is required.
 
 ## Start
 
@@ -29,11 +29,7 @@ reads status and results.
 
 ## Source of truth
 
-The CLI is the public API. Use each command's `--help` output for syntax. Use
-`AGENTS.md` for stdout, JSON, exit codes, lifecycle, and recovery. Two headers
-define the implementation contracts: `include/nrvna/contract.hpp` and
-`include/nrvna/lifecycle.hpp`.
-
-The ignored `docs/` directory contains project notebooks. These files record
-research, experiments, workbooks, and plans. They are not the current product
-contract.
+The commands and published job layout are public contracts. Use each command's
+`--help` output for syntax. Use `AGENTS.md` for stdout, JSON, exit codes,
+lifecycle, and recovery. `include/nrvna/contract.hpp` defines the job layout.
+`include/nrvna/lifecycle.hpp` defines private daemon control files.

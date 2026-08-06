@@ -1,11 +1,11 @@
 # nrvna
 
-> Unix-like primitives for durable, asynchronous local inference.
+> Unix-like primitives for durable local inference.
 
 nrvna is not a chat API or agent framework. `wrk` publishes an independent
 job, `nrvnad` processes one workspace with one model, and `flw` reads status or
 terminal artifacts. Context does not carry between jobs. `--parent` records
-lineage only.
+lineage only. No HTTP server or message broker is required.
 
 ## Start
 

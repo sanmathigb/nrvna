@@ -176,7 +176,7 @@ The defaults are measured decisions:
 - RRF produced better top-1 and top-3 recall than the original normalized
   50/50 blend on the local hard set.
 - Captions are capped at 900 characters because verbose captions diluted the
-  image embedding.
+  indexed text embedding.
 - Indexed text uses nomic-embed's `search_document:` prefix; queries use
   `search_query:`.
 - Ties break on path, so repeated searches are stable.
