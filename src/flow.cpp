@@ -97,7 +97,7 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
             auto timestamp = std::filesystem::last_write_time(outputDir);
             auto sctp = toSystemTime(timestamp);
 
-            return Job{id, Status::Done, content, "", sctp};
+            return Job{id, Status::Done, content, std::nullopt, sctp};
 
         } else if (jobStatus == Status::Failed) {
             auto failedDir = contract::jobDir(workspace_, Status::Failed, id);
@@ -124,11 +124,15 @@ std::optional<Job> Flow::get(const JobId& id) const noexcept {
 
             auto timestamp = std::filesystem::last_write_time(failedDir);
             auto sctp = toSystemTime(timestamp);
-            return Job{id, Status::Failed, errorContent, partialContent, sctp};
+            std::optional<std::string> partial = std::nullopt;
+            if (std::filesystem::exists(partialFile)) {
+                partial = partialContent;
+            }
+            return Job{id, Status::Failed, errorContent, partial, sctp};
 
         } else if (jobStatus == Status::Queued || jobStatus == Status::Running) {
             auto sctp = std::chrono::system_clock::now();
-            return Job{id, jobStatus, "", "", sctp};
+            return Job{id, jobStatus, "", std::nullopt, sctp};
         }
 
         return std::nullopt;
@@ -338,7 +342,7 @@ std::optional<Job> Flow::latestInDir(const std::filesystem::path& dir) const noe
             if (!isValidJobId(jobId)) continue;
             auto ts = toSystemTime(std::filesystem::last_write_time(entry));
             if (!newest || ts > newest->timestamp) {
-                newest = Job{jobId, Status::Missing, "", "", ts};
+                newest = Job{jobId, Status::Missing, "", std::nullopt, ts};
             }
         }
         return newest;

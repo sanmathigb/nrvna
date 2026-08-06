@@ -168,8 +168,8 @@ int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job
         }
     } else if (job.status == Status::Failed) {
         out << ",\"error\":\"" << escapeJson(job.content) << "\"";
-        if (!job.partial.empty()) {
-            out << ",\"partial\":\"" << escapeJson(job.partial) << "\"";
+        if (job.partial.has_value()) {
+            out << ",\"partial\":\"" << escapeJson(*job.partial) << "\"";
         }
     }
     out << "}\n";

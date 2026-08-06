@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "nrvna/types.hpp"
@@ -66,7 +67,7 @@ private:
     [[nodiscard]] bool moveReadyToProcessing(const JobId& jobId) noexcept;
     [[nodiscard]] bool finalizeSuccess(const JobId& jobId, const std::string& result) noexcept;
     [[nodiscard]] bool finalizeFailure(const JobId& jobId, const std::string& error,
-                                       const std::string& partialOutput = "") noexcept;
+                                       std::optional<std::string> partialOutput = std::nullopt) noexcept;
     
     [[nodiscard]] PromptReadResult readPrompt(const JobId& jobId) const noexcept;
     [[nodiscard]] PromptReadResult readGrammar(const JobId& jobId) const noexcept;

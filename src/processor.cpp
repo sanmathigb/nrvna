@@ -461,7 +461,7 @@ bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transc
 }
 
 bool Processor::finalizeFailure(const JobId& jobId, const std::string& error,
-                                const std::string& partialOutput) noexcept {
+                                std::optional<std::string> partialOutput) noexcept {
     try {
         auto processingPath = getJobPath(contract::kProcessingDir, jobId);
         auto failedPath = getJobPath(contract::kFailedDir, jobId);
@@ -482,14 +482,14 @@ bool Processor::finalizeFailure(const JobId& jobId, const std::string& error,
             }
         }
 
-        if (!partialOutput.empty()) {
+        if (partialOutput.has_value()) {
             auto partialPath = processingPath / contract::kResponseFile;
             std::ofstream file(partialPath, std::ios::binary);
             if (!file) {
                 LOG_ERROR("Cannot publish failed job without partial artifact: " + jobId);
                 return false;
             }
-            file << partialOutput;
+            file << *partialOutput;
             file.flush();
             if (!file.good()) {
                 LOG_ERROR("Partial artifact write failed; job remains in processing: " + jobId);

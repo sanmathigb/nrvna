@@ -96,9 +96,9 @@ their models cannot fit in memory together.
   do not inspect lifecycle files instead of using `nrvnad status`.
 - Job inputs become immutable under `input/ready/`. The daemon moves the job
   directory and adds artifacts. Callers must not edit published jobs.
-- Failures are terminal and preserved under `failed/`, with `error.txt` and any
-  partial `response.txt`. Retry policy belongs to the calling app or agent, not
-  the primitive.
+- Failures are terminal and preserved under `failed/`, with `error.txt` and
+  `response.txt` when the model produced output, even if that file is empty.
+  Retry policy belongs to the calling app or agent, not the primitive.
 - Primary artifacts are `result.txt`, `embedding.json`, `transcript.txt`, or
   `audio.wav`; failures use `error.txt`. Completed embedding JSON includes the
   full vector, so use workspace status rather than job retrieval when only

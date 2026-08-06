@@ -159,7 +159,8 @@ esac
 tag_a="00001781482179019400_4090_000004"
 tag_b="00001781482179019401_4090_000005"
 child="00001781482179019402_4090_000006"
-mkdir -p "$tmp/output/$tag_a" "$tmp/output/$tag_b" "$tmp/failed/$child"
+child_empty="00001781482179019403_4090_000007"
+mkdir -p "$tmp/output/$tag_a" "$tmp/output/$tag_b" "$tmp/failed/$child" "$tmp/failed/$child_empty"
 printf 'alpha\n' > "$tmp/output/$tag_a/result.txt"
 printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night"]\n}\n' > "$tmp/output/$tag_a/meta.json"
 printf 'beta\n' > "$tmp/output/$tag_b/result.txt"
@@ -167,6 +168,9 @@ printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "tags": ["night", "extra
 printf 'boom\n' > "$tmp/failed/$child/error.txt"
 printf '{"answer":"first"\n' > "$tmp/failed/$child/response.txt"
 printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "parent": "%s"\n}\n' "$tag_a" > "$tmp/failed/$child/meta.json"
+printf 'boom-empty' > "$tmp/failed/$child_empty/error.txt"
+touch "$tmp/failed/$child_empty/response.txt"
+printf '{\n  "submitted_at": "t",\n  "mode": "text",\n  "parent": "%s"\n}\n' "$tag_a" > "$tmp/failed/$child_empty/meta.json"
 
 # plain mode: ids one per line, both tagged jobs, nothing else
 ids="$("$bin_dir/flw" "$tmp" --tag night)"
@@ -185,6 +189,11 @@ kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)" || kids_rc=$?
 case "$kids" in *"$child"*'"status":"failed"'*'"error":"boom'*) ;; *) echo "children selection broken: $kids" >&2; exit 1 ;; esac
 case "$kids" in *'"partial":"{\"answer\":\"first\"'* ) ;; *) echo "children selection missing partial payload: $kids" >&2; exit 1 ;; esac
 [ "$kids_rc" -eq 1 ] || { echo "json collect of failed set should exit 1, got $kids_rc" >&2; exit 1; }
+
+empty_rc=0
+empty_kids="$("$bin_dir/flw" "$tmp" --children "$tag_a" --json)" || empty_rc=$?
+case "$empty_kids" in *"$child_empty"*'"status":"failed"'*'"error":"boom-empty'*'"partial":""'*) ;; *) echo "children selection missing empty partial payload: $empty_kids" >&2; exit 1 ;; esac
+[ "$empty_rc" -eq 1 ] || { echo "json collect of empty failed set should exit 1, got $empty_rc" >&2; exit 1; }
 
 # scoped -W on an already-finished set returns immediately; failed child = exit 1
 if "$bin_dir/flw" "$tmp" -W --children "$tag_a"; then

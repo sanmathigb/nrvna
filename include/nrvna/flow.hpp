@@ -20,7 +20,7 @@ struct Job {
     JobId id;
     Status status;
     std::string content;
-    std::string partial;
+    std::optional<std::string> partial;
     std::chrono::system_clock::time_point timestamp;
 };
 

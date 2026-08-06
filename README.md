@@ -189,8 +189,9 @@ options are mutually exclusive.
 
 `result.txt` contains the generated JSON when the job completes cleanly. If
 the model stops early or emits invalid JSON, the job fails and lands in
-`failed/` with `error.txt` and the partial `response.txt`. `flw --json`
-returns the result string for successful jobs and reports `output_format`.
+`failed/` with `error.txt` and the partial `response.txt` file, even when that
+file is empty. `flw --json` returns the result string for successful jobs and
+reports `output_format`.
 
 ## Give it to an agent
 
