@@ -54,12 +54,7 @@ jobs:
           cmake --build build -j4 --target nrvnad wrk flw contract_test meta_test
 
       - name: Test contracts
-        run: |
-          ./build/contract_test
-          ./build/meta_test
-          bash tests/primitive-contract.sh build
-          bash tests/lifecycle-contract.sh build
-          bash tests/contract-literals.sh
+        run: ctest --test-dir build --output-on-failure
 
       - uses: actions/setup-go@v5
         with:
