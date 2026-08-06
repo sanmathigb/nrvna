@@ -232,7 +232,8 @@ Main Thread
     |       |       +-- pre-initializes N Runners
     |       |       +-- pre-initializes N TtsRunners (if vocoder present)
     |       |
-    |       +-- recoverOrphanedJobs (processing/ -> ready/ or failed/)
+    |       +-- recoverOrphanedJobs (processing/ -> ready/ or failed/ at the
+    |                                  recovery ceiling)
     |
     +-- waits for shutdown signal (SIGINT/SIGTERM)
 

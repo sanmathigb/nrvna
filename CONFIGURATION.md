@@ -13,6 +13,7 @@ Most users need only these:
 | `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to a supported GPU backend |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
 | `NRVNA_PREDICT` | `2048` | Maximum generated tokens |
+| `NRVNA_MAX_RECOVERY_ATTEMPTS` | `3` | Orphaned `processing/` recoveries before terminal failure |
 
 CPU inference is the default. `nrvnad` resolves model names under `./models` or
 `NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching

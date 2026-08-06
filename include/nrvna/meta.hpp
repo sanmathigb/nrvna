@@ -19,6 +19,7 @@ struct JobMeta {
     JobId parent;               // empty if none
     std::vector<std::string> tags;
     std::string output_format;  // "json_schema" or "gbnf"; empty if unconstrained
+    unsigned int recovery_attempts = 0;
 
     // Completion phase (written by Processor)
     std::string completed_at;

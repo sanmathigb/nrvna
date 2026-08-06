@@ -135,7 +135,9 @@ workspace/
 ```
 
 Atomic filesystem renames publish, claim, and complete jobs. After a crash,
-the next daemon recovers abandoned jobs from `processing/`.
+the next daemon recovers abandoned jobs from `processing/`. Each orphaned job
+tracks `recovery_attempts` in `meta.json`; if it keeps crashing, the next
+daemon moves it to `failed/` instead of looping forever.
 
 Execution is at least once. nrvna preserves terminal failures. The caller owns
 the retry policy.

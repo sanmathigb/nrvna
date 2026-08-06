@@ -89,8 +89,13 @@ if(BUILD_TESTING)
     add_executable(meta_test tests/meta_test.cpp src/meta.cpp)
     target_include_directories(meta_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+    add_executable(recovery_test tests/recovery_test.cpp)
+    target_link_libraries(recovery_test nrvna_core)
+    target_include_directories(recovery_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
     add_test(NAME contract COMMAND contract_test)
     add_test(NAME metadata COMMAND meta_test)
+    add_test(NAME recovery COMMAND recovery_test)
     add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
     add_test(NAME shell_helper COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/nrvna-lib-contract.sh ${CMAKE_CURRENT_SOURCE_DIR})

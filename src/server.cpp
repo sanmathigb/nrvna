@@ -6,6 +6,7 @@
 
 #include "nrvna/server.hpp"
 #include "nrvna/contract.hpp"
+#include "nrvna/meta.hpp"
 #include "nrvna/scanner.hpp"
 #include "nrvna/pool.hpp"
 #include "nrvna/processor.hpp"
@@ -13,6 +14,8 @@
 #include "nrvna/runner_tts.hpp"
 #include "nrvna/logger.hpp"
 #include <chrono>
+#include <cstdlib>
+#include <fstream>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,6 +23,142 @@
 namespace nrvna {
 
 // Note: Signal handling is done by the CLI (nrvnad.cpp), not by Server class
+
+namespace {
+
+std::size_t env_positive_size(const char* name, std::size_t defv) {
+    const char* val = std::getenv(name);
+    if (!val || !*val) {
+        return defv;
+    }
+    try {
+        std::size_t parsed = static_cast<std::size_t>(std::stoull(val));
+        return parsed == 0 ? defv : parsed;
+    } catch (...) {
+        return defv;
+    }
+}
+
+bool writeRecoveryFailure(const std::filesystem::path& jobPath,
+                          const JobId& jobId,
+                          const JobMeta& meta,
+                          const std::string& error) noexcept {
+    try {
+        {
+            std::ofstream file(jobPath / contract::kErrorFile, std::ios::binary);
+            if (!file) return false;
+            file << error;
+            file.flush();
+            if (!file.good()) return false;
+        }
+
+        JobMeta failedMeta = meta;
+        if (failedMeta.submitted_at.empty()) {
+            failedMeta.submitted_at = formatTimestamp();
+        }
+        if (failedMeta.mode.empty()) {
+            failedMeta.mode = contract::toString(JobType::Text);
+        }
+        failedMeta.completed_at = formatTimestamp();
+        failedMeta.duration_s = -1.0;
+        failedMeta.artifacts = {contract::kErrorFile};
+        failedMeta.status = contract::toString(Status::Failed);
+        if (!writeMetaJson(jobPath, failedMeta)) {
+            LOG_ERROR("Failed to write failed-job metadata for " + jobId);
+            return false;
+        }
+
+        auto failedPath = jobPath.parent_path().parent_path() / contract::kFailedDir / jobId;
+        std::error_code ec;
+        std::filesystem::rename(jobPath, failedPath, ec);
+        if (ec) {
+            LOG_ERROR("Failed to move recovered job to failed/ for " + jobId + ": " + ec.message());
+            return false;
+        }
+
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR("Failed to finalize recovered job " + jobId + ": " + std::string(e.what()));
+        return false;
+    } catch (...) {
+        LOG_ERROR("Failed to finalize recovered job " + jobId + ": unknown error");
+        return false;
+    }
+}
+
+} // namespace
+
+RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
+                                   std::size_t maxRecoveryAttempts) noexcept {
+    RecoveryReport report;
+    try {
+        auto processingDir = workspace / contract::kProcessingDir;
+        if (!std::filesystem::exists(processingDir)) {
+            return report;
+        }
+
+        for (const auto& entry : std::filesystem::directory_iterator(processingDir)) {
+            if (!entry.is_directory()) {
+                continue;
+            }
+
+            std::string jobId = entry.path().filename().string();
+            LOG_WARN("Recovering orphaned job: " + jobId);
+
+            auto meta = readMetaJson(entry.path()).value_or(JobMeta{});
+            if (meta.submitted_at.empty()) {
+                meta.submitted_at = formatTimestamp();
+            }
+            if (meta.mode.empty()) {
+                meta.mode = contract::toString(JobType::Text);
+            }
+
+            if (meta.recovery_attempts >= maxRecoveryAttempts) {
+                LOG_WARN("Recovery ceiling reached for " + jobId + " (" +
+                         std::to_string(meta.recovery_attempts) + " attempts)");
+                if (writeRecoveryFailure(entry.path(), jobId, meta,
+                                         "Job exceeded recovery ceiling after repeated daemon crashes")) {
+                    report.terminalized++;
+                } else {
+                    LOG_ERROR("Failed to terminalize orphaned job " + jobId + " after recovery ceiling");
+                }
+                continue;
+            }
+
+            meta.recovery_attempts++;
+            if (!writeMetaJson(entry.path(), meta)) {
+                LOG_ERROR("Failed to update recovery metadata for " + jobId + "; terminalizing");
+                if (writeRecoveryFailure(entry.path(), jobId, meta,
+                                         "Failed to update recovery metadata")) {
+                    report.terminalized++;
+                } else {
+                    LOG_ERROR("Orphan recovery failed for " + jobId + " while terminalizing after meta write failure");
+                }
+                continue;
+            }
+
+            std::error_code ec;
+            std::filesystem::rename(entry.path(), workspace / contract::kReadyDir / jobId, ec);
+            if (ec) {
+                LOG_ERROR("Failed to recover job " + jobId + " (ready failed: " + ec.message() + "). Trying failed dir...");
+                std::error_code ec2;
+                std::filesystem::rename(entry.path(), workspace / contract::kFailedDir / jobId, ec2);
+                if (ec2) {
+                    LOG_ERROR("Orphan recovery failed for " + jobId + ": ready=" + ec.message() + ", failed=" + ec2.message());
+                } else {
+                    report.terminalized++;
+                }
+            } else {
+                report.recovered++;
+            }
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR("Error recovering orphaned jobs: " + std::string(e.what()));
+    } catch (...) {
+        LOG_ERROR("Unknown error recovering orphaned jobs");
+    }
+    return report;
+}
 
 Server::Server(const std::string& modelPath, const std::filesystem::path& workspace, int workers,
                const std::string& mmprojPath, const std::string& vocoderPath)
@@ -170,41 +309,15 @@ bool Server::createWorkspace() noexcept {
 }
 
 bool Server::recoverOrphanedJobs() noexcept {
-    try {
-        auto processingDir = workspace_ / contract::kProcessingDir;
-        if (!std::filesystem::exists(processingDir)) {
-            return true;
-        }
-
-        int recovered = 0;
-        for (const auto& entry : std::filesystem::directory_iterator(processingDir)) {
-            if (entry.is_directory()) {
-                std::string jobId = entry.path().filename().string();
-                LOG_WARN("Recovering orphaned job: " + jobId);
-
-                std::error_code ec;
-                std::filesystem::rename(entry.path(), workspace_ / contract::kReadyDir / jobId, ec);
-                if (ec) {
-                    LOG_ERROR("Failed to recover job " + jobId + " (ready failed: " + ec.message() + "). Trying failed dir...");
-                    std::error_code ec2;
-                    std::filesystem::rename(entry.path(), workspace_ / contract::kFailedDir / jobId, ec2);
-                    if (ec2) {
-                        LOG_ERROR("Orphan recovery failed for " + jobId + ": ready=" + ec.message() + ", failed=" + ec2.message());
-                    }
-                } else {
-                    recovered++;
-                }
-            }
-        }
-
-        if (recovered > 0) {
-            LOG_INFO("Recovered " + std::to_string(recovered) + " orphaned job(s)");
-        }
-        return true;
-    } catch (const std::exception& e) {
-        LOG_ERROR("Error recovering orphaned jobs: " + std::string(e.what()));
-        return false;
+    const std::size_t maxRecoveryAttempts = env_positive_size("NRVNA_MAX_RECOVERY_ATTEMPTS", 3);
+    auto report = ::nrvna::recoverOrphanedJobs(workspace_, maxRecoveryAttempts);
+    if (report.recovered > 0) {
+        LOG_INFO("Recovered " + std::to_string(report.recovered) + " orphaned job(s)");
     }
+    if (report.terminalized > 0) {
+        LOG_WARN("Terminalized " + std::to_string(report.terminalized) + " orphaned job(s) after recovery ceiling");
+    }
+    return true;
 }
 
 void Server::scanLoop() {
