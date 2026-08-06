@@ -138,6 +138,19 @@ Work::Work(const std::filesystem::path& workspace, bool createIfMissing)
 }
 
 SubmitResult Work::submit(const std::string& prompt, JobType type, const std::vector<std::filesystem::path>& imagePaths, const SubmitOptions& opts) {
+    const bool hasStructuredOutput = !opts.output_format.empty() || !opts.schema.empty() || !opts.grammar.empty();
+    const bool validStructuredOutput =
+        !hasStructuredOutput ||
+        ((type == JobType::Text || type == JobType::Vision) &&
+         !opts.grammar.empty() &&
+         opts.grammar.size() <= contract::kMaxStructuredOutputBytes &&
+         ((opts.output_format == "json_schema" && !opts.schema.empty() &&
+           opts.schema.size() <= contract::kMaxStructuredOutputBytes) ||
+          (opts.output_format == "gbnf" && opts.schema.empty())));
+    if (!validStructuredOutput) {
+        return {false, "", SubmissionError::InvalidContent, "Invalid structured output options"};
+    }
+
     const bool allowEmptyPrompt = type == JobType::Embed && !imagePaths.empty();
     if ((!allowEmptyPrompt && !isValidPrompt(prompt)) || (allowEmptyPrompt && prompt.size() > maxBytes_)) {
         if (prompt.empty()) {
@@ -193,6 +206,12 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
         }
     }
 
+    if (!writeStructuredOutputFiles(jobId, opts)) {
+        LOG_ERROR("Failed to write structured output files for: " + jobId);
+        cleanupFailedJob(jobId);
+        return {false, "", SubmissionError::IoError, "Failed to write structured output files"};
+    }
+
     if (!writeMetaFile(jobId, type, opts)) {
         // Metadata is part of the contract now: tags, lineage, and set
         // collection all read it. A job without meta.json is invisible to
@@ -213,6 +232,9 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
 }
 
 SubmitResult Work::submitAudio(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths, const SubmitOptions& opts) {
+    if (!opts.output_format.empty() || !opts.schema.empty() || !opts.grammar.empty()) {
+        return {false, "", SubmissionError::InvalidContent, "Structured output is not supported for audio jobs"};
+    }
     if (prompt.size() > maxBytes_) {
         LOG_DEBUG("Prompt exceeds size limit: " + std::to_string(prompt.size()) + " > " + std::to_string(maxBytes_));
         return {false, "", SubmissionError::InvalidSize, "Prompt exceeds maximum size limit (" + std::to_string(maxBytes_) + " bytes)"};
@@ -420,12 +442,36 @@ bool Work::writeTypeFile(const JobId& jobId, JobType type) const noexcept {
     }
 }
 
+bool Work::writeStructuredOutputFiles(const JobId& jobId, const SubmitOptions& opts) const noexcept {
+    try {
+        const auto dir = workspace_ / contract::kWritingDir / jobId;
+        if (!opts.schema.empty()) {
+            std::ofstream schemaFile(dir / contract::kSchemaFile, std::ios::binary);
+            if (!schemaFile) return false;
+            schemaFile << opts.schema;
+            schemaFile.flush();
+            if (!schemaFile.good()) return false;
+        }
+        if (!opts.grammar.empty()) {
+            std::ofstream grammarFile(dir / contract::kGrammarFile, std::ios::binary);
+            if (!grammarFile) return false;
+            grammarFile << opts.grammar;
+            grammarFile.flush();
+            if (!grammarFile.good()) return false;
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& opts) const noexcept {
     try {
         JobMeta meta;
         meta.submitted_at = formatTimestamp();
         meta.mode = contract::toString(type);
         meta.parent = opts.parent;
+        meta.output_format = opts.output_format;
         for (const auto& tag : opts.tags) {
             if (isValidTag(tag)) {
                 meta.tags.push_back(tag);

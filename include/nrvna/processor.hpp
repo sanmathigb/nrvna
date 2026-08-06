@@ -68,6 +68,7 @@ private:
     [[nodiscard]] bool finalizeFailure(const JobId& jobId, const std::string& error) noexcept;
     
     [[nodiscard]] PromptReadResult readPrompt(const JobId& jobId) const noexcept;
+    [[nodiscard]] PromptReadResult readGrammar(const JobId& jobId) const noexcept;
     [[nodiscard]] std::optional<JobType> readJobType(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readImages(const JobId& jobId) const noexcept;
     [[nodiscard]] std::vector<std::filesystem::path> readAudio(const JobId& jobId) const noexcept;
