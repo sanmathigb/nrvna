@@ -42,6 +42,9 @@ result.txt -> transcript.txt -> audio.wav -> embedding.json
 use `flw` or read terminal artifacts from `output/` and `failed/`. They must not
 edit or move published job directories.
 
+The state directories and artifact names are compatibility commitments. Change
+them only with a documented contract migration.
+
 ## Language Boundary
 
 The engine uses C++17. Applications use their native language:

@@ -6,9 +6,9 @@
 
 Unix-like primitives for durable local inference.
 
-Submit work before any model process is running. No HTTP server or message
-broker is required. Run the model when compute is available. Read ordinary
-files later.
+**No always-on server.** Submit work before any model process is running. No
+HTTP server or message broker is required. Run the model when compute is
+available. Read ordinary files later.
 
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.

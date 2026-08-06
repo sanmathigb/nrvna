@@ -75,6 +75,10 @@ WS=./workspace
 GOAL="Write a cover letter for a senior engineer position"
 nrvnad "$MODEL" "$WS" &
 DAEMON_PID=$!
+until nrvnad status "$WS" >/dev/null 2>&1; do
+  kill -0 "$DAEMON_PID" 2>/dev/null || { wait "$DAEMON_PID"; exit 1; }
+  sleep 1
+done
 
 # First draft
 draft_job=$(wrk "$WS" "$GOAL")
@@ -108,6 +112,10 @@ GOAL="Write a Python tutorial covering variables, loops, and functions"
 memory=""
 nrvnad "$MODEL" "$WS" &
 DAEMON_PID=$!
+until nrvnad status "$WS" >/dev/null 2>&1; do
+  kill -0 "$DAEMON_PID" 2>/dev/null || { wait "$DAEMON_PID"; exit 1; }
+  sleep 1
+done
 
 for i in {1..5}; do
   job=$(wrk "$WS" "Goal: $GOAL

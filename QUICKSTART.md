@@ -67,8 +67,10 @@ done
 # ...then collect this batch as NDJSON
 ./build/flw /tmp/ws --tag "$BATCH" --json
 
-# or submit and block for one result in a single pipe
-{ echo "Extract every action item:"; cat notes.md; } | ./build/wrk /tmp/ws - | ./build/flw /tmp/ws -w
+# or submit, drain, and collect one more result
+JOB=$({ echo "Extract every action item:"; cat notes.md; } | ./build/wrk /tmp/ws -)
+./build/nrvnad "$MODEL" /tmp/ws --drain
+./build/flw /tmp/ws "$JOB"
 ```
 
 The tag groups jobs. It does not order jobs, share context, or choose a model.
