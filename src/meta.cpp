@@ -103,6 +103,20 @@ double extractDouble(const std::string& json, const std::string& key) {
     }
 }
 
+unsigned int extractUInt(const std::string& json, const std::string& key) {
+    std::string needle = "\"" + key + "\": ";
+    auto pos = json.find(needle);
+    if (pos == std::string::npos) return 0;
+    pos += needle.size();
+    auto end = json.find_first_of(",\n}", pos);
+    try {
+        auto value = std::stoull(json.substr(pos, end - pos));
+        return static_cast<unsigned int>(value);
+    } catch (...) {
+        return 0;
+    }
+}
+
 std::vector<std::string> extractStringArray(const std::string& json, const std::string& key) {
     std::vector<std::string> result;
     std::string needle = "\"" + key + "\": [";
@@ -187,6 +201,10 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
             json << ",\n  \"output_format\": \"" << escapeJson(meta.output_format) << "\"";
         }
 
+        if (meta.recovery_attempts > 0) {
+            json << ",\n  \"recovery_attempts\": " << meta.recovery_attempts;
+        }
+
         if (!meta.status.empty()) {
             json << ",\n  \"completed_at\": \"" << escapeJson(meta.completed_at) << "\"";
             json << ",\n  \"duration_s\": " << std::fixed << std::setprecision(2) << meta.duration_s;
@@ -236,6 +254,7 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
         meta.parent = extractString(content, "parent");
         meta.tags = extractStringArray(content, "tags");
         meta.output_format = extractString(content, "output_format");
+        meta.recovery_attempts = extractUInt(content, "recovery_attempts");
         meta.completed_at = extractString(content, "completed_at");
         meta.duration_s = extractDouble(content, "duration_s");
         meta.artifacts = extractStringArray(content, "artifacts");

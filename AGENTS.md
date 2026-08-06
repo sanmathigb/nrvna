@@ -124,8 +124,10 @@ CHILD=$({ echo "Previous result:"; "$BIN/flw" "$WS" "$PARENT"; \
 `wrk` stages each submission and publishes it with an atomic rename. Workers
 also claim jobs with an atomic rename. The daemon publishes terminal output
 under `output/` or `failed/`. After a crash, the next daemon recovers abandoned
-`processing/` jobs. A recovered job can run again. Only one terminal job
-directory becomes visible. Treat execution as at least once.
+`processing/` jobs. The job's `meta.json` carries `recovery_attempts`; a
+recovered job can run again until it hits the recovery ceiling, then it lands
+in `failed/`. Only one terminal job directory becomes visible. Treat execution
+as at least once.
 
 Model names resolve under `./models` or `NRVNA_MODELS_DIR`. `nrvnad` detects
 matching mmproj and vocoder files beside the model. Use `nrvnad --help` for job

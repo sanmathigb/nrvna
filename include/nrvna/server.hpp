@@ -15,6 +15,14 @@ class Scanner;
 class Pool;
 class Processor;
 
+struct RecoveryReport {
+    int recovered = 0;
+    int terminalized = 0;
+};
+
+[[nodiscard]] RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
+                                                 std::size_t maxRecoveryAttempts) noexcept;
+
 class Server final {
 public:
     Server(const std::string& modelPath,
