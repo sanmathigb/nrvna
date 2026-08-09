@@ -51,7 +51,7 @@ jobs:
             -DGGML_NATIVE=OFF \
             -DLLAMA_CURL=OFF \
             -DLLAMA_OPENSSL=OFF
-          cmake --build build -j4 --target nrvnad wrk flw contract_test meta_test
+          cmake --build build -j4 --target nrvnad wrk flw nrvna_test_binaries
 
       - name: Test contracts
         run: ctest --test-dir build --output-on-failure

@@ -41,9 +41,6 @@ cmake --build build -j4 --target nrvnad wrk flw
 Use the small verified model from [QUICKSTART.md](QUICKSTART.md), or any
 compatible instruct GGUF you already have:
 
-nrvna runs any GGUF model llama.cpp supports. This one is small and quick to
-verify.
-
 ```bash
 MODEL=./models/smollm2-1.7b.gguf
 WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")

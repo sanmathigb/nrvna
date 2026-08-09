@@ -79,6 +79,13 @@ foreach(_cli nrvnad wrk flw)
 endforeach()
 
 if(BUILD_TESTING)
+    set(NRVNA_TEST_BINS
+        contract_test
+        meta_test
+        recovery_test
+        crash_recovery_test
+    )
+
     # This contract test uses headers and does not link llama.cpp.
     add_executable(contract_test tests/contract_test.cpp)
     target_include_directories(contract_test PRIVATE
@@ -96,6 +103,8 @@ if(BUILD_TESTING)
     add_executable(crash_recovery_test tests/crash_recovery_test.cpp)
     target_link_libraries(crash_recovery_test nrvna_core)
     target_include_directories(crash_recovery_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+    add_custom_target(nrvna_test_binaries DEPENDS ${NRVNA_TEST_BINS})
 
     add_test(NAME contract COMMAND contract_test)
     add_test(NAME metadata COMMAND meta_test)
