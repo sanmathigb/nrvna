@@ -130,7 +130,7 @@ jobs:
           engine_dir="../../dist/smoke-$kit/bckbrnr.app/Contents/Resources/bin"
           model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
           curl -fL --retry 3 -o "$model" \
-            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
+            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/91e94c6d3178482531fc34c5532744446f584317/SmolLM2-135M-Instruct-Q8_0.gguf
           make integration-test ENGINE_DIR="$engine_dir" MODEL="$model"
 
       - name: Package nrvna

@@ -18,6 +18,9 @@ Use a llama.cpp-compatible instruct GGUF that your build supports. Put it in
 If you already have a model, use it. Otherwise, use the small verified model
 below. It finishes quickly on older machines.
 
+nrvna runs any GGUF model llama.cpp supports. This one is small and quick to
+verify.
+
 ```bash
 mkdir -p models
 curl -fL --continue-at - -o models/smollm2-1.7b.gguf \
