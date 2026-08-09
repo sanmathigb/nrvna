@@ -231,9 +231,6 @@ benchmark.
 
 ## Boundaries
 
-nrvna is not a chat API, agent framework, model router, semantic index, or
-distributed queue.
-
 Non-goals:
 
 - not a chat interface
@@ -241,6 +238,7 @@ Non-goals:
 - not an orchestrator
 - not a model router
 - not a semantic index
+- not a distributed queue
 
 It does not assemble parent context, execute DAGs, choose models, parse
 documents, or retry failures automatically. Structured JSON jobs are
