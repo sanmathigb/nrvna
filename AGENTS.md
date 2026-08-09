@@ -9,6 +9,9 @@ continue between jobs. `--parent` records lineage only. It does not copy
 context, wait for the parent, or control execution order.
 The workspace remembers. The model does not.
 
+- Jobs are directories. Models are GGUF files. Do not conflate them.
+- Do not describe nrvna as a server, orchestrator, or agent framework.
+
 ## Writing
 
 Use ASD-STE100 Simplified Technical English principles for technical documents
