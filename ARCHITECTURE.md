@@ -8,6 +8,8 @@ the model inference.
 
 ## Directory Structure
 
+The state directories and artifact names are the public job layout.
+
 ```
 WORKSPACE/
 ├── input/
