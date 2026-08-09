@@ -1,7 +1,7 @@
 name: build
 
-# Builds portable imgsrch archives on every platform and bckbrnr app archives
-# on macOS. Both bundle the same nrvna engine binaries (nrvnad/wrk/flw).
+# Builds portable nrvna and imgsrch archives on every platform and bckbrnr app
+# archives on macOS. All bundle the same nrvna engine binaries (nrvnad/wrk/flw).
 #
 # llama.cpp is vendored at the committed submodule revision. The Metal
 # discrete-GPU patch in patches/ is NOT applied here: it only helps Intel Macs
@@ -133,7 +133,32 @@ jobs:
             https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf
           make integration-test ENGINE_DIR="$engine_dir" MODEL="$model"
 
-      - name: Package
+      - name: Package nrvna
+        run: |
+          kit="nrvna-${{ matrix.target }}"
+          mkdir -p "dist/$kit/bin"
+          cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
+          cp README.md INSTALL.md DOCUMENTATION.md AGENTS.md CONTEXT.md \
+            ADVANCED.md CONFIGURATION.md ARCHITECTURE.md QUICKSTART.md \
+            LICENSE install.sh "dist/$kit/"
+          tar -C dist -czf "dist/$kit.tar.gz" "$kit"
+          shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
+
+      - name: Smoke-test packaged nrvna binaries
+        run: |
+          kit="nrvna-${{ matrix.target }}"
+          mkdir -p dist/smoke
+          tar -C dist/smoke -xzf "dist/$kit.tar.gz"
+          test -f "dist/smoke/$kit/README.md"
+          test -f "dist/smoke/$kit/INSTALL.md"
+          test -f "dist/smoke/$kit/AGENTS.md"
+          test -f "dist/smoke/$kit/CONFIGURATION.md"
+          test -x "dist/smoke/$kit/install.sh"
+          "dist/smoke/$kit/bin/nrvnad" --version
+          "dist/smoke/$kit/bin/wrk" --version
+          "dist/smoke/$kit/bin/flw" --version
+
+      - name: Package imgsrch
         run: |
           kit="imgsrch-${{ matrix.target }}"
           mkdir -p "dist/$kit/bin" "dist/$kit/docs"

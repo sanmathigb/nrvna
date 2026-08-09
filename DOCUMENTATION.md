@@ -6,6 +6,7 @@ results. No HTTP server or message broker is required.
 
 ## Start
 
+- [Install](INSTALL.md): checksum-verified prebuilt archives and first run
 - [README](README.md): what nrvna is, one verified run, and its boundaries
 - [Quickstart](QUICKSTART.md): build, submit, drain, and retrieve
 - [Agent guide](AGENTS.md): machine-readable contracts and a cold-agent run
