@@ -46,10 +46,20 @@ for bin in nrvnad wrk flw; do
   install -m 755 "$tmpdir/$kit/bin/$bin" "$install_dir/$bin"
 done
 
+case ":$PATH:" in
+  *":$install_dir:"*) ;;
+  *)
+    echo "nrvna: $install_dir is not on your PATH." >&2
+    echo "Add it with:" >&2
+    echo "  export PATH=\"$install_dir:\$PATH\"" >&2
+    ;;
+esac
+
 cat <<EOF
 nrvna: installed nrvnad, wrk, and flw to $install_dir
 
 Next:
+  export PATH="$install_dir:\$PATH"
   mkdir -p models
   curl -fL --continue-at - -o models/smollm2-1.7b.gguf \\
     https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
