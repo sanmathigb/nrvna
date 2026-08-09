@@ -13,6 +13,9 @@ available. Read ordinary files later.
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
 
+**Prebuilt release archives.** See [INSTALL.md](INSTALL.md) for a
+checksum-verified installer and first-run steps.
+
 ```text
 wrk  ->  workspace  <->  nrvnad + model
             |
@@ -36,10 +39,11 @@ cmake -S . -B build
 cmake --build build -j4 --target nrvnad wrk flw
 ```
 
-Use any compatible instruct GGUF:
+Use the small verified model from [QUICKSTART.md](QUICKSTART.md), or any
+compatible instruct GGUF you already have:
 
 ```bash
-MODEL=/path/to/model.gguf
+MODEL=./models/smollm2-1.7b.gguf
 WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
 
 JOB=$(./build/wrk "$WS" "Reply with exactly: first")

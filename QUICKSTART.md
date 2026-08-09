@@ -15,8 +15,21 @@ cmake -S . -B build && cmake --build build -j4
 
 Use a llama.cpp-compatible instruct GGUF that your build supports. Put it in
 `./models/`, or use a full path. `NRVNA_MODELS_DIR` changes the search path.
-The README provides a pinned model and checksum under
-[Run one job](README.md#run-one-job).
+If you already have a model, use it. Otherwise, use the small verified model
+below. It finishes quickly on older machines.
+
+```bash
+mkdir -p models
+curl -fL --continue-at - -o models/smollm2-1.7b.gguf \
+  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
+
+MODEL_SHA256=decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
+if command -v sha256sum >/dev/null; then
+  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | sha256sum -c -
+else
+  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | shasum -a 256 -c -
+fi
+```
 
 ## First Job
 
