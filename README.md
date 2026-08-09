@@ -39,7 +39,7 @@ cmake --build build -j4 --target nrvnad wrk flw
 ```
 
 Use the small verified model from [QUICKSTART.md](QUICKSTART.md), or any
-compatible instruct GGUF you already have:
+compatible GGUF you already have:
 
 ```bash
 MODEL=./models/smollm2-1.7b.gguf
