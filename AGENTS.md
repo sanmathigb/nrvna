@@ -8,7 +8,6 @@ Every `wrk` submission creates an independent durable job. Context does not
 continue between jobs. `--parent` records lineage only. It does not copy
 context, wait for the parent, or control execution order.
 The workspace remembers. The model does not.
-
 ## Rules for You
 
 - Use lowercase `nrvna`.
@@ -20,6 +19,8 @@ The workspace remembers. The model does not.
 - Do not tell anyone to poll background work.
 - Use one workspace per model role.
 - Put prior evidence in the next prompt when a job needs it.
+- Jobs are directories. Models are GGUF files. Do not conflate them.
+- Do not describe nrvna as a server, orchestrator, or agent framework.
 
 ## Writing
 
