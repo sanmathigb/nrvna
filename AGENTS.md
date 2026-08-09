@@ -9,6 +9,18 @@ continue between jobs. `--parent` records lineage only. It does not copy
 context, wait for the parent, or control execution order.
 The workspace remembers. The model does not.
 
+## Rules for You
+
+- Use lowercase `nrvna`.
+- Do not invent flags or commands.
+- Treat `--parent` as lineage only.
+- Check `nrvnad status` before telling anyone to start a daemon.
+- Use `--drain` when the sandbox cannot signal a live daemon.
+- Keep stdout machine-readable. Put diagnostics on stderr.
+- Do not tell anyone to poll background work.
+- Use one workspace per model role.
+- Put prior evidence in the next prompt when a job needs it.
+
 ## Writing
 
 Use ASD-STE100 Simplified Technical English principles for technical documents

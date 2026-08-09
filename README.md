@@ -14,9 +14,8 @@ available. Read ordinary files later.
 contracts. nrvna does not claim production readiness.
 
 ```text
-wrk  ->  workspace  <->  nrvnad + model
-            |
-           flw
+input/writing/ -> input/ready/ -> processing/ -> output/
+                                         \-> failed/
 ```
 
 The workspace remembers. The model does not.
@@ -128,6 +127,7 @@ The model process is temporary. The workspace is the durable record.
 
 ```text
 workspace/
+├── input/writing/  staging
 ├── input/ready/   queued
 ├── processing/    claimed
 ├── output/        successful jobs and artifacts
@@ -138,6 +138,9 @@ Atomic filesystem renames publish, claim, and complete jobs. After a crash,
 the next daemon recovers abandoned jobs from `processing/`. Each orphaned job
 tracks `recovery_attempts` in `meta.json`; if it keeps crashing, the next
 daemon moves it to `failed/` instead of looping forever.
+
+The state directories and artifact names are compatibility commitments. Change
+them only with a documented migration.
 
 Execution is at least once. nrvna preserves terminal failures. The caller owns
 the retry policy.
@@ -230,6 +233,14 @@ benchmark.
 
 nrvna is not a chat API, agent framework, model router, semantic index, or
 distributed queue.
+
+Non-goals:
+
+- not a chat interface
+- not an agent framework
+- not an orchestrator
+- not a model router
+- not a semantic index
 
 It does not assemble parent context, execute DAGs, choose models, parse
 documents, or retry failures automatically. Structured JSON jobs are
