@@ -13,9 +13,10 @@ cmake -S . -B build && cmake --build build -j4
 
 ## Get a Model
 
-Use a llama.cpp-compatible GGUF that your build supports. Put it in
-`./models/`, or use a full path. `NRVNA_MODELS_DIR` changes the search path.
-If you already have a model, use it. Otherwise, use the model below.
+nrvna runs GGUF models that its llama.cpp build supports. This exact-output
+check needs an instruction-tuned model. Put it in `./models/`, or use a full
+path. `NRVNA_MODELS_DIR` changes the search path. If you have a suitable model,
+use it. Otherwise, use the model below.
 
 ```bash
 mkdir -p models
