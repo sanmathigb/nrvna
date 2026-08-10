@@ -3,7 +3,7 @@
 Use the one-line installer if you want the binaries on `PATH`.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/5c07d2054082a3ff1258f7b5fea73dd44721a6d4/install.sh | sh
 ```
 
 The script installs `nrvnad`, `wrk`, and `flw`. It does not download a model.
