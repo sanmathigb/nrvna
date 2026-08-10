@@ -8,7 +8,7 @@ curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/main/install.sh | 
 
 The script installs `nrvnad`, `wrk`, and `flw`. It does not download a model.
 You still need one local GGUF path before you can run inference. If you do not
-have one, use the small verified example in [QUICKSTART.md](QUICKSTART.md).
+have one, use the example model in [QUICKSTART.md](QUICKSTART.md).
 
 Use the manual path if you want to inspect the release archive first.
 
