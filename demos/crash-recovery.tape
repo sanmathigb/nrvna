@@ -7,8 +7,8 @@
 #   MacBookPro14,3, Intel Core i7 3.1 GHz, 16 GB
 #
 # The model is SmolLM2 1.7B Q4_K_M at the revision and checksum in README.md.
-# The tape pauses the daemon after it claims the job. This makes the render
-# deterministic while the visible commands are typed.
+# The tape pauses the daemon after it becomes ready and starts the job. This
+# makes the render deterministic while the visible commands are typed.
 # Render from the repository root:
 #   PATH="/path/to/nrvna/bin:/path/to/vhs-tools:$PATH" \
 #   NRVNA_DEMO_MODEL="$PWD/models/smollm2-1.7b.gguf" \
@@ -38,6 +38,8 @@ Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX) || exit 1; cd "$work" || exit 1` E
 Wait+Line /\$$/
 Type `mkdir models; ln -s "$NRVNA_DEMO_MODEL" models/smollm2-1.7b.gguf` Enter
 Wait+Line /\$$/
+Type `set +m; mkfifo daemon.pid daemon.events; (read -r target <daemon.pid; daemon_ready=0; job_running=0; while IFS= read -r line; do [[ $line == *"RUNNING"* ]] && daemon_ready=1; [[ $line == *"  running"* ]] && job_running=1; (( daemon_ready && job_running )) && { kill -STOP "$target"; exit; }; done <daemon.events; exit 1) & watcher=$!` Enter
+Wait+Line /\$$/
 Type `printf '\033c'` Enter
 Wait+Line /\$$/
 Show
@@ -46,10 +48,6 @@ Type `job=$(wrk ./demo "Say only: hello")` Enter
 Wait+Line /\$$/
 Sleep 600ms
 
-Hide
-Type `mkfifo daemon.pid daemon.events; (read -r target <daemon.pid; while IFS= read -r line; do [[ $line == *"claimed job: $job"* ]] && { kill -STOP "$target"; exit; }; done <daemon.events; exit 1) & watcher=$!` Enter
-Wait+Line /\$$/
-Show
 Type `nrvnad ./models/smollm2-1.7b.gguf ./demo 2>daemon.events & pid=$!` Enter
 Wait+Line /\$$/
 Hide
