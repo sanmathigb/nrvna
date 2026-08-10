@@ -103,8 +103,8 @@ model, processes the queued jobs, and exits.
 Use separate workspaces for different model roles. Drain them in sequence when
 their models cannot share memory.
 
-Keep `nrvnad` running when repeated work needs lower latency. Stop it with
-`nrvnad stop ./workspace` when the work is complete.
+For repeated low-latency work, run the same command without `--drain` in a
+separate terminal. Stop that daemon with `nrvnad stop ./batch`.
 
 Shell applications can source [`scripts/nrvna-lib.sh`](scripts/nrvna-lib.sh).
 `nrvna_start` starts a daemon or uses one that is already starting. It waits
