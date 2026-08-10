@@ -13,10 +13,10 @@ cmake -S . -B build && cmake --build build -j4
 
 ## Get a Model
 
-Use a llama.cpp-compatible instruct GGUF that your build supports. Put it in
-`./models/`, or use a full path. `NRVNA_MODELS_DIR` changes the search path.
-If you already have a model, use it. Otherwise, use the small verified model
-below. It finishes quickly on older machines.
+nrvna runs GGUF models that its llama.cpp build supports. This exact-output
+check needs an instruction-tuned model. Put it in `./models/`, or use a full
+path. `NRVNA_MODELS_DIR` changes the search path. If you have a suitable model,
+use it. Otherwise, use the model below.
 
 ```bash
 mkdir -p models
@@ -31,8 +31,8 @@ else
 fi
 ```
 
-This example uses a small model so the first run finishes quickly on older
-machines. It is an example, not a limit.
+This example uses SmolLM2 1.7B Q4_K_M. The download is about 1 GB. It is an
+example, not a limit.
 
 ## First Job
 
