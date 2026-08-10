@@ -26,7 +26,9 @@ input/writing/ -> input/ready/ -> processing/ -> output/
                                          \-> failed/
 ```
 
-The workspace stores jobs and results. Each job uses a fresh model context.
+The workspace remembers. The model does not.
+
+Each job uses a fresh model context. The workspace stores jobs and results.
 
 [llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs the GGUF
 models. nrvna adds durable jobs, workspaces, process lifecycle, and file-based
