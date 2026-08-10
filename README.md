@@ -4,24 +4,22 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built on llama.cpp](https://img.shields.io/badge/llama.cpp-00fa7cb-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/00fa7cb284cbf133fc426733bd64238a3588a33e)
 
-Unix-like primitives for durable local inference.
+Unix-like primitives for durable local inference. No always-on server.
 
-**No always-on server.** Submit work before any model process is running. No
-HTTP server or message broker is required. Run the model when compute is
+Submit work before any model process runs. Run the model when compute is
 available. Read ordinary files later.
-
-**Experimental developer preview.** Tests cover the filesystem and lifecycle
-contracts. nrvna does not claim production readiness.
 
 Install the prebuilt binaries:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/5c07d2054082a3ff1258f7b5fea73dd44721a6d4/install.sh | sh
+curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
 The installer does not download a model. See [INSTALL.md](INSTALL.md) for the
 manual archive path. See [QUICKSTART.md](QUICKSTART.md) to build from source.
+
+State is location:
 
 ```text
 input/writing/ -> input/ready/ -> processing/ -> output/
@@ -51,6 +49,9 @@ first
 
 `wrk` creates the workspace and stores the job. `--drain` loads the model,
 processes the job, and exits. The result remains under `./demo/output/$job/`.
+
+**Experimental developer preview.** Tests cover the filesystem and lifecycle
+contracts. nrvna does not claim production readiness.
 
 <details>
 <summary>Need an example model?</summary>
