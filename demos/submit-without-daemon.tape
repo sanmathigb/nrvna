@@ -25,7 +25,7 @@ Env LC_ALL "C"
 Hide
 Type `export PS1='\[\e[38;2;240;138;75m\]$\[\e[0m\] '; unset PROMPT_COMMAND` Enter
 Wait+Line /\$$/
-Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX); cd "$work"` Enter
+Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX) || exit 1; cd "$work" || exit 1` Enter
 Wait+Line /\$$/
 Type `printf '\033c'` Enter
 Wait+Line /\$$/

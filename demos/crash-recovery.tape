@@ -34,7 +34,7 @@ Type `export PS1='\[\e[38;2;240;138;75m\]$\[\e[0m\] '; unset PROMPT_COMMAND` Ent
 Wait+Line /\$$/
 Type `test -f "$NRVNA_DEMO_MODEL" || exit 1` Enter
 Wait+Line /\$$/
-Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX); cd "$work"` Enter
+Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX) || exit 1; cd "$work" || exit 1` Enter
 Wait+Line /\$$/
 Type `mkdir models; ln -s "$NRVNA_DEMO_MODEL" models/smollm2-1.7b.gguf` Enter
 Wait+Line /\$$/
@@ -47,10 +47,10 @@ Wait+Line /\$$/
 Sleep 600ms
 
 Hide
-Type `(for i in {1..1200}; do if [[ -s daemon.pid ]] && read -r target <daemon.pid && [[ -d "./demo/processing/$job" ]]; then kill -STOP "$target"; exit; fi; sleep 0.05; done; exit 1) & watcher=$!` Enter
+Type `mkfifo daemon.pid daemon.events; (read -r target <daemon.pid; while IFS= read -r line; do [[ $line == *"claimed job: $job"* ]] && { kill -STOP "$target"; exit; }; done <daemon.events; exit 1) & watcher=$!` Enter
 Wait+Line /\$$/
 Show
-Type `nrvnad ./models/smollm2-1.7b.gguf ./demo 2>/dev/null & pid=$!` Enter
+Type `nrvnad ./models/smollm2-1.7b.gguf ./demo 2>daemon.events & pid=$!` Enter
 Wait+Line /\$$/
 Hide
 Type `printf '%s\n' "$pid" >daemon.pid; disown "$pid"; wait "$watcher"; printf '\033c'` Enter
