@@ -31,8 +31,8 @@ else
 fi
 ```
 
-This example uses a small model so the first run finishes quickly on older
-machines. It is an example, not a limit.
+This example uses SmolLM2 1.7B Q4_K_M. The download is about 1 GB. It is an
+example, not a limit.
 
 ## First Job
 

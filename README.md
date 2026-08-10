@@ -38,8 +38,8 @@ cmake -S . -B build
 cmake --build build -j4 --target nrvnad wrk flw
 ```
 
-Use the small verified model from [QUICKSTART.md](QUICKSTART.md), or another
-compatible instruction-tuned GGUF for this exact-output check:
+Use the example model from [QUICKSTART.md](QUICKSTART.md), or another compatible
+instruction-tuned GGUF for this exact-output check:
 
 ```bash
 MODEL=./models/smollm2-1.7b.gguf
@@ -60,7 +60,7 @@ the model and processes the queued work. It exits when it observes an idle
 queue. The result remains under `$WS/output/$JOB/`. No process must stay open.
 
 <details>
-<summary>Need a small verified model?</summary>
+<summary>Need an example model?</summary>
 
 This command downloads SmolLM2 1.7B Q4_K_M from an immutable Hugging Face
 revision. The model is about 1 GB and uses the Apache-2.0 license. The command
