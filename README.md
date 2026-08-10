@@ -28,7 +28,7 @@ input/writing/ -> input/ready/ -> processing/ -> output/
                                          \-> failed/
 ```
 
-The workspace remembers. The model does not.
+The workspace stores jobs and results. Each job uses a fresh model context.
 
 [llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs the GGUF
 models. nrvna adds durable jobs, workspaces, process lifecycle, and file-based
@@ -40,22 +40,17 @@ Use the example model from [QUICKSTART.md](QUICKSTART.md), or another compatible
 instruction-tuned GGUF for this exact-output check:
 
 ```bash
-MODEL=./models/smollm2-1.7b.gguf
-WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
-
-JOB=$(wrk "$WS" "Reply with exactly: first")
-flw "$WS"                       # queued: 1
-nrvnad "$MODEL" "$WS" --drain
-flw "$WS" "$JOB"
+job=$(wrk ./demo "Reply with exactly: first")
+nrvnad ./models/smollm2-1.7b.gguf ./demo --drain
+flw ./demo "$job"
 ```
 
 ```text
 first
 ```
 
-`wrk` creates the workspace and returns immediately. `nrvnad --drain` loads
-the model and processes the queued work. It exits when it observes an idle
-queue. The result remains under `$WS/output/$JOB/`. No process must stay open.
+`wrk` creates the workspace and stores the job. `--drain` loads the model,
+processes the job, and exits. The result remains under `./demo/output/$job/`.
 
 <details>
 <summary>Need an example model?</summary>
@@ -90,17 +85,47 @@ fi
 The commands and published job artifacts form the interface. Humans, scripts,
 applications, and agents compose them with stdin, files, JSON, and exit codes.
 
-## One model, one workspace, one drain
+## Queue work before the model starts
 
-One daemon loads one model and owns one workspace. `wrk` can submit jobs while
-no daemon is running. `nrvnad --drain` processes that workspace and then exits.
+```bash
+first=$(wrk ./batch "Write one sentence about durable files")
+second=$(wrk ./batch "Write one sentence about local models")
+
+nrvnad ./models/smollm2-1.7b.gguf ./batch --drain
+
+flw ./batch "$first"
+flw ./batch "$second"
+```
+
+`wrk` stores both jobs before a model process exists. `--drain` loads the
+model, processes the queued jobs, and exits.
 
 Use separate workspaces for different model roles. Drain them in sequence when
 their models cannot share memory.
 
+For repeated low-latency work, run the same command without `--drain` in a
+separate terminal. Stop that daemon with `nrvnad stop ./batch`.
+
 Shell applications can source [`scripts/nrvna-lib.sh`](scripts/nrvna-lib.sh).
 `nrvna_start` starts a daemon or uses one that is already starting. It waits
 for readiness and reports startup failures from the daemon log.
+
+## Verified recovery
+
+I ran the `v0.1.1` release test on a 2017 Intel MacBook Pro. The test used a
+Qwen2.5 7B Q4_K_M model. I sent `SIGKILL` while one job was in `processing/`.
+The next daemon recovered that job.
+
+```text
+before SIGKILL  {"queued":2,"running":1,"done":0,"failed":0}
+after SIGKILL   {"queued":2,"running":1,"done":0,"failed":0}
+after restart   {"queued":0,"running":0,"done":3,"failed":0}
+results         first | second | third
+recovery_attempts 1
+```
+
+All three jobs completed. This is a lifecycle check, not a performance
+benchmark.
 
 ## Why
 
