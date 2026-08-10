@@ -40,6 +40,8 @@ Type `mkdir models; ln -s "$NRVNA_DEMO_MODEL" models/smollm2-1.7b.gguf` Enter
 Wait+Line /\$$/
 Type `set +m; mkfifo daemon.pid daemon.events; (read -r target <daemon.pid; daemon_ready=0; job_running=0; while IFS= read -r line; do [[ $line == *"RUNNING"* ]] && daemon_ready=1; [[ $line == *"  running"* ]] && job_running=1; (( daemon_ready && job_running )) && { kill -STOP "$target"; exit; }; done <daemon.events; exit 1) & watcher=$!` Enter
 Wait+Line /\$$/
+Type `alias nrvnad='nrvnad 2>/dev/null'; sync_demo() { printf '%s\n' "$pid" >daemon.pid; disown "$pid"; wait "$watcher"; printf '\033[2K\033[1A\033[2K\033[1A\033[2K\r'; }` Enter
+Wait+Line /\$$/
 Type `printf '\033c'` Enter
 Wait+Line /\$$/
 Show
@@ -51,7 +53,7 @@ Sleep 600ms
 Type `nrvnad ./models/smollm2-1.7b.gguf ./demo 2>daemon.events & pid=$!` Enter
 Wait+Line /\$$/
 Hide
-Type `printf '%s\n' "$pid" >daemon.pid; disown "$pid"; wait "$watcher"; printf '\033c'` Enter
+Type `sync_demo` Enter
 Wait+Line@60s /\$$/
 Show
 
@@ -70,7 +72,7 @@ Type `ls ./demo/processing/` Enter
 Wait+Line /\$$/
 Sleep 700ms
 
-Type `nrvnad ./models/smollm2-1.7b.gguf ./demo --drain 2>/dev/null` Enter
+Type `nrvnad ./models/smollm2-1.7b.gguf ./demo --drain` Enter
 Wait+Line@120s /\$$/
 Type `flw ./demo "$job"` Enter
 Wait+Line /\$$/
