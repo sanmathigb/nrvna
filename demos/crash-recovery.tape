@@ -32,7 +32,7 @@ Set Theme { "name": "nrvna", "black": "#16130F", "red": "#E06C75", "green": "#98
 
 Env LANG "C"
 Env LC_ALL "C"
-Env NRVNA_PREDICT "8"
+Env NRVNA_PREDICT "32"
 Env NRVNA_THINKING "0"
 
 Hide
@@ -63,14 +63,14 @@ Sleep 600ms
 Type `nrvnad "$model" ./demo --workers 1 >daemon.log 2>&1 & pid=$!` Enter
 Wait+Line /\$$/
 Hide
-Type `disown "$pid"; for i in {1..600}; do state=$(flw ./demo --json); [[ $state == *'"running":1'* ]] && break; sleep 0.1; done; [[ $state == *'"running":1'* ]] || exit 1; printf '\033c'` Enter
+Type `disown "$pid"; for i in {1..600}; do [[ -d "./demo/processing/$first" ]] && break; sleep 0.1; done; [[ -d "./demo/processing/$first" ]] || exit 1; printf '\033c'` Enter
 Wait+Line@60s /\$$/
 Show
 
 Type `flw ./demo --json` Enter
 Wait+Line /\$$/
 Sleep 300ms
-Type `kill -9 "$pid"` Enter
+Type `[[ -d "./demo/processing/$first" ]] && kill -9 "$pid"` Enter
 Wait+Line /\$$/
 Sleep 400ms
 Type `nrvnad status ./demo` Enter
@@ -90,6 +90,8 @@ Wait+Line /\$$/
 Show
 
 Type `flw ./demo --json` Enter
+Wait+Line /\$$/
+Type `flw ./demo "$first" >/dev/null && echo "first: recovered"` Enter
 Wait+Line /\$$/
 Type `flw ./demo "$second"` Enter
 Wait+Line /\$$/

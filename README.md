@@ -118,9 +118,9 @@ for readiness and reports startup failures from the daemon log.
 ![A terminal demo that kills nrvnad, shows the claimed job on disk, and
 recovers all queued work](assets/crash-recovery.gif)
 
-I ran the `v0.1.1` release test on a 2017 Intel MacBook Pro. The test used a
-Qwen2.5 7B Q4_K_M model. I sent `SIGKILL` while one job was in `processing/`.
-The next daemon recovered that job.
+I ran the `v0.1.1` release test on a 2017 Intel MacBook Pro. The test used the
+SmolLM2 1.7B Q4_K_M model from the quick start. I sent `SIGKILL` while the
+first job was in `processing/`. The next daemon recovered that job.
 
 ```text
 before SIGKILL  {"queued":2,"running":1,"done":0,"failed":0}
