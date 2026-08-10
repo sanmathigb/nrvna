@@ -199,6 +199,13 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
+          name: nrvna-${{ matrix.target }}
+          path: |
+            dist/nrvna-*.tar.gz
+            dist/nrvna-*.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
           name: imgsrch-${{ matrix.target }}
           path: |
             dist/imgsrch-*.tar.gz

@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 const usageText = `Search local images by visible text and meaning.
 
