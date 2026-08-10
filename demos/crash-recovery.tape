@@ -2,11 +2,13 @@
 #   nrvna 0.1.1
 #   VHS v0.11.0 (c6af91a)
 #   ttyd 1.7.7
-#   ffmpeg 7.1.1
+#   ffmpeg 8.1.2
 #   macOS 13.7.5, x86_64
 #   MacBookPro14,3, Intel Core i7 3.1 GHz, 16 GB
 #
 # The model is SmolLM2 1.7B Q4_K_M at the revision and checksum in README.md.
+# The tape pauses the daemon after it claims the job. This makes the render
+# deterministic while the visible commands are typed.
 # Render from the repository root:
 #   PATH="/path/to/nrvna/bin:/path/to/vhs-tools:$PATH" \
 #   NRVNA_DEMO_MODEL="$PWD/models/smollm2-1.7b.gguf" \
@@ -20,19 +22,11 @@ Require ttyd
 
 Output assets/crash-recovery.gif
 
-Set Shell "bash"
-Set Width 960
-Set Height 540
-Set FontSize 20
-Set Padding 28
-Set Framerate 12
-Set TypingSpeed 25ms
-Set CursorBlink false
-Set Theme { "name": "nrvna", "black": "#16130F", "red": "#E06C75", "green": "#98C379", "yellow": "#E5C07B", "blue": "#61AFEF", "magenta": "#C678DD", "cyan": "#56B6C2", "white": "#D8D3C8", "brightBlack": "#6E6A62", "brightRed": "#E06C75", "brightGreen": "#98C379", "brightYellow": "#E5C07B", "brightBlue": "#61AFEF", "brightMagenta": "#C678DD", "brightCyan": "#56B6C2", "brightWhite": "#FCFBF9", "background": "#16130F", "foreground": "#D8D3C8", "selection": "#3A332C", "cursor": "#F08A4B" }
+Source demos/vhs-style.tape
 
 Env LANG "C"
 Env LC_ALL "C"
-Env NRVNA_PREDICT "32"
+Env NRVNA_PREDICT "8"
 Env NRVNA_THINKING "0"
 
 Hide
@@ -48,29 +42,27 @@ Type `printf '\033c'` Enter
 Wait+Line /\$$/
 Show
 
-Type `model=./models/smollm2-1.7b.gguf` Enter
-Wait+Line /\$$/
-Type `first=$(wrk ./demo "Write numbered lines until output stops")` Enter
-Wait+Line /\$$/
-Type `second=$(wrk ./demo "Output only: second. Do not add quotes or punctuation.")` Enter
-Wait+Line /\$$/
-Type `third=$(wrk ./demo "Output only: third. Do not add quotes or punctuation.")` Enter
-Wait+Line /\$$/
-Type `flw ./demo --json` Enter
+Type `job=$(wrk ./demo "Say only: hello")` Enter
 Wait+Line /\$$/
 Sleep 600ms
 
-Type `nrvnad "$model" ./demo --workers 1 >daemon.log 2>&1 & pid=$!` Enter
+Hide
+Type `(for i in {1..1200}; do if [[ -s daemon.pid ]] && read -r target <daemon.pid && [[ -d "./demo/processing/$job" ]]; then kill -STOP "$target"; exit; fi; sleep 0.05; done; exit 1) & watcher=$!` Enter
+Wait+Line /\$$/
+Show
+Type `nrvnad ./models/smollm2-1.7b.gguf ./demo 2>/dev/null & pid=$!` Enter
 Wait+Line /\$$/
 Hide
-Type `disown "$pid"; for i in {1..600}; do [[ -d "./demo/processing/$first" ]] && break; sleep 0.1; done; [[ -d "./demo/processing/$first" ]] || exit 1; printf '\033c'` Enter
+Type `printf '%s\n' "$pid" >daemon.pid; disown "$pid"; wait "$watcher"; printf '\033c'` Enter
 Wait+Line@60s /\$$/
 Show
 
+Type `nrvnad status ./demo` Enter
+Wait+Line /\$$/
 Type `flw ./demo --json` Enter
 Wait+Line /\$$/
 Sleep 300ms
-Type `[[ -d "./demo/processing/$first" ]] && kill -9 "$pid"` Enter
+Type `kill -9 "$pid"` Enter
 Wait+Line /\$$/
 Sleep 400ms
 Type `nrvnad status ./demo` Enter
@@ -80,22 +72,9 @@ Type `ls ./demo/processing/` Enter
 Wait+Line /\$$/
 Sleep 700ms
 
-Type `nrvnad "$model" ./demo --workers 1 --drain >restart.log 2>&1`
-Sleep 500ms
-Hide
-Enter
+Type `nrvnad ./models/smollm2-1.7b.gguf ./demo --drain 2>/dev/null` Enter
 Wait+Line@120s /\$$/
-Type `printf '\033c'` Enter
-Wait+Line /\$$/
-Show
-
-Type `flw ./demo --json` Enter
-Wait+Line /\$$/
-Type `flw ./demo "$first" >/dev/null && echo "first: recovered"` Enter
-Wait+Line /\$$/
-Type `flw ./demo "$second"` Enter
-Wait+Line /\$$/
-Type `flw ./demo "$third"` Enter
+Type `flw ./demo "$job"` Enter
 Wait+Line /\$$/
 Sleep 2s
 
