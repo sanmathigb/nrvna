@@ -13,8 +13,15 @@ available. Read ordinary files later.
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
 
-**Prebuilt release archives.** See [INSTALL.md](INSTALL.md) for a
-checksum-verified installer and first-run steps.
+Install the prebuilt binaries:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/5c07d2054082a3ff1258f7b5fea73dd44721a6d4/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The installer does not download a model. See [INSTALL.md](INSTALL.md) for the
+manual archive path. See [QUICKSTART.md](QUICKSTART.md) to build from source.
 
 ```text
 input/writing/ -> input/ready/ -> processing/ -> output/
@@ -29,15 +36,6 @@ composition.
 
 ## Run one job
 
-Build the three binaries:
-
-```bash
-git clone --recursive https://github.com/sanmathigb/nrvna.git
-cd nrvna
-cmake -S . -B build
-cmake --build build -j4 --target nrvnad wrk flw
-```
-
 Use the example model from [QUICKSTART.md](QUICKSTART.md), or another compatible
 instruction-tuned GGUF for this exact-output check:
 
@@ -45,10 +43,10 @@ instruction-tuned GGUF for this exact-output check:
 MODEL=./models/smollm2-1.7b.gguf
 WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
 
-JOB=$(./build/wrk "$WS" "Reply with exactly: first")
-./build/flw "$WS"                       # queued: 1
-./build/nrvnad "$MODEL" "$WS" --drain
-./build/flw "$WS" "$JOB"
+JOB=$(wrk "$WS" "Reply with exactly: first")
+flw "$WS"                       # queued: 1
+nrvnad "$MODEL" "$WS" --drain
+flw "$WS" "$JOB"
 ```
 
 ```text
@@ -185,22 +183,16 @@ Constrain one text or vision job with JSON Schema:
 Save the schema as `answer.schema.json`. Then submit and drain the job:
 
 ```bash
-JOB=$(./build/wrk "$WS" "Return the answer as JSON" \
+JOB=$(wrk "$WS" "Return the answer as JSON" \
   --json-schema answer.schema.json)
-./build/nrvnad "$MODEL" "$WS" --drain
-./build/flw "$WS" "$JOB" --json
+nrvnad "$MODEL" "$WS" --drain
+flw "$WS" "$JOB" --json
 ```
 
-GBNF is llama.cpp's grammar format. `wrk` converts the schema to GBNF before
-it publishes the job. The job keeps both `schema.json` and the effective
-`grammar.gbnf`. Use `--grammar <file>` when you already have GBNF. The two
-options are mutually exclusive.
-
-`result.txt` contains the generated JSON when the job completes cleanly. If
-the model stops early or emits invalid JSON, the job fails and lands in
-`failed/` with `error.txt` and the partial `response.txt` file, even when that
-file is empty. `flw --json` returns the result string for successful jobs and
-reports `output_format`.
+The job keeps `schema.json` and its effective `grammar.gbnf`. Invalid JSON
+fails before publication. The failed job preserves `error.txt` and its partial
+`response.txt`. See the [agent machine contract](AGENTS.md#machine-contract)
+and `wrk --help` for GBNF and retrieval details.
 
 ## Give it to an agent
 
