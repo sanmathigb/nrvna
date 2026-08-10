@@ -9,6 +9,9 @@ Unix-like primitives for durable local inference. No always-on server.
 Submit work before any model process runs. Run the model when compute is
 available. Read ordinary files later.
 
+![A terminal demo that submits a job while no daemon is running and shows one
+queued job](assets/submit-without-daemon.gif)
+
 Install the prebuilt binaries:
 
 ```bash
@@ -116,22 +119,20 @@ for readiness and reports startup failures from the daemon log.
 ## Verified recovery
 
 ![A terminal demo that kills nrvnad, shows the claimed job on disk, and
-recovers all queued work](assets/crash-recovery.gif)
+recovers that job](assets/crash-recovery.gif)
 
 I ran the `v0.1.1` release test on a 2017 Intel MacBook Pro. The test used the
-SmolLM2 1.7B Q4_K_M model from the quick start. I sent `SIGKILL` while the
-first job was in `processing/`. The next daemon recovered that job.
+SmolLM2 1.7B Q4_K_M model from the quick start. I sent `SIGKILL` while the job
+was in `processing/`. The next daemon recovered that job.
 
 ```text
-before SIGKILL  {"queued":2,"running":1,"done":0,"failed":0}
-after SIGKILL   {"queued":2,"running":1,"done":0,"failed":0}
-after restart   {"queued":0,"running":0,"done":3,"failed":0}
-results         first | second | third
+before SIGKILL  {"queued":0,"running":1,"done":0,"failed":0}
+after restart   {"queued":0,"running":0,"done":1,"failed":0}
+result          hello
 recovery_attempts 1
 ```
 
-All three jobs completed. This is a lifecycle check, not a performance
-benchmark.
+The job completed. This is a lifecycle check, not a performance benchmark.
 
 ## Why
 
