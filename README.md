@@ -116,7 +116,7 @@ Shell applications can source [`scripts/nrvna-lib.sh`](scripts/nrvna-lib.sh).
 `nrvna_start` starts a daemon or uses one that is already starting. It waits
 for readiness and reports startup failures from the daemon log.
 
-## Verified recovery
+## The work outlives the process
 
 ![A terminal demo that kills nrvnad, shows the claimed job on disk, and
 recovers that job](assets/crash-recovery.gif)
