@@ -41,6 +41,13 @@ and procedures.
 - Use `nrvna` in lowercase unless a case-sensitive identifier requires another
   form.
 
+Follow Zinsser's four principles. STE gives the mechanics; these give the intent.
+
+- Simplicity: cut every word that does no work.
+- Brevity: say it in fewer words. The shorter version is almost always better.
+- Clarity: one idea per sentence. The reader must not re-read to understand.
+- Humanity: write like a person to a person. Plain is not cold.
+
 Use the same clarity rules for comments, interface text, commits, pull requests,
 reports, and agent replies. Do not describe these surfaces as formally
 ASD-STE100 compliant.
