@@ -38,7 +38,7 @@ Type `work=$(mktemp -d /tmp/nrvna-vhs.XXXXXX) || exit 1; cd "$work" || exit 1` E
 Wait+Line /\$$/
 Type `mkdir models; ln -s "$NRVNA_DEMO_MODEL" models/smollm2-1.7b.gguf` Enter
 Wait+Line /\$$/
-Type `set +m; mkfifo daemon.pid; (read -r target <daemon.pid; while :; do active=$(find ./demo/processing -type d ! -path ./demo/processing -print -quit 2>/dev/null); if nrvnad status ./demo >/dev/null 2>&1 && [ -n "$active" ]; then kill -STOP "$target"; exit; fi; sleep 0.02; done) & watcher=$!` Enter
+Type `set +m; mkfifo daemon.pid; (read -r target <daemon.pid; while :; do active=$(find ./workspace/processing -type d ! -path ./workspace/processing -print -quit 2>/dev/null); if nrvnad status ./workspace >/dev/null 2>&1 && [ -n "$active" ]; then kill -STOP "$target"; exit; fi; sleep 0.02; done) & watcher=$!` Enter
 Wait+Line /\$$/
 Type `alias nrvnad='nrvnad 2>/dev/null'; sync_demo() { target=$1; printf '%s\n' "$target" >daemon.pid; disown "$target"; wait "$watcher"; printf '\033[2K\033[1A\033[2K\033[1A\033[2K\r'; }` Enter
 Wait+Line /\$$/
@@ -46,35 +46,35 @@ Type `printf '\033c'` Enter
 Wait+Line /\$$/
 Show
 
-Type `job=$(wrk ./demo "Say only: hello")` Enter
+Type `job=$(wrk ./workspace "Say only: hello")` Enter
 Wait+Line /\$$/
 Sleep 600ms
 
-Type `nrvnad ./models/smollm2-1.7b.gguf ./demo &` Enter
+Type `nrvnad ./models/smollm2-1.7b.gguf ./workspace &` Enter
 Wait+Line /\$$/
 Hide
 Type `sync_demo "$!"` Enter
 Wait+Line@60s /\$$/
 Show
 
-Type `nrvnad status ./demo` Enter
+Type `nrvnad status ./workspace` Enter
 Wait+Line /\$$/
-Type `flw ./demo --json` Enter
+Type `flw ./workspace --json` Enter
 Wait+Line /\$$/
 Sleep 300ms
 Type `kill -9 "$!"` Enter
 Wait+Line /\$$/
 Sleep 400ms
-Type `nrvnad status ./demo` Enter
+Type `nrvnad status ./workspace` Enter
 Wait+Line /\$$/
 Sleep 300ms
-Type `ls ./demo/processing/` Enter
+Type `ls ./workspace/processing/` Enter
 Wait+Line /\$$/
 Sleep 700ms
 
-Type `nrvnad ./models/smollm2-1.7b.gguf ./demo --drain` Enter
+Type `nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain` Enter
 Wait+Line@120s /\$$/
-Type `flw ./demo "$job"` Enter
+Type `flw ./workspace "$job"` Enter
 Wait+Line /\$$/
 Sleep 2s
 

@@ -39,7 +39,7 @@ example, not a limit.
 Submit work and keep the returned job ID:
 
 ```bash
-WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-quickstart.XXXXXX")
+WS=./workspace
 MODEL=./models/smollm2-1.7b.gguf
 JOB=$(./build/wrk "$WS" "Reply with exactly: hello")
 ```

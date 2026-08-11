@@ -62,7 +62,7 @@ Pick a local GGUF model and run one job:
 
 ```bash
 MODEL=/path/to/model.gguf
-WS=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
+WS=./workspace
 
 JOB=$(./bin/wrk "$WS" "Reply with exactly: first")
 ./bin/nrvnad "$MODEL" "$WS" --drain

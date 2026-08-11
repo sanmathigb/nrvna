@@ -9,6 +9,10 @@ Unix-like primitives for durable local inference. No always-on server.
 Submit work before any model process runs. Run the model when compute is
 available. Read ordinary files later.
 
+Give `nrvnad` a GGUF model and a directory. That directory becomes the
+workspace. Each job is a folder inside the workspace. Moving that folder
+changes the job state. Results remain in the workspace as files.
+
 ![A terminal demo that submits a job while no daemon is running and shows one
 queued job](assets/submit-without-daemon.gif)
 
@@ -43,9 +47,9 @@ Use the example model from [QUICKSTART.md](QUICKSTART.md), or another compatible
 instruction-tuned GGUF for this exact-output check:
 
 ```bash
-job=$(wrk ./demo "Reply with exactly: first")
-nrvnad ./models/smollm2-1.7b.gguf ./demo --drain
-flw ./demo "$job"
+job=$(wrk ./workspace "Reply with exactly: first")
+nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
+flw ./workspace "$job"
 ```
 
 ```text
@@ -53,7 +57,8 @@ first
 ```
 
 `wrk` creates the workspace and stores the job. `--drain` loads the model,
-processes the job, and exits. The result remains under `./demo/output/$job/`.
+processes the job, and exits. The result remains under
+`./workspace/output/$job/`.
 
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
