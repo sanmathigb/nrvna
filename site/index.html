@@ -209,12 +209,9 @@
       <h1>Submit now.<br>Run the model later.</h1>
       <p>Unix-like primitives for durable local inference. No always-on
       server.</p>
-      <p><strong>Load when needed.</strong> Submit jobs before a model starts.
-      Run <code>nrvnad --drain</code> when you are ready.<br>
-      <strong>Keep it ready.</strong> Keep <code>nrvnad</code> running and
-      submit jobs as you go.</p>
-      <p><code>wrk</code> and <code>flw</code> work the same way in both modes.
-      Jobs and results remain in the workspace as files.</p>
+      <p class="caption">Give <code>nrvnad</code> a GGUF model and a directory.
+      That directory becomes the workspace. Each job is a folder inside it.
+      Moving that folder changes the job state. Results stay there as files.</p>
 
       <div class="termstack" role="img" aria-label="Three terminal windows: work is submitted before anything runs, a model is started later, and the answer is collected by job ID.">
         <div class="terminal">
@@ -233,11 +230,6 @@
 <span class="o">A KV cache is why the model doesn't re-read…</span></pre>
         </div>
       </div>
-      <p class="caption">Give <code>nrvnad</code> a GGUF model and a directory.
-      That directory becomes the workspace. Each job is a folder inside the
-      workspace. Moving that folder changes the job state. Results remain in
-      the workspace as files.</p>
-      <p class="caption">The workspace remembers. The model does not.</p>
       <p class="quiet">Experimental developer preview. Tests cover the
       filesystem and lifecycle contracts. nrvna does not claim production readiness.</p>
     </div>
@@ -280,6 +272,7 @@
 ├── <span class="k">processing/</span>    <span class="m">claimed</span>
 ├── <span class="k">output/</span>        <span class="m">results</span>
 └── <span class="k">failed/</span>        <span class="m">errors</span></pre></div>
+      <p class="caption">The workspace remembers. The model does not.</p>
       <p>Transitions are atomic renames. No database. No message broker. No runtime
       dependency beyond the binaries and the models. Every job runs in a fresh
       context: bounded input, no session drift, inspectable output.</p>

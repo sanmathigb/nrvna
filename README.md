@@ -6,17 +6,9 @@
 
 Unix-like primitives for durable local inference. No always-on server.
 
-**Load when needed.** Submit jobs before a model starts. Run `nrvnad --drain`
-when you are ready.
-
-**Keep it ready.** Keep `nrvnad` running and submit jobs as you go.
-
-`wrk` and `flw` work the same way in both modes. If the daemon stops, the work
-remains in the workspace.
-
 Give `nrvnad` a GGUF model and a directory. That directory becomes the
-workspace. Each job is a folder inside the workspace. Moving that folder
-changes the job state. Results remain in the workspace as files.
+workspace. Each job is a folder inside it. Moving that folder changes the job
+state. Results stay there as files.
 
 ![A terminal demo that submits a job while no daemon is running and shows one
 queued job](assets/submit-without-daemon.gif)
