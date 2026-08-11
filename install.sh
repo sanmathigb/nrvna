@@ -64,7 +64,7 @@ Next:
   curl -fL --continue-at - -o models/smollm2-1.7b.gguf \\
     https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
   MODEL=models/smollm2-1.7b.gguf
-  WS=\$(mktemp -d "\${TMPDIR:-/tmp}/nrvna-demo.XXXXXX")
+  WS=./workspace
   JOB=\$(wrk "\$WS" "Reply with exactly: first")
   nrvnad "\$MODEL" "\$WS" --drain
   flw "\$WS" "\$JOB"

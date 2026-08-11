@@ -31,11 +31,11 @@ Type `printf '\033c'` Enter
 Wait+Line /\$$/
 Show
 
-Type `nrvnad status ./demo` Enter
+Type `nrvnad status ./workspace` Enter
 Wait+Line /\$$/
-Type `wrk ./demo "Say only: hello"` Enter
+Type `wrk ./workspace "Say only: hello"` Enter
 Wait+Line /\$$/
-Type `flw ./demo --json` Enter
+Type `flw ./workspace --json` Enter
 Wait+Line /\$$/
 Sleep 2s
 
