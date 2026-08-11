@@ -208,7 +208,13 @@
     <div class="wrap">
       <h1>Submit now.<br>Run the model later.</h1>
       <p>Unix-like primitives for durable local inference. No always-on
-      server. Jobs and results are files.</p>
+      server.</p>
+      <p><strong>Load when needed.</strong> Submit jobs before a model starts.
+      Run <code>nrvnad --drain</code> when you are ready.<br>
+      <strong>Keep it ready.</strong> Keep <code>nrvnad</code> running and
+      submit jobs as you go.</p>
+      <p><code>wrk</code> and <code>flw</code> work the same way in both modes.
+      Jobs and results remain in the workspace as files.</p>
 
       <div class="termstack" role="img" aria-label="Three terminal windows: work is submitted before anything runs, a model is started later, and the answer is collected by job ID.">
         <div class="terminal">
@@ -244,7 +250,7 @@
       <p>I built nrvna on a 2017 Intel MacBook while caring for two young
       children. I had little uninterrupted time or compute. I wanted to leave
       work in a folder. A local model could process it when the machine was
-      available. I could return to ordinary files later.</p>
+      available. I could return to the results later.</p>
       <p class="quiet">Local compute is finite and intermittent. Work should
       not disappear because the caller, model process, or terminal is gone.</p>
     </div>

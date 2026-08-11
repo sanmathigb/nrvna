@@ -6,8 +6,13 @@
 
 Unix-like primitives for durable local inference. No always-on server.
 
-Submit work before any model process runs. Run the model when compute is
-available. Read ordinary files later.
+**Load when needed.** Submit jobs before a model starts. Run `nrvnad --drain`
+when you are ready.
+
+**Keep it ready.** Keep `nrvnad` running and submit jobs as you go.
+
+`wrk` and `flw` work the same way in both modes. If the daemon stops, the work
+remains in the workspace.
 
 Give `nrvnad` a GGUF model and a directory. That directory becomes the
 workspace. Each job is a folder inside the workspace. Moving that folder
@@ -44,7 +49,9 @@ composition.
 ## Run one job
 
 Use the example model from [QUICKSTART.md](QUICKSTART.md), or another compatible
-instruction-tuned GGUF for this exact-output check:
+instruction-tuned GGUF for this exact-output check. Choose either mode.
+
+**Load when needed:**
 
 ```bash
 job=$(wrk ./workspace "Reply with exactly: first")
@@ -52,13 +59,24 @@ nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
 flw ./workspace "$job"
 ```
 
+**Keep it ready:**
+
+```bash
+nrvnad ./models/smollm2-1.7b.gguf ./workspace &
+job=$(wrk ./workspace "Reply with exactly: first")
+flw ./workspace -w "$job"
+nrvnad stop ./workspace
+```
+
+In both modes, `flw` returns:
+
 ```text
 first
 ```
 
-`wrk` creates the workspace and stores the job. `--drain` loads the model,
-processes the job, and exits. The result remains under
-`./workspace/output/$job/`.
+`wrk` creates the workspace and stores the job. `--drain` processes queued
+jobs and exits at idle. Without `--drain`, the daemon stays ready until you
+stop it. Both modes store the result under `./workspace/output/$job/`.
 
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
@@ -114,8 +132,8 @@ model, processes the queued jobs, and exits.
 Use separate workspaces for different model roles. Drain them in sequence when
 their models cannot share memory.
 
-For repeated low-latency work, run the same command without `--drain` in a
-separate terminal. Stop that daemon with `nrvnad stop ./batch`.
+For repeated low-latency work, keep the daemon running. The model stays loaded
+between jobs.
 
 Shell applications can source [`scripts/nrvna-lib.sh`](scripts/nrvna-lib.sh).
 `nrvna_start` starts a daemon or uses one that is already starting. It waits
@@ -144,8 +162,8 @@ The job completed. This is a lifecycle check, not a performance benchmark.
 I built nrvna on a 2017 Intel MacBook while caring for two young children. I
 had little uninterrupted time or compute. I wanted to leave work in a folder.
 A local model could process it when the machine was available. I could return
-to ordinary files later. Existing local tools depended on a live chat or
-request. nrvna makes the work durable instead.
+to the results later. Existing local tools depended on a live chat or request.
+nrvna makes the work durable instead.
 
 Local compute is finite and intermittent. Work should not disappear because
 the caller, model process, or terminal is gone.
