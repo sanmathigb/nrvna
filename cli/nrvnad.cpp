@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/lifecycle.hpp"
+#include "nrvna/flow.hpp"
 #include "nrvna/logger.hpp"
 #include "nrvna/meta.hpp"
 #include "nrvna/runner.hpp"

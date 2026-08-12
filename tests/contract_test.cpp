@@ -43,7 +43,7 @@ int main() {
     CHECK(contract::tryParseJobType("  embed\n") == JobType::Embed);
     CHECK(!contract::tryParseJobType("garbage").has_value());
 
-    // Job ID grammar (moved from Flow::isValidJobId)
+    // Job ID grammar
     CHECK(contract::isValidJobId("00001781482179019396_4090_000000"));
     CHECK(!contract::isValidJobId(""));
     CHECK(!contract::isValidJobId("_123"));

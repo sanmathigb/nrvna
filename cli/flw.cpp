@@ -258,11 +258,11 @@ int main(int argc, char* argv[]) {
     }
 
     // Validate job ID format
-    if (!jobId.empty() && !Flow::isValidJobId(jobId)) {
+    if (!jobId.empty() && !contract::isValidJobId(jobId)) {
         std::cerr << "Invalid job ID: " << jobId << std::endl;
         return 1;
     }
-    if (!selectParent.empty() && !Flow::isValidJobId(selectParent)) {
+    if (!selectParent.empty() && !contract::isValidJobId(selectParent)) {
         std::cerr << "Invalid parent job ID: " << selectParent << std::endl;
         return 1;
     }

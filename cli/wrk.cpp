@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             submitOptions.parent = argv[++i];
-            if (!Flow::isValidJobId(submitOptions.parent)) {
+            if (!contract::isValidJobId(submitOptions.parent)) {
                 std::cerr << "Error: invalid parent job ID\n";
                 return 1;
             }

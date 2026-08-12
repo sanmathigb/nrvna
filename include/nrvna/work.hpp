@@ -54,9 +54,6 @@ public:
                                             const SubmitOptions& opts = {});
     [[nodiscard]] static bool isValidTag(const std::string& tag) noexcept;
 
-    void setMaxSize(std::size_t maxBytes) noexcept { maxBytes_ = maxBytes; }
-    [[nodiscard]] std::size_t maxSize() const noexcept { return maxBytes_; }
-
 private:
     std::filesystem::path workspace_;
     std::size_t maxBytes_ = 10'000'000; // 10MB

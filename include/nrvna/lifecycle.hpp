@@ -8,7 +8,6 @@
  * (nrvna/contract.hpp). See CONTEXT.md.
  */
 #pragma once
-#include "nrvna/flow.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -43,9 +42,6 @@ struct DaemonInfo {
 // (second TERM forces nrvnad's fast exit path), verify. 0 = stopped or was
 // not running; 1 = still holding the workspace after timeout.
 [[nodiscard]] int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds = 20);
-
-// Client side: block until the workspace queue is quiet. Returns final counts.
-[[nodiscard]] WorkspaceCounts waitForIdle(const std::filesystem::path& ws, int pollMs = 500);
 
 // Daemon side: written after the model is loaded; removed on clean shutdown.
 [[nodiscard]] bool writeRuntimeFiles(const std::filesystem::path& ws, const DaemonInfo& info);

@@ -40,23 +40,16 @@ public:
     Flow(Flow&&) noexcept = default;
     Flow& operator=(Flow&&) noexcept = default;
 
-    [[nodiscard]] std::optional<Job> latest() const noexcept;
     [[nodiscard]] std::optional<Job> get(const JobId& id) const noexcept;
     [[nodiscard]] std::vector<Job> list(std::size_t max = 10) const noexcept;
     [[nodiscard]] Status status(const JobId& id) const noexcept;
     [[nodiscard]] WorkspaceCounts counts() const noexcept;
 
-    [[nodiscard]] static bool isValidJobId(const JobId& id) noexcept;
-    [[nodiscard]] bool exists(const JobId& id) const noexcept;
-    [[nodiscard]] std::optional<std::string> error(const JobId& id) const;
-    [[nodiscard]] std::optional<std::string> prompt(const JobId& id) const;
     [[nodiscard]] std::optional<JobMeta> meta(const JobId& id) const noexcept;
-    [[nodiscard]] std::optional<std::string> partial(const JobId& id) const;
 
 private:
     std::filesystem::path workspace_;
 
-    [[nodiscard]] std::optional<Job> latestInDir(const std::filesystem::path& dir) const noexcept;
     [[nodiscard]] std::string readResultContent(const JobId& id) const;
 };
 

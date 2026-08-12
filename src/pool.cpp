@@ -117,15 +117,6 @@ bool Pool::submit(const JobId& jobId) noexcept {
     }
 }
 
-std::size_t Pool::queueSize() const noexcept {
-    try {
-        std::lock_guard<std::mutex> lock(queueMutex_);
-        return jobQueue_.size();
-    } catch (...) {
-        return 0;
-    }
-}
-
 bool Pool::isJobInQueue(const JobId& jobId) const {
     return enqueuedJobs_.find(jobId) != enqueuedJobs_.end();
 }
