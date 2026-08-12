@@ -65,172 +65,42 @@ results.
 
 ---
 
-## Self-Refinement Loop
+## Persistent Daemon
 
-Generate a draft. Critique it. Then improve it.
-
-The source-tree helper starts one daemon or uses one that is already starting.
-It waits for readiness and reports startup failures from the daemon log.
-
-```bash
-source ./scripts/nrvna-lib.sh
-
-self_refine() (
-  set -e
-  local model=/path/to/model.gguf
-  local ws=./workspace
-  local goal="Write a cover letter for a senior engineer position"
-  trap 'nrvna_stop "$ws" >/dev/null 2>&1 || true' EXIT
-  nrvna_start "$model" "$ws"
-
-  # First draft
-  draft_job=$(wrk "$ws" "$goal")
-  draft=$(flw "$ws" "$draft_job" -w)
-
-  # Critique
-  critique_job=$(wrk "$ws" "Critique this draft. What's weak? $draft")
-  critique=$(flw "$ws" "$critique_job" -w)
-
-  # Improve
-  final_job=$(wrk "$ws" "Improve this draft based on feedback:
-Draft: $draft
-Feedback: $critique")
-  final=$(flw "$ws" "$final_job" -w)
-
-  echo "$final"
-  nrvna_stop "$ws"
-  trap - EXIT
-)
-
-self_refine
-```
-
----
-
-## Agent Loop
-
-Iterate until done:
+Use the source-tree helper when a shell application needs a ready daemon. The
+helper starts one daemon or adopts one that is already starting. It waits for
+readiness and reports startup failures.
 
 ```bash
 source ./scripts/nrvna-lib.sh
 
-write_tutorial() (
+persistent_job() (
   set -e
-  local model=/path/to/model.gguf
-  local ws=./workspace
-  local goal="Write a Python tutorial covering variables, loops, and functions"
-  local memory=""
-  trap 'nrvna_stop "$ws" >/dev/null 2>&1 || true' EXIT
-  nrvna_start "$model" "$ws"
+  model=/path/to/model.gguf
+  workspace=./workspace
+  owns_daemon=false
+  status_code=0
+  nrvna_status "$workspace" || status_code=$?
+  [ "$status_code" -eq 1 ] && owns_daemon=true
 
-  for i in {1..5}; do
-    job=$(wrk "$ws" "Goal: $goal
-Previous work: $memory
-Continue. Write the next section. Say DONE if complete.")
-    result=$(flw "$ws" "$job" -w)
+  cleanup() {
+    [ "$owns_daemon" = true ] || return 0
+    nrvna_stop "$workspace" || {
+      echo "persistent_job: failed to stop the daemon" >&2
+      return 1
+    }
+  }
+  trap cleanup EXIT
 
-    echo "=== Iteration $i ==="
-    echo "$result"
-
-    if echo "$result" | grep -q "DONE"; then
-      break
-    fi
-
-    if [ -z "$memory" ]; then
-      memory="$result"
-    else
-      memory=$(printf '%s\n---\n%s' "$memory" "$result")
-    fi
-  done
-
-  nrvna_stop "$ws"
-  trap - EXIT
+  nrvna_start "$model" "$workspace"
+  job=$(wrk "$workspace" "Reply with exactly: ready")
+  flw "$workspace" -w "$job"
 )
 
-write_tutorial
+persistent_job
 ```
 
----
-
-## Vision Batch
-
-Caption or analyze each image in a directory:
-
-```bash
-: > jobs.txt
-
-for img in photos/*.jpg; do
-  wrk ./ws-vision "Describe this image in detail" --image "$img" >> jobs.txt
-done
-
-# Load once, drain the image jobs, and release the model
-nrvnad qwen-vl.gguf ./ws-vision --drain    # mmproj auto-detected
-
-# Collect all captions
-while IFS= read -r job; do
-  echo "=== $job ==="
-  flw ./ws-vision "$job"
-done < jobs.txt
-```
-
----
-
-## Embeddings for Search
-
-Generate embeddings for similarity search:
-
-```bash
-: > embed-jobs.txt
-
-# Generate embeddings for a corpus
-for doc in docs/*.txt; do
-  content=$(cat "$doc")
-  job=$(wrk ./workspace "$content" --embed)
-  echo "$doc $job" >> embed-jobs.txt
-done
-
-# Process the queued work
-nrvnad embedding-model.gguf ./workspace --drain
-
-# Results are JSON files in output/<job-id>/embedding.json
-# Each contains: { "dim": N, "vector": [...] }
-```
-
----
-
-## Text-to-Speech
-
-Generate audio from text:
-
-```bash
-job=$(cat article-intro.txt | wrk ./ws-tts - --tts)
-nrvnad outetts.gguf ./ws-tts --drain    # vocoder auto-detected
-flw ./ws-tts "$job"
-
-# Result is a WAV file at workspace/output/<job-id>/audio.wav
-# Keep each job to a few sentences; chunk longer text into multiple jobs
-```
-
----
-
-## Event-Driven (Watch for Results)
-
-Monitor completions with `fswatch`:
-
-```bash
-# Terminal 1: Watch for results
-fswatch -0 ./workspace/output | while read -d '' path; do
-  [[ "$path" == */result.txt ]] && cat "$path"
-done
-
-# Terminal 2: Keep the model ready. This command stays open.
-nrvnad text-model.gguf ./workspace
-
-# Terminal 3: Submit jobs
-for f in inbox/*.txt; do
-  { echo "Summarize:"; cat "$f"; } | wrk ./workspace -
-done
-```
+This helper is optional. It does not add another nrvna primitive.
 
 ---
 
