@@ -138,8 +138,8 @@ jobs:
           kit="nrvna-${{ matrix.target }}"
           mkdir -p "dist/$kit/bin"
           cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
-          cp README.md INSTALL.md DOCUMENTATION.md AGENTS.md CONTEXT.md \
-            ADVANCED.md CONFIGURATION.md ARCHITECTURE.md QUICKSTART.md \
+          cp README.md INSTALL.md AGENTS.md CONTEXT.md ADVANCED.md \
+            CONFIGURATION.md ARCHITECTURE.md \
             LICENSE install.sh "dist/$kit/"
           tar -C dist -czf "dist/$kit.tar.gz" "$kit"
           shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"

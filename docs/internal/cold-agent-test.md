@@ -189,7 +189,7 @@ The public repository has a README. Your browsing path did not retrieve it.
 Record this discovery failure. Then read these public raw documents:
 
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md
-https://raw.githubusercontent.com/sanmathigb/nrvna/main/DOCUMENTATION.md
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md
 https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md
 
 Do not inspect local files or implementation code. Use only these documents.
@@ -376,7 +376,7 @@ record of each resulting change.
 | Observed incident | What it established | Enforced response |
 | --- | --- | --- |
 | A cold Codex session failed to retrieve the repository README, then invented placeholder commands. The same session understood nrvna after receiving exact raw-document URLs. | Repository discovery and documentation comprehension are separate gates. | Section 4 preserves the discovery failure and runs a raw-document control instead of rewriting good documentation to fix a harness limitation. |
-| A resumed Codex session could read an existing imgsrch project but search failed before inference because the sandbox was read-only. | Search is not read-only: it submits a query embedding and updates `search-results.md`. | Section 5 and the [imgsrch README](apps/imgsrch/README.md) require project write access and classify sandbox denial as a harness failure. |
+| A resumed Codex session could read an existing imgsrch project but search failed before inference because the sandbox was read-only. | Search is not read-only: it submits a query embedding and updates `search-results.md`. | Section 5 and the [imgsrch README](../../apps/imgsrch/README.md) require project write access and classify sandbox denial as a harness failure. |
 | A completed three-image canary survived the initiating session, reached three searchable items, and returned the meeting-transcription screenshot first. | The packaged `doctor -> init -> index -> background completion -> search -> preview` journey works with cached, checksum-matched models. | Section 1 requires that full transition rather than treating setup alone as success. |
-| A two-job embedding audit queued work before a daemon, drained with two workers, and retrieved two 768-dimensional artifacts. `flw -W --tag ... --json` exited `0` with empty stdout; plain tagged retrieval emitted NDJSON. | The bounded primitive path works, and a batch barrier is not result collection. | `flw --help`, `AGENTS.md`, `QUICKSTART.md`, and `tests/primitive-contract.sh` now state and enforce the distinction. |
+| A two-job embedding audit queued work before a daemon, drained with two workers, and retrieved two 768-dimensional artifacts. `flw -W --tag ... --json` exited `0` with empty stdout; plain tagged retrieval emitted NDJSON. | The bounded primitive path works, and a batch barrier is not result collection. | `flw --help`, `AGENTS.md`, and `tests/primitive-contract.sh` now state and enforce the distinction. |
 | The same trained session designed a separate meeting-inbox application without rereading docs and kept routing, validation, retries, and dependencies outside core. | The agent retained and transferred the foundation after hands-on use. It did not prove cold originality. | Section 8 labels this a warm, closed-book transfer test and grades architectural boundaries rather than novelty. |

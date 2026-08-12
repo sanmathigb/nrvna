@@ -111,13 +111,17 @@ scripts/transcribe
 # Local experiment artifacts
 .opencode/
 !README.md
-!QUICKSTART.md
 !ADVANCED.md
 !ARCHITECTURE.md
 !LICENSE
 
 # Local docs, test tooling, scripts
 docs/
+!docs/
+docs/*
+!docs/internal/
+docs/internal/*
+!docs/internal/cold-agent-test.md
 testing/
 scripts/*
 !scripts/imgsrch
