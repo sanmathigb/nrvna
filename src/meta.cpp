@@ -7,10 +7,11 @@
 #include "nrvna/meta.hpp"
 #include "nrvna/contract.hpp"
 #include <chrono>
+#include <cmath>
 #include <ctime>
 #include <fstream>
-#include <iomanip>
-#include <sstream>
+#include <limits>
+#include <nlohmann/json.hpp>
 
 namespace nrvna {
 
@@ -39,127 +40,6 @@ std::string escapeJson(const std::string& s) {
     return out;
 }
 
-namespace {
-
-std::string unescapeJson(const std::string& s) {
-    std::string out;
-    out.reserve(s.size());
-    for (size_t i = 0; i < s.size(); ++i) {
-        if (s[i] == '\\' && i + 1 < s.size()) {
-            ++i;
-            switch (s[i]) {
-                case '"': out += '"'; break;
-                case '\\': out += '\\'; break;
-                case 'n': out += '\n'; break;
-                case 'r': out += '\r'; break;
-                case 't': out += '\t'; break;
-                default: out += s[i]; break;
-            }
-        } else {
-            out += s[i];
-        }
-    }
-    return out;
-}
-
-std::string extractString(const std::string& json, const std::string& key) {
-    std::string needle = "\"" + key + "\": \"";
-    auto pos = json.find(needle);
-    if (pos == std::string::npos) return "";
-    pos += needle.size();
-
-    std::string result;
-    bool escape = false;
-    for (size_t i = pos; i < json.size(); ++i) {
-        char c = json[i];
-        if (escape) {
-            result += '\\';
-            result += c;
-            escape = false;
-            continue;
-        }
-        if (c == '\\') {
-            escape = true;
-            continue;
-        }
-        if (c == '"') {
-            return unescapeJson(result);
-        }
-        result += c;
-    }
-    return "";
-}
-
-double extractDouble(const std::string& json, const std::string& key) {
-    std::string needle = "\"" + key + "\": ";
-    auto pos = json.find(needle);
-    if (pos == std::string::npos) return -1.0;
-    pos += needle.size();
-    auto end = json.find_first_of(",\n}", pos);
-    try {
-        return std::stod(json.substr(pos, end - pos));
-    } catch (...) {
-        return -1.0;
-    }
-}
-
-unsigned int extractUInt(const std::string& json, const std::string& key) {
-    std::string needle = "\"" + key + "\": ";
-    auto pos = json.find(needle);
-    if (pos == std::string::npos) return 0;
-    pos += needle.size();
-    auto end = json.find_first_of(",\n}", pos);
-    try {
-        auto value = std::stoull(json.substr(pos, end - pos));
-        return static_cast<unsigned int>(value);
-    } catch (...) {
-        return 0;
-    }
-}
-
-std::vector<std::string> extractStringArray(const std::string& json, const std::string& key) {
-    std::vector<std::string> result;
-    std::string needle = "\"" + key + "\": [";
-    auto pos = json.find(needle);
-    if (pos == std::string::npos) return result;
-    pos += needle.size();
-    auto end = json.find(']', pos);
-    if (end == std::string::npos) return result;
-
-    bool in_string = false;
-    bool escape = false;
-    std::string current;
-    for (size_t i = pos; i < end; ++i) {
-        char c = json[i];
-        if (!in_string) {
-            if (c == '"') {
-                in_string = true;
-                current.clear();
-            }
-            continue;
-        }
-        if (escape) {
-            current += '\\';
-            current += c;
-            escape = false;
-            continue;
-        }
-        if (c == '\\') {
-            escape = true;
-            continue;
-        }
-        if (c == '"') {
-            in_string = false;
-            result.push_back(unescapeJson(current));
-            continue;
-        }
-        current += c;
-    }
-    return result;
-}
-
-} // namespace
-
 std::string formatTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
@@ -179,45 +59,32 @@ std::string formatTimestamp() {
 
 bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
     try {
-        std::ostringstream json;
-        json << "{\n";
-        json << "  \"submitted_at\": \"" << escapeJson(meta.submitted_at) << "\",\n";
-        json << "  \"mode\": \"" << escapeJson(meta.mode) << "\"";
+        nlohmann::json document;
+        document["submitted_at"] = meta.submitted_at;
+        document["mode"] = meta.mode;
 
         if (!meta.parent.empty()) {
-            json << ",\n  \"parent\": \"" << escapeJson(meta.parent) << "\"";
+            document["parent"] = meta.parent;
         }
 
         if (!meta.tags.empty()) {
-            json << ",\n  \"tags\": [";
-            for (size_t i = 0; i < meta.tags.size(); ++i) {
-                if (i > 0) json << ", ";
-                json << "\"" << escapeJson(meta.tags[i]) << "\"";
-            }
-            json << "]";
+            document["tags"] = meta.tags;
         }
 
         if (!meta.output_format.empty()) {
-            json << ",\n  \"output_format\": \"" << escapeJson(meta.output_format) << "\"";
+            document["output_format"] = meta.output_format;
         }
 
         if (meta.recovery_attempts > 0) {
-            json << ",\n  \"recovery_attempts\": " << meta.recovery_attempts;
+            document["recovery_attempts"] = meta.recovery_attempts;
         }
 
         if (!meta.status.empty()) {
-            json << ",\n  \"completed_at\": \"" << escapeJson(meta.completed_at) << "\"";
-            json << ",\n  \"duration_s\": " << std::fixed << std::setprecision(2) << meta.duration_s;
-            json << ",\n  \"artifacts\": [";
-            for (size_t i = 0; i < meta.artifacts.size(); ++i) {
-                if (i > 0) json << ", ";
-                json << "\"" << escapeJson(meta.artifacts[i]) << "\"";
-            }
-            json << "]";
-            json << ",\n  \"status\": \"" << escapeJson(meta.status) << "\"";
+            document["completed_at"] = meta.completed_at;
+            document["duration_s"] = std::round(meta.duration_s * 100.0) / 100.0;
+            document["artifacts"] = meta.artifacts;
+            document["status"] = meta.status;
         }
-
-        json << "\n}\n";
 
         auto tmpPath = dir / (std::string(contract::kMetaFile) + ".tmp");
         auto finalPath = dir / contract::kMetaFile;
@@ -225,7 +92,7 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
         {
             std::ofstream file(tmpPath, std::ios::binary);
             if (!file) return false;
-            file << json.str();
+            file << document.dump(2) << '\n';
             file.flush();
             if (!file.good()) return false;
         }
@@ -245,24 +112,59 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
         std::ifstream file(metaPath, std::ios::binary);
         if (!file) return std::nullopt;
 
-        std::string content((std::istreambuf_iterator<char>(file)),
-                            std::istreambuf_iterator<char>());
+        auto document = nlohmann::json::parse(file);
+        if (!document.is_object()) return std::nullopt;
+        if (!document.contains("submitted_at") ||
+            !document["submitted_at"].is_string() ||
+            !document.contains("mode") || !document["mode"].is_string()) {
+            return std::nullopt;
+        }
 
         JobMeta meta;
-        meta.submitted_at = extractString(content, "submitted_at");
-        meta.mode = extractString(content, "mode");
-        meta.parent = extractString(content, "parent");
-        meta.tags = extractStringArray(content, "tags");
-        meta.output_format = extractString(content, "output_format");
-        meta.recovery_attempts = extractUInt(content, "recovery_attempts");
-        meta.completed_at = extractString(content, "completed_at");
-        meta.duration_s = extractDouble(content, "duration_s");
-        meta.artifacts = extractStringArray(content, "artifacts");
-        meta.status = extractString(content, "status");
-
-        // Submission metadata always has these fields. Treat malformed JSON as
-        // absent instead of fabricating a valid-looking empty JobMeta.
+        meta.submitted_at = document["submitted_at"].get<std::string>();
+        meta.mode = document["mode"].get<std::string>();
         if (meta.submitted_at.empty() || meta.mode.empty()) return std::nullopt;
+
+        auto readString = [&document](const char* key, std::string& value) {
+            if (!document.contains(key)) return true;
+            if (!document[key].is_string()) return false;
+            value = document[key].get<std::string>();
+            return true;
+        };
+        auto readStrings = [&document](const char* key,
+                                       std::vector<std::string>& values) {
+            if (!document.contains(key)) return true;
+            if (!document[key].is_array()) return false;
+            for (const auto& value : document[key]) {
+                if (!value.is_string()) return false;
+                values.push_back(value.get<std::string>());
+            }
+            return true;
+        };
+
+        if (!readString("parent", meta.parent) ||
+            !readStrings("tags", meta.tags) ||
+            !readString("output_format", meta.output_format) ||
+            !readString("completed_at", meta.completed_at) ||
+            !readStrings("artifacts", meta.artifacts) ||
+            !readString("status", meta.status)) {
+            return std::nullopt;
+        }
+
+        if (document.contains("recovery_attempts")) {
+            const auto& value = document["recovery_attempts"];
+            if (!value.is_number_unsigned()) return std::nullopt;
+            auto attempts = value.get<unsigned long long>();
+            if (attempts > std::numeric_limits<unsigned int>::max()) {
+                return std::nullopt;
+            }
+            meta.recovery_attempts = static_cast<unsigned int>(attempts);
+        }
+
+        if (document.contains("duration_s")) {
+            if (!document["duration_s"].is_number()) return std::nullopt;
+            meta.duration_s = document["duration_s"].get<double>();
+        }
 
         return meta;
     } catch (...) {

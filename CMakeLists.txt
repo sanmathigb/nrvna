@@ -94,7 +94,10 @@ if(BUILD_TESTING)
     )
 
     add_executable(meta_test tests/meta_test.cpp src/meta.cpp)
-    target_include_directories(meta_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(meta_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/vendor
+    )
 
     add_executable(recovery_test tests/recovery_test.cpp)
     target_link_libraries(recovery_test nrvna_core)
