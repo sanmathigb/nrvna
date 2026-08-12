@@ -247,9 +247,6 @@ ModelInfo Runner::probeModelInfo(const std::string& modelPath) {
     return info;
 }
 
-Runner::Runner(const std::string& modelPath) : Runner(modelPath, "", 1) {
-}
-
 Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int numWorkers)
     : mmproj_path_(mmprojPath) {
     llama_log_set(filtered_llama_log, nullptr);

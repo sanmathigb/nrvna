@@ -6,7 +6,6 @@
 
 #include "nrvna/scanner.hpp"
 #include "nrvna/contract.hpp"
-#include "nrvna/flow.hpp"
 #include "nrvna/logger.hpp"
 #include "llama_util.hpp"
 #include <algorithm>
@@ -30,7 +29,7 @@ std::vector<JobId> Scanner::scan() const noexcept {
         for (const auto& entry : std::filesystem::directory_iterator(readyPath_)) {
             if (entry.is_directory()) {
                 JobId jobId = extractJobId(entry.path());
-                if (Flow::isValidJobId(jobId) && isValidJobDirectory(entry.path())) {
+                if (contract::isValidJobId(jobId) && isValidJobDirectory(entry.path())) {
                     jobs.push_back(jobId);
                     LOG_TRACE("Found job: " + jobId);
                 }
@@ -63,7 +62,7 @@ std::size_t Scanner::readyJobCount() const noexcept {
 
         for (const auto& entry : std::filesystem::directory_iterator(readyPath_)) {
             if (entry.is_directory() &&
-                Flow::isValidJobId(extractJobId(entry.path())) &&
+                contract::isValidJobId(extractJobId(entry.path())) &&
                 isValidJobDirectory(entry.path())) {
                 ++count;
             }

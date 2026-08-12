@@ -53,7 +53,6 @@ struct EmbedResult {
 
 class Runner final {
 public:
-    explicit Runner(const std::string& modelPath);
     explicit Runner(const std::string& modelPath, const std::string& mmprojPath, int numWorkers = 1);
     ~Runner();
 
@@ -68,8 +67,6 @@ public:
     [[nodiscard]] RunResult transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     [[nodiscard]] EmbedResult embed(const std::string& text);
     [[nodiscard]] EmbedResult embedVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
-    [[nodiscard]] bool isMultimodal() const noexcept { return mtmd_ctx_ != nullptr; }
-
     // Load the model briefly to read GGUF metadata without starting a server.
     [[nodiscard]] static ModelInfo probeModelInfo(const std::string& modelPath);
 

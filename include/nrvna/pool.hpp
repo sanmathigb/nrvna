@@ -34,8 +34,6 @@ public:
     [[nodiscard]] bool submit(const JobId& jobId) noexcept;
     
     [[nodiscard]] bool isRunning() const noexcept { return running_.load(); }
-    [[nodiscard]] std::size_t queueSize() const noexcept;
-    [[nodiscard]] int workerCount() const noexcept { return workers_; }
 
 private:
     void workerLoop(int workerId);

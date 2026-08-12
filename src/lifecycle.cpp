@@ -185,15 +185,6 @@ int stopDaemon(const std::filesystem::path& ws, int timeoutSeconds) {
     return 0;
 }
 
-WorkspaceCounts waitForIdle(const std::filesystem::path& ws, int pollMs) {
-    Flow flow(ws);
-    while (true) {
-        auto c = flow.counts();
-        if (c.queued == 0 && c.running == 0) return c;
-        std::this_thread::sleep_for(std::chrono::milliseconds(pollMs));
-    }
-}
-
 bool writeRuntimeFiles(const std::filesystem::path& ws, const DaemonInfo& info) {
     try {
         {

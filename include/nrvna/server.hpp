@@ -39,7 +39,6 @@ public:
 
     [[nodiscard]] bool start();
     void shutdown() noexcept;
-    [[nodiscard]] const std::filesystem::path& workspace() const noexcept { return workspace_; }
     [[nodiscard]] bool isRunning() const noexcept { return running_.load(); }
 
 private:

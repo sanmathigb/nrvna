@@ -673,12 +673,8 @@ bool Processor::initializeRunners(int numWorkers) {
     try {
         for (int i = 0; i < numWorkers; ++i) {
             LOG_DEBUG("Pre-creating Runner instance for worker " + std::to_string(i));
-            if (mmprojPath_.empty()) {
-                runners_[i] = std::make_unique<Runner>(modelPath_);
-            } else {
-                // Pass numWorkers so each Runner divides CPU threads appropriately
-                runners_[i] = std::make_unique<Runner>(modelPath_, mmprojPath_, numWorkers);
-            }
+            // Pass numWorkers so each Runner divides CPU threads appropriately.
+            runners_[i] = std::make_unique<Runner>(modelPath_, mmprojPath_, numWorkers);
         }
         LOG_DEBUG("All " + std::to_string(numWorkers) + " Runner instances initialized");
         return true;
