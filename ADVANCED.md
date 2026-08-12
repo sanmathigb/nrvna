@@ -78,7 +78,19 @@ persistent_job() (
   set -e
   model=/path/to/model.gguf
   workspace=./workspace
-  trap 'nrvna_stop "$workspace" >/dev/null 2>&1 || true' EXIT
+  owns_daemon=false
+  status_code=0
+  nrvna_status "$workspace" || status_code=$?
+  [ "$status_code" -eq 1 ] && owns_daemon=true
+
+  cleanup() {
+    [ "$owns_daemon" = true ] || return 0
+    nrvna_stop "$workspace" || {
+      echo "persistent_job: failed to stop the daemon" >&2
+      return 1
+    }
+  }
+  trap cleanup EXIT
 
   nrvna_start "$model" "$workspace"
   job=$(wrk "$workspace" "Reply with exactly: ready")
