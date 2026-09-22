@@ -137,6 +137,22 @@ daemon to finish the queue.
 
 ## Inference Pipeline
 
+### Backend version
+
+The backend is llama.cpp v0.4.1 (`b29c606e28a01b1bc8c1351026a0fa6e616bf6c4`).
+The update preserves the job contract and does not enable the upstream HTTP server.
+The text reference, `examples/simple/simple.cpp`, is unchanged from the previous pin.
+Media loading uses the new helper options. Penalty samplers receive vocabulary size.
+Schema conversion adapts the validated JSON to upstream's `common_json` type.
+
+Run `tests/backend-smoke.sh` with existing models to check text, structured JSON,
+and embeddings. Supply a vision model and projector to also check image input.
+The script retains temporary artifacts and downloads nothing.
+
+The September 22, 2026 update passed these checks on Intel macOS with SmolLM2,
+nomic-embed, and LFM2.5-VL. It also passed the eight contract tests and imgsrch tests.
+Speech recognition, TTS, GPU inference, and Linux were not runtime-tested locally.
+
 ### Text/Vision (Runner)
 
 Based on llama.cpp `examples/simple/simple.cpp` and `tools/mtmd/mtmd-cli.cpp`.
@@ -154,7 +170,9 @@ Based on llama.cpp `examples/simple/simple.cpp` and `tools/mtmd/mtmd-cli.cpp`.
 
 ### TTS (TtsRunner)
 
-Based on llama.cpp `tools/tts/tts.cpp`.
+Based on llama.cpp `tools/tts/tts.cpp` at the previous `00fa7cb28` pin.
+The current upstream example uses a different audio-generation path. This update
+keeps nrvna's existing OuteTTS implementation.
 
 - All workers share the TTS and vocoder models.
 - Vocabulary checks detect OuteTTS v0.2 or v0.3.

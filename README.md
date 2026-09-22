@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Built on llama.cpp](https://img.shields.io/badge/llama.cpp-00fa7cb-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/00fa7cb284cbf133fc426733bd64238a3588a33e)
+[![Built on llama.cpp](https://img.shields.io/badge/llama.cpp-v0.4.1-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/b29c606e28a01b1bc8c1351026a0fa6e616bf6c4)
 
 Unix-like primitives for durable local inference. No always-on server.
 

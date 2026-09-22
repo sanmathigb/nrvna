@@ -268,7 +268,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             auto schema = nlohmann::ordered_json::parse(submitOptions.schema);
-            submitOptions.grammar = json_schema_to_grammar(schema, true);
+            submitOptions.grammar = json_schema_to_grammar(common_json::parse(schema.dump()), true);
             submitOptions.output_format = "json_schema";
         } catch (const std::exception& e) {
             std::cerr << "Error: invalid JSON Schema: " << e.what() << "\n";

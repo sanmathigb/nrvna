@@ -440,6 +440,7 @@ llama_sampler* Runner::buildSampler(const SamplingConfig& config, const llama_vo
     }
 
     llama_sampler_chain_add(smpl, llama_sampler_init_penalties(
+        llama_vocab_n_tokens(vocab),
         config.repeat_last_n,
         config.repeat_penalty,
         0.0f,
@@ -1123,7 +1124,8 @@ std::vector<mtmd_bitmap*> Runner::loadImages(const std::vector<std::filesystem::
     std::vector<mtmd_bitmap*> bitmaps;
     bitmaps.reserve(imagePaths.size());
     for (const auto& path : imagePaths) {
-        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false);
+        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false,
+                                                   mtmd_helper_init_opt_default());
         if (!res.bitmap) {
             freeBitmaps(bitmaps);
             return {};
@@ -1137,7 +1139,8 @@ std::vector<mtmd_bitmap*> Runner::loadAudio(const std::vector<std::filesystem::p
     std::vector<mtmd_bitmap*> bitmaps;
     bitmaps.reserve(audioPaths.size());
     for (const auto& path : audioPaths) {
-        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false);
+        auto res = mtmd_helper_bitmap_init_from_file(mtmd_ctx_, path.c_str(), false,
+                                                   mtmd_helper_init_opt_default());
         if (!res.bitmap || !mtmd_bitmap_is_audio(res.bitmap)) {
             if (res.bitmap) {
                 mtmd_bitmap_free(res.bitmap);

@@ -625,7 +625,8 @@ TtsResult TtsRunner::run(const std::string& text) {
         float tts_repeat = env_float("NRVNA_TTS_REPEAT_PENALTY", 0.0f);
         if (tts_repeat > 0.0f) {
             int tts_repeat_n = env_int("NRVNA_TTS_REPEAT_LAST_N", 128);
-            llama_sampler_chain_add(smpl.get(), llama_sampler_init_penalties(tts_repeat_n, tts_repeat, 0.0f, 0.0f));
+            llama_sampler_chain_add(smpl.get(), llama_sampler_init_penalties(
+                llama_vocab_n_tokens(vocab), tts_repeat_n, tts_repeat, 0.0f, 0.0f));
         }
 
         llama_sampler_chain_add(smpl.get(), llama_sampler_init_top_k(4));
