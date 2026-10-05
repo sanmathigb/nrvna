@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nrvna — local AI as durable background jobs</title>
+<meta name="description" content="Local AI as background jobs. Submit, walk away, read the result as a file. No server stays running. A crash does not lose your work. Built on llama.cpp." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper:#EFF3F8;
+    --panel:#FFFFFF;
+    --ink:#121620;
+    --muted:#525a69;
+    --faint:#8992a2;
+    --line:#DEE4EC;
+    --accent:#0BA06E;          /* livelier emerald, used sparingly */
+    --accent-ink:#06603f;
+    --accent-soft:#DFF4EC;
+    --st-queue:#5566B5;        /* periwinkle */
+    --st-proc:#E08A0C;         /* amber */
+    --st-done:#0BA06E;         /* emerald */
+    --st-fail:#E24A41;         /* red */
+    --radius:12px;
+    --maxw:1060px;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --display:"Bricolage Grotesque","Inter",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0B0E13; --panel:#151A22; --ink:#EDF0F5; --muted:#9AA3B3; --faint:#69717F;
+      --line:#242B36; --accent:#2CCB92; --accent-ink:#8FEBC7; --accent-soft:#0F2A20;
+      --st-queue:#8290E0; --st-proc:#EAA33C; --st-done:#2CCB92; --st-fail:#F0675E;
+    }
+  }
+
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:17px; line-height:1.55;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:0 24px; }
+  a { color:var(--accent-ink); text-decoration:none; }
+  a:hover { text-decoration:underline; text-underline-offset:3px; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:4px; }
+
+  .topbar { border-bottom:1px solid var(--line); position:sticky; top:0; z-index:10;
+    background:color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter:saturate(1.3) blur(10px); }
+  .topbar .wrap { display:flex; align-items:center; justify-content:space-between; height:58px; }
+  .brand { font-family:var(--display); font-weight:800; letter-spacing:-0.03em; font-size:21px; }
+  .brand .dot { color:var(--accent); }
+  .topnav { font-family:var(--mono); font-size:13px; display:flex; gap:22px; }
+  .topnav a { color:var(--muted); }
+  @media (max-width:640px){ .topnav{ display:none; } }
+
+  /* hero */
+  .hero { padding:92px 0 46px; }
+  .eyebrow { font-family:var(--mono); font-size:12.5px; letter-spacing:0.04em; color:var(--faint); margin:0 0 22px; }
+  .hero h1 {
+    font-family:var(--display); font-weight:800; letter-spacing:-0.045em;
+    font-size:clamp(46px, 7.2vw, 84px); line-height:0.94; margin:0 0 22px; max-width:15ch;
+  }
+  .hero h1 .soft { color:var(--muted); }
+  .lede { font-size:21px; color:var(--muted); max-width:46ch; margin:0 0 22px; }
+  .hero-tags { font-family:var(--mono); font-size:13px; color:var(--faint); letter-spacing:0.02em; margin:0 0 30px; }
+  .cta-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .btn { font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:-0.01em;
+    padding:13px 22px; border-radius:var(--radius); border:1px solid transparent;
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { text-decoration:none; filter:brightness(1.05); }
+  .btn-ghost { border-color:var(--line); color:var(--ink); background:var(--panel); }
+  .btn-ghost:hover { text-decoration:none; border-color:var(--muted); }
+
+  section { padding:72px 0; border-top:1px solid var(--line); }
+  .sec-label { font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--accent); letter-spacing:0.05em; margin:0 0 16px; }
+  .sec-title { font-family:var(--display); font-weight:800; letter-spacing:-0.04em;
+    font-size:clamp(32px,4.8vw,52px); margin:0 0 16px; line-height:0.98; }
+  .sec-note { color:var(--muted); max-width:50ch; margin:0 0 40px; font-size:18px; line-height:1.5; }
+
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media (max-width:860px){ .grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:520px){ .grid{ grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:28px 22px 30px; position:relative; overflow:hidden; transition:border-color .2s ease, transform .2s ease; }
+  .card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--accent); }
+  .card:hover { transform:translateY(-4px); border-color:color-mix(in srgb,var(--accent) 45%,var(--line)); }
+  .card .k { font-family:var(--mono); font-size:11px; color:var(--accent-ink); letter-spacing:0.09em;
+    text-transform:uppercase; margin:0 0 18px; }
+  .card h3 { font-family:var(--display); font-weight:800; font-size:23px; margin:0 0 10px; letter-spacing:-0.03em; line-height:1.06; }
+  .card p { margin:0; color:var(--muted); font-size:15px; line-height:1.55; }
+
+  /* diagram */
+  .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 24px; }
+  .stage svg { width:100%; height:auto; display:block; margin-top:30px; }
+  .job { transform:translate(797px,82px); transform-box:view-box; transform-origin:0 0;
+    transition:transform .9s cubic-bezier(.4,.1,.2,1); }
+  .job .fld { fill:var(--st-done); stroke:var(--st-done); stroke-width:2; transition:fill .5s, stroke .5s; }
+  .job .chk { opacity:1; }
+  .job.is-queue .fld { fill:var(--st-queue); stroke:var(--st-queue); }
+  .job.is-proc  .fld { fill:var(--st-proc);  stroke:var(--st-proc); }
+  .job.is-queue .chk, .job.is-proc .chk { opacity:0; }
+  .job .jname { font-family:var(--mono); font-size:12.5px; font-weight:700; fill:var(--ink); }
+  .job .fcont { font-family:var(--mono); font-size:11px; font-weight:500; fill:var(--muted); }
+  .job.is-done .fcont { fill:var(--accent-ink); }
+  .g-proc, .g-out, .g-fail { opacity:0; transition:opacity .5s ease; }
+  .stage svg.lvl2 .g-proc { opacity:1; }
+  .stage svg.lvl3 .g-proc, .stage svg.lvl3 .g-out, .stage svg.lvl3 .g-fail { opacity:1; }
+  .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
+    padding:26px; min-height:170px; display:flex; align-items:flex-start; }
+  .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
+  .console .cmd { background:none; border:0; padding:0; border-radius:0;
+    font-size:20px; color:#8A93A3; font-weight:400; letter-spacing:-0.01em; white-space:nowrap; overflow-x:auto; }
+  .console .cmd + .cmd { margin-top:14px; }
+  .console .cmd.active { color:#FFFFFF; font-weight:600; }
+  .console .cmd b { color:#2CCB92; margin-right:12px; font-weight:700; }
+  .console .note { margin-top:18px; font-size:15px; color:#949FB0; }
+  .console .note.ok { color:#2CCB92; }
+  .legend { display:flex; flex-wrap:wrap; gap:20px; margin-top:22px; padding-top:20px;
+    border-top:1px solid var(--line); font-family:var(--mono); font-size:12.5px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:8px; }
+  .swatch { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .pull { font-family:var(--display); font-weight:800; letter-spacing:-0.04em;
+    font-size:clamp(32px,5vw,54px); margin:48px 0 0; max-width:20ch; line-height:1.0; }
+  .pull b { color:var(--accent); }
+
+  .cmds { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  @media (max-width:720px){ .cmds{ grid-template-columns:1fr; } }
+  .cmd { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:24px; transition:border-color .2s ease; }
+  .cmd:hover { border-color:color-mix(in srgb,var(--accent) 40%,var(--line)); }
+  .cmd .name { font-family:var(--mono); font-size:19px; font-weight:600; letter-spacing:-0.01em; }
+  .cmd .name::before { content:"$ "; color:var(--accent); }
+  .cmd p { margin:13px 0 0; color:var(--muted); font-size:15px; line-height:1.5; }
+
+  .term { background:#0B0F15; color:#D6DCE6; border-radius:16px; border:1px solid #1C232E;
+    font-family:var(--mono); font-size:14px; line-height:1.9; overflow:auto; }
+  .term-bar { display:flex; gap:7px; padding:14px 16px; border-bottom:1px solid #1C232E; }
+  .term-bar i { width:11px; height:11px; border-radius:50%; background:#2A3340; display:inline-block; }
+  .term pre { margin:0; padding:20px; white-space:pre; }
+  .term .c { color:#69748a; } .term .p { color:#2CCB92; } .term .o { color:#8A93A3; } .term .v { color:#EAB464; }
+
+  .honest { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .honest{ grid-template-columns:1fr; } }
+  .note-box { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px; }
+  .note-box h4 { font-family:var(--display); font-weight:700; font-size:17px; margin:0 0 7px; letter-spacing:-0.02em; }
+  .note-box p { margin:0; color:var(--muted); font-size:14.5px; }
+  .k-mono { font-family:var(--mono); font-size:13px; }
+  .tag { display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:0.05em; text-transform:uppercase;
+    color:var(--st-proc); border:1px solid color-mix(in srgb, var(--st-proc) 45%, var(--line)); padding:3px 9px; border-radius:999px; margin-bottom:14px; }
+
+  .closing { padding:70px 0; text-align:center; border-top:1px solid var(--line); }
+  .closing p { font-family:var(--display); font-weight:800; letter-spacing:-0.04em;
+    font-size:clamp(30px,4.6vw,50px); margin:0 auto; max-width:20ch; line-height:1.0; }
+  .closing .sub { font-family:var(--sans); font-weight:400; font-size:16px; color:var(--muted);
+    letter-spacing:0; margin-top:16px; max-width:40ch; }
+
+  footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
+  footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  footer .mono { font-family:var(--mono); font-size:12.5px; color:var(--faint); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity:0; transform:translateY(12px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
+    .d1{ animation-delay:.06s; } .d2{ animation-delay:.15s; } .d3{ animation-delay:.24s; } .d4{ animation-delay:.33s; }
+    @keyframes rise { to { opacity:1; transform:none; } }
+    /* the pipeline journey is JS-driven (step storyboard) — see the script near the end */
+    .proc-pulse { animation:pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{ opacity:.3; } 50%{ opacity:1; } }
+    .flow { stroke-dasharray:5 6; animation:dash 1.4s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset:-22; } }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand">nrvna<span class="dot">.</span></div>
+    <nav class="topnav">
+      <a href="#what">/what-you-get</a>
+      <a href="#how">/how-it-works</a>
+      <a href="#start">/start</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow reveal">Unix-like primitives for durable local inference</p>
+    <h1 class="reveal d1"><span class="soft">The model is a utility.</span><br>Your work is central.</h1>
+    <p class="lede reveal d2">Local AI as background jobs. Submit, walk away, read the result as a file.</p>
+    <p class="hero-tags reveal d3">no always-on server&ensp;·&ensp;no database&ensp;·&ensp;files in, files out</p>
+    <div class="cta-row reveal d4">
+      <a class="btn btn-primary" href="#start">Quickstart →</a>
+      <a class="btn btn-ghost" href="https://github.com/sanmathigb/nrvna">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<!-- WHAT YOU GET -->
+<section id="what">
+  <div class="wrap">
+    <p class="sec-label">/what-you-get</p>
+    <h2 class="sec-title">Files in. Files out.</h2>
+    <p class="sec-note">Work first or model first. Connect it with tools you already know.</p>
+    <div class="grid">
+      <div class="card">
+        <p class="k">walk away</p>
+        <h3>Submit and leave</h3>
+        <p>The answer is a file when you return.</p>
+      </div>
+      <div class="card">
+        <p class="k">everything is a file</p>
+        <h3>grep still works</h3>
+        <p>Text, image, or audio in. Plain files out.</p>
+      </div>
+      <div class="card">
+        <p class="k">at least once</p>
+        <h3>Survives a crash</h3>
+        <p>A new run recovers the job — not from the last word.</p>
+      </div>
+      <div class="card">
+        <p class="k">any order</p>
+        <h3>No server to babysit</h3>
+        <p>Submit before the model runs, or after.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <p class="sec-label">/how-it-works</p>
+    <h2 class="sec-title">State is location</h2>
+    <p class="sec-note">A workspace is a directory. A job is a folder. Its place is its state.</p>
+
+    <div class="stage">
+      <div class="console" aria-hidden="true"><div class="console-body"><div class="cmd"><b>$</b>wrk ./workspace "&lt;prompt&gt;"</div><div class="cmd"><b>$</b>nrvnad ./models/model.gguf ./workspace</div><div class="cmd"><b>$</b>flw ./workspace "$job"</div></div></div>
+
+      <svg viewBox="0 0 960 236" class="lvl1" role="img" aria-label="A job folder moves from input to processing to output as each command runs.">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--faint)"></path>
+          </marker>
+          <marker id="arrowFail" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--st-fail)"></path>
+          </marker>
+          <g id="folder">
+            <path d="M2,6 h12 l4,5 h24 a3,3 0 0 1 3,3 v18 a3,3 0 0 1 -3,3 h-40 a3,3 0 0 1 -3,-3 V9 a3,3 0 0 1 3,-3 z"></path>
+          </g>
+        </defs>
+
+        <g class="g-input">
+          <text x="140" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--muted)">input/</text>
+          <rect x="40" y="64" width="200" height="96" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"></rect>
+        </g>
+
+        <g class="g-proc">
+          <line class="flow" x1="246" y1="112" x2="374" y2="112" stroke="var(--faint)" stroke-width="2" marker-end="url(#arrow)"></line>
+          <text x="480" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--muted)">processing/</text>
+          <rect x="380" y="64" width="200" height="96" rx="12" fill="color-mix(in srgb, var(--st-proc) 7%, transparent)" stroke="color-mix(in srgb, var(--st-proc) 45%, var(--line))" stroke-width="1.5"></rect>
+          <circle class="proc-pulse" cx="480" cy="72" r="4.5" fill="var(--st-proc)"></circle>
+        </g>
+
+        <g class="g-out">
+          <line class="flow" x1="586" y1="112" x2="714" y2="112" stroke="var(--faint)" stroke-width="2" marker-end="url(#arrow)"></line>
+          <text x="820" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--st-done)">output/</text>
+          <rect x="720" y="64" width="200" height="96" rx="12" fill="var(--accent-soft)" stroke="var(--st-done)" stroke-width="1.5"></rect>
+        </g>
+
+        <g class="g-fail">
+          <path d="M480,160 L480,186" fill="none" stroke="var(--st-fail)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrowFail)"></path>
+          <rect x="380" y="188" width="200" height="34" rx="10" fill="none" stroke="color-mix(in srgb, var(--st-fail) 45%, var(--line))" stroke-width="1.5"></rect>
+          <text x="480" y="210" text-anchor="middle" font-family="var(--mono)" font-size="12.5" fill="var(--st-fail)">failed/</text>
+        </g>
+
+        <g class="job">
+          <use class="fld" href="#folder"></use>
+          <path class="chk" d="M15,16 l5,5 l10,-12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+          <text class="jname" x="23" y="52" text-anchor="middle">job_id/</text>
+          <text class="fcont" x="23" y="67" text-anchor="middle">prompt.txt</text>
+        </g>
+      </svg>
+
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--st-queue)"></i> queued</span>
+        <span><i class="swatch" style="background:var(--st-proc)"></i> processing</span>
+        <span><i class="swatch" style="background:var(--st-done)"></i> done</span>
+        <span><i class="swatch" style="background:var(--st-fail)"></i> failed · retry is yours</span>
+      </div>
+    </div>
+
+    <p class="pull">The workspace remembers.<br><b>The model does not.</b></p>
+  </div>
+</section>
+
+<!-- THREE COMMANDS -->
+<section id="commands">
+  <div class="wrap">
+    <p class="sec-label">/three-primitives</p>
+    <h2 class="sec-title">Models get wrk. You get flw.</h2>
+    <p class="sec-note">You own both ends. The model just runs in between, then exits.</p>
+    <div class="cmds">
+      <div class="cmd"><div class="name">wrk</div><p>You give the model work.</p></div>
+      <div class="cmd"><div class="name">nrvnad</div><p>The model runs it, then exits.</p></div>
+      <div class="cmd"><div class="name">flw</div><p>The result comes back to you.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- START -->
+<section id="start">
+  <div class="wrap">
+    <p class="sec-label">/start</p>
+    <h2 class="sec-title">Submit, run, read</h2>
+    <div class="term">
+      <div class="term-bar"><i></i><i></i><i></i></div>
+<pre><span class="c"># submit now — no model has to be running</span>
+<span class="p">$</span> job=$(wrk ./workspace <span class="v">"Reply with exactly: ready"</span>)
+
+<span class="c"># load a model, drain the queue, then exit</span>
+<span class="p">$</span> nrvnad ./models/model.gguf ./workspace <span class="v">--drain</span>
+
+<span class="c"># read the saved result</span>
+<span class="p">$</span> flw ./workspace <span class="v">"$job"</span>
+<span class="o">ready</span></pre>
+    </div>
+  </div>
+</section>
+
+<section class="closing">
+  <div class="wrap">
+    <p>The work outlives the process.</p>
+    <p class="sub">Once the work is at the center, the intelligence doesn't have to be.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>Built on <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>. Runs on ordinary, even old, hardware.</div>
+    <div class="mono">MIT · experimental preview · local-first</div>
+  </div>
+</footer>
+
+<script>
+  // Step storyboard: one command at a time, the folder moves to match, then the
+  // full recipe surfaces and the whole thing loops. Starts when scrolled into view.
+  (function () {
+    var stage = document.querySelector('.stage');
+    if (!stage) return;
+    var job  = stage.querySelector('.job');
+    var svg  = stage.querySelector('svg');
+    var body = stage.querySelector('.console-body');
+    var POS  = { input:'translate(117px,82px)', proc:'translate(457px,82px)', out:'translate(797px,82px)' };
+
+    var fcont = job.querySelector('.fcont');
+    var WRK = 'wrk ./workspace "&lt;prompt&gt;"';
+    var NRV = 'nrvnad ./models/model.gguf ./workspace';
+    var FLW = 'flw ./workspace "$job"';
+    function cmd(c, active) { return '<div class="cmd' + (active ? ' active' : '') + '"><b>$</b>' + c + '</div>'; }
+    function note(t, ok) { return '<div class="note' + (ok ? ' ok' : '') + '">' + t + '</div>'; }
+    var recipe = cmd(WRK) + cmd(NRV) + cmd(FLW);
+
+    // commands AND canvas build up together, step by step
+    var steps = [
+      { lvl:'lvl1', pos:'input', cls:'job is-queue', file:'prompt.txt', html: cmd(WRK, true) + note('you submit a prompt  ·  creates job_id/'),                  hold:2800 },
+      { lvl:'lvl2', pos:'proc',  cls:'job is-proc',  file:'prompt.txt', html: cmd(WRK) + cmd(NRV, true) + note('a worker picks up the job  ·  processing/'),     hold:2800 },
+      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: cmd(WRK) + cmd(NRV, true) + note('result.txt written inside job_id/  ·  output/'), hold:2600 },
+      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),          hold:2800 },
+      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: recipe,                                                                            hold:3200 }
+    ];
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      job.setAttribute('class', 'job is-done'); job.style.transform = POS.out;
+      svg.setAttribute('class', 'lvl3');
+      if (fcont) fcont.textContent = 'result.txt';
+      body.innerHTML = recipe; return;
+    }
+
+    // pre-place at the start so the first play does not slide in backwards
+    job.style.transition = 'none';
+    job.setAttribute('class', 'job is-queue');
+    job.style.transform = POS.input;
+    svg.setAttribute('class', 'lvl1');
+    void job.offsetWidth;
+    job.style.transition = '';
+
+    var i = 0;
+    function run() {
+      var s = steps[i];
+      job.setAttribute('class', s.cls);
+      svg.setAttribute('class', s.lvl);
+      job.style.transform = POS[s.pos];
+      if (fcont) fcont.textContent = s.file;
+      body.style.opacity = 0;
+      setTimeout(function () {
+        body.innerHTML = s.html;
+        body.style.opacity = 1;
+      }, 180);
+      i = (i + 1) % steps.length;
+      setTimeout(run, s.hold);
+    }
+
+    // start on load so the commands are always visible and playing; it loops forever
+    setTimeout(run, 500);
+  })();
+</script>
+
+</body>
+</html>
