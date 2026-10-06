@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>nrvna — local AI as durable background jobs</title>
+<title>nrvna: local AI as durable background jobs</title>
 <meta name="description" content="Local AI as background jobs. Submit, walk away, read the result as a file. No server stays running. A crash does not lose your work. Built on llama.cpp." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -96,7 +96,7 @@
   .card h3 { font-family:var(--display); font-weight:800; font-size:23px; margin:0 0 10px; letter-spacing:-0.03em; line-height:1.06; }
   .card p { margin:0; color:var(--muted); font-size:15px; line-height:1.55; }
 
-  /* one workspace, one job — the folder moves input/ready -> processing -> output as each primitive runs */
+  /* one workspace, one job: the folder moves input/ready -> processing -> output as each primitive runs */
   #how .sec-title { text-align:center; margin-left:auto; margin-right:auto; }
   .stage { display:grid; grid-template-columns:1fr 340px; gap:42px; align-items:center;
     margin:40px auto 0; max-width:900px; background:var(--panel); border:1px solid var(--line);
@@ -173,15 +173,23 @@
   .closing .sub { font-family:var(--sans); font-weight:400; font-size:16px; color:var(--muted);
     letter-spacing:0; margin-top:16px; max-width:40ch; }
 
-  .why { text-align:center; }
-  .why .wrap { max-width:640px; }
-  .why h2 { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
-    font-size:clamp(22px,3vw,30px); margin:0 0 22px; }
-  .why p { color:var(--muted); font-size:18px; line-height:1.6; margin:0 auto 18px; max-width:52ch; }
-  .why em { color:var(--ink); font-style:italic; }
-  .why .punch { color:var(--ink); font-family:var(--display); font-weight:800;
-    font-size:clamp(21px,3vw,28px); letter-spacing:-0.02em; margin:28px auto; }
+  #how .how-lead, #how .how-punch { text-align:center; margin-left:auto; margin-right:auto; }
+  .how-lead { color:var(--muted); font-size:18px; line-height:1.55; max-width:50ch; margin-bottom:8px; }
+  .how-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
+    font-size:clamp(22px,3.4vw,34px); color:var(--ink); margin:0; }
+
+  .why .wrap { max-width:700px; }
+  .why-card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent);
+    border-radius:14px; padding:38px 42px; }
+  .why .label { font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:0.09em;
+    text-transform:uppercase; color:var(--accent-ink); margin:0 0 20px; }
+  .why p { color:var(--muted); font-size:16.5px; line-height:1.6; margin:0 0 16px; }
+  .why .lead { color:var(--ink); font-size:20px; line-height:1.5; font-weight:500; }
+  .why em { color:var(--accent-ink); font-style:italic; }
+  .why .punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
+    font-size:clamp(23px,3.2vw,31px); color:var(--ink); margin:26px 0; }
   .why .punch b { color:var(--accent); }
+  .why p:last-child { margin-bottom:0; }
 
   footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
@@ -191,7 +199,7 @@
     .reveal { opacity:0; transform:translateY(12px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
     .d1{ animation-delay:.06s; } .d2{ animation-delay:.15s; } .d3{ animation-delay:.24s; } .d4{ animation-delay:.33s; }
     @keyframes rise { to { opacity:1; transform:none; } }
-    /* the job drops into the active directory as each primitive runs — JS-driven */
+    /* the job drops into the active directory as each primitive runs, JS-driven */
     .stage[data-phase] .branch .bslot > * { animation:jdrop .45s ease both; }
     @keyframes jdrop { from { opacity:0; transform:translateY(-9px); } to { opacity:1; transform:none; } }
   }
@@ -214,7 +222,8 @@
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <h2 class="sec-title">How a job moves through a workspace</h2>
+    <p class="how-lead">The work you submit gets an id. A running daemon picks up the job, or the next one does, and returns the result to the same workspace.</p>
+    <p class="how-punch">Files in. Files out.</p>
 
     <div class="stage" data-phase="1">
       <div class="cmds-col">
@@ -228,7 +237,7 @@
         </div>
         <div class="cline" data-step="3">
           <code><b>$</b>flw ./workspace "$job"</code>
-          <p>Read the output like a file — whenever you come back.</p>
+          <p>Read the output like a file, whenever you come back.</p>
         </div>
       </div>
 
@@ -239,7 +248,6 @@
           <div class="bslot">
             <div class="jfolder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
             <div class="jfile">prompt.txt</div>
-            <div class="jfile">meta.json</div>
           </div>
         </div>
         <div class="barrow">↓</div>
@@ -248,7 +256,6 @@
           <div class="bslot">
             <div class="jfolder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
             <div class="jfile">prompt.txt</div>
-            <div class="jfile">meta.json</div>
           </div>
         </div>
         <div class="barrow">↓</div>
@@ -257,7 +264,6 @@
           <div class="bslot">
             <div class="jfolder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
             <div class="jfile">prompt.txt</div>
-            <div class="jfile">meta.json</div>
             <div class="jfile res">result.txt</div>
           </div>
         </div>
@@ -268,11 +274,13 @@
 
 <section class="why">
   <div class="wrap">
-    <h2>Why this exists</h2>
-    <p>I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI — submit work when I had a minute, read the result when I had another.</p>
-    <p class="punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
-    <p>No chat. No server. No database. Just files, directories, and processes — the stack already on your machine.</p>
-    <p>Use it as-is, build something on top, or hand it to an agent. It's all simple CLI.</p>
+    <div class="why-card">
+      <p class="label">Why this exists</p>
+      <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI. Submit work when I had a minute, read the result when I had another.</p>
+      <p class="punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
+      <p>No chat. No server. No database. Just files, directories, and processes, the stack already on your machine.</p>
+      <p>Use it as-is, build something on top, or hand it to an agent. It's all simple CLI.</p>
+    </div>
   </div>
 </section>
 
