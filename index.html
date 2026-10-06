@@ -173,6 +173,16 @@
   .closing .sub { font-family:var(--sans); font-weight:400; font-size:16px; color:var(--muted);
     letter-spacing:0; margin-top:16px; max-width:40ch; }
 
+  .why { text-align:center; }
+  .why .wrap { max-width:640px; }
+  .why h2 { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
+    font-size:clamp(22px,3vw,30px); margin:0 0 22px; }
+  .why p { color:var(--muted); font-size:18px; line-height:1.6; margin:0 auto 18px; max-width:52ch; }
+  .why em { color:var(--ink); font-style:italic; }
+  .why .punch { color:var(--ink); font-family:var(--display); font-weight:800;
+    font-size:clamp(21px,3vw,28px); letter-spacing:-0.02em; margin:28px auto; }
+  .why .punch b { color:var(--accent); }
+
   footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
   footer .mono { font-family:var(--mono); font-size:12.5px; color:var(--faint); }
@@ -204,7 +214,7 @@
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <h2 class="sec-title">Three primitives to make your work central &amp; turn the model into a utility.</h2>
+    <h2 class="sec-title">How a job moves through a workspace</h2>
 
     <div class="stage" data-phase="1">
       <div class="cmds-col">
@@ -256,6 +266,15 @@
   </div>
 </section>
 
+<section class="why">
+  <div class="wrap">
+    <h2>Why this exists</h2>
+    <p>I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI — submit work when I had a minute, read the result when I had another.</p>
+    <p class="punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
+    <p>No chat. No server. No database. Just files, directories, and processes — the stack already on your machine.</p>
+    <p>Use it as-is, build something on top, or hand it to an agent. It's all simple CLI.</p>
+  </div>
+</section>
 
 <footer>
   <div class="wrap">
