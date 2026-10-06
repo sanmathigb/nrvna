@@ -59,16 +59,15 @@
   @media (max-width:640px){ .topnav{ display:none; } }
 
   /* hero */
-  .hero { padding:92px 0 46px; }
-  .eyebrow { font-family:var(--mono); font-size:12.5px; letter-spacing:0.04em; color:var(--faint); margin:0 0 22px; }
+  .hero { padding:80px 0 34px; text-align:center; }
   .hero h1 {
     font-family:var(--display); font-weight:800; letter-spacing:-0.045em;
-    font-size:clamp(46px, 7.2vw, 84px); line-height:0.94; margin:0 0 22px; max-width:15ch;
+    font-size:clamp(64px, 11vw, 124px); line-height:1; margin:0 0 18px;
   }
-  .hero h1 .soft { color:var(--muted); }
-  .lede { font-size:21px; color:var(--muted); max-width:46ch; margin:0 0 22px; }
-  .hero-tags { font-family:var(--mono); font-size:13px; color:var(--faint); letter-spacing:0.02em; margin:0 0 30px; }
-  .cta-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .hero h1 .dot { color:var(--accent); }
+  .hero-def { font-family:var(--sans); font-size:clamp(18px, 2.8vw, 27px); color:var(--muted);
+    max-width:30ch; margin:0 auto 32px; line-height:1.35; }
+  .cta-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
   .btn { font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:-0.01em;
     padding:13px 22px; border-radius:var(--radius); border:1px solid transparent;
     display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
@@ -98,22 +97,23 @@
   /* pipeline: input/ready -> processing -> output, built up one stage at a time, centred */
   .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 30px; }
   .pipe { display:flex; align-items:center; justify-content:center; margin:34px auto 0; min-height:176px; }
-  .pstage { flex:0 0 192px; }
+  .pstage { flex:0 0 224px; }
+  #how .sec-label, #how .sec-title, #how .sec-note, #how .pull { text-align:center; margin-left:auto; margin-right:auto; }
   .pstage, .parrow { display:none; }
   .pipe.p1 .s-in,
   .pipe.p2 .s-in, .pipe.p2 .a-1, .pipe.p2 .s-proc,
   .pipe.p3 .s-in, .pipe.p3 .a-1, .pipe.p3 .s-proc, .pipe.p3 .a-2, .pipe.p3 .s-out { display:block; }
-  .ps-bin { min-height:118px; margin:0 8px; border:1px solid var(--line); border-radius:12px;
+  .ps-bin { min-height:140px; margin:0 8px; border:1px solid var(--line); border-radius:12px;
     display:flex; flex-direction:column; align-items:center; gap:9px; padding:14px 10px;
     transition:border-color .4s ease, background .4s ease; }
   .pipe.p2 .s-proc .ps-bin { border-color:color-mix(in srgb,var(--st-proc) 45%,var(--line)); background:color-mix(in srgb,var(--st-proc) 7%,transparent); }
   .pipe.p3 .s-out .ps-bin { border-color:var(--st-done); background:var(--accent-soft); }
-  .ps-label { font-family:var(--mono); font-size:13px; color:var(--muted); white-space:nowrap; transition:color .4s ease; }
+  .ps-label { font-family:var(--mono); font-size:14px; color:var(--muted); white-space:nowrap; transition:color .4s ease; }
   .pipe.p2 .s-proc .ps-label { color:var(--st-proc); }
   .pipe.p3 .s-out .ps-label { color:var(--st-done); }
   .jobcard { opacity:0; transition:opacity .4s ease; display:flex; flex-direction:column; align-items:center; gap:5px; }
   .pipe.p1 .s-in .jobcard, .pipe.p2 .s-proc .jobcard, .pipe.p3 .s-out .jobcard { opacity:1; }
-  .jc-name { font-family:var(--mono); font-weight:700; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:8px; }
+  .jc-name { font-family:var(--mono); font-weight:700; font-size:15px; color:var(--ink); display:flex; align-items:center; gap:8px; }
   .jc-name .ic { width:20px; height:15px; flex:none; fill:var(--st-queue); }
   .pipe.p2 .s-proc .jc-name .ic { fill:var(--st-proc); }
   .pipe.p3 .s-out .jc-name .ic { fill:var(--st-done); }
@@ -203,50 +203,20 @@
   <div class="wrap">
     <div class="brand">nrvna<span class="dot">.</span></div>
     <nav class="topnav">
-      <a href="#what">/what-you-get</a>
-      <a href="#how">/how-it-works</a>
-      <a href="#start">/start</a>
+      <a href="https://github.com/sanmathigb/nrvna">GitHub</a>
     </nav>
   </div>
 </div>
 
 <header class="hero">
   <div class="wrap">
-    <p class="eyebrow reveal">Unix-like primitives for durable local inference</p>
-    <h1 class="reveal d1"><span class="soft">The model is a utility.</span><br>Your work is central.</h1>
-    <p class="lede reveal d2">Local AI as background jobs. Submit, walk away, read the result later.</p>
-    <p class="hero-tags reveal d3">no always-on server&ensp;·&ensp;no database</p>
-    <div class="cta-row reveal d4">
-      <a class="btn btn-primary" href="#start">Quickstart →</a>
-      <a class="btn btn-ghost" href="https://github.com/sanmathigb/nrvna">GitHub</a>
+    <h1 class="reveal">nrvna<span class="dot">.</span></h1>
+    <p class="hero-def reveal d1">Unix-like primitives for durable local inference.</p>
+    <div class="cta-row reveal d2">
+      <a class="btn btn-primary" href="https://github.com/sanmathigb/nrvna">Get it on GitHub →</a>
     </div>
   </div>
 </header>
-
-<!-- WHAT YOU GET -->
-<section id="what">
-  <div class="wrap">
-    <p class="sec-label">/what-you-get</p>
-    <h2 class="sec-title">Files in. Files out.</h2>
-    <div class="grid">
-      <div class="card">
-        <p class="k">your tools</p>
-        <h3>grep still works</h3>
-        <p>Results are plain files. Search them, pipe them, back them up.</p>
-      </div>
-      <div class="card">
-        <p class="k">at least once</p>
-        <h3>Survives a crash</h3>
-        <p>A new run picks up the job — not from the last word.</p>
-      </div>
-      <div class="card">
-        <p class="k">any order</p>
-        <h3>Work first or model first</h3>
-        <p>Submit before the model runs, or after.</p>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- HOW IT WORKS -->
 <section id="how">
@@ -296,43 +266,10 @@
   </div>
 </section>
 
-<!-- THREE COMMANDS -->
-<section id="commands">
-  <div class="wrap">
-    <p class="sec-label">/three-primitives</p>
-    <h2 class="sec-title">Models get wrk. You get flw.</h2>
-    <p class="sec-note">You own both ends.</p>
-    <div class="cmds">
-      <div class="cmd"><div class="name">wrk</div><p>You give the model work.</p></div>
-      <div class="cmd"><div class="name">nrvnad</div><p>The model runs it, then exits.</p></div>
-      <div class="cmd"><div class="name">flw</div><p>The result comes back to you.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- START -->
-<section id="start">
-  <div class="wrap">
-    <p class="sec-label">/start</p>
-    <h2 class="sec-title">Submit, run, read</h2>
-    <div class="term">
-      <div class="term-bar"><i></i><i></i><i></i></div>
-<pre><span class="c"># submit now — no model has to be running</span>
-<span class="p">$</span> job=$(wrk ./workspace <span class="v">"Reply with exactly: ready"</span>)
-
-<span class="c"># load a model, drain the queue, then exit</span>
-<span class="p">$</span> nrvnad ./models/model.gguf ./workspace <span class="v">--drain</span>
-
-<span class="c"># read the saved result</span>
-<span class="p">$</span> flw ./workspace <span class="v">"$job"</span>
-<span class="o">ready</span></pre>
-    </div>
-  </div>
-</section>
-
 <section class="closing">
   <div class="wrap">
-    <p>The work outlives the process.</p>
+    <p>The model is a utility. Your work is central.</p>
+    <p class="sub">The work outlives the process.</p>
   </div>
 </section>
 
