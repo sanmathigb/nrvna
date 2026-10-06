@@ -108,9 +108,8 @@
   .job .jname { font-family:var(--mono); font-size:12.5px; font-weight:700; fill:var(--ink); }
   .job .fcont { font-family:var(--mono); font-size:11px; font-weight:500; fill:var(--muted); }
   .job.is-done .fcont { fill:var(--accent-ink); }
-  .g-proc, .g-out, .g-fail { opacity:0; transition:opacity .5s ease; }
-  .stage svg.lvl2 .g-proc { opacity:1; }
-  .stage svg.lvl3 .g-proc, .stage svg.lvl3 .g-out, .stage svg.lvl3 .g-fail { opacity:1; }
+  /* full pipeline always visible so the canvas never looks empty; stages activate as the job arrives */
+  .g-proc, .g-out, .g-fail { opacity:1; }
   .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
     padding:26px; min-height:170px; display:flex; align-items:flex-start; }
   .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
