@@ -103,6 +103,9 @@
   .jv-name .ic { width:22px; height:17px; flex:none; fill:var(--st-queue); transition:fill .4s ease; }
   .jobview.p-proc .jv-name .ic { fill:var(--st-proc); }
   .jobview.p-done .jv-name .ic { fill:var(--st-done); }
+  .jv-dir { color:var(--muted); transition:color .4s ease; }
+  .jobview.p-proc .jv-dir { color:var(--st-proc); }
+  .jobview.p-done .jv-dir { color:var(--st-done); }
   .jv-status .st { font-family:var(--mono); font-size:12px; padding:4px 11px; border-radius:999px; white-space:nowrap; }
   .st-queue { color:var(--st-queue); background:color-mix(in srgb, var(--st-queue) 13%, transparent); }
   .st-proc  { color:var(--st-proc);  background:color-mix(in srgb, var(--st-proc) 15%, transparent); }
@@ -247,7 +250,7 @@
         <div class="jv-head">
           <span class="jv-name">
             <svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>
-            job_id/
+            <span class="jv-dir">input/ready/</span>job_id/
           </span>
           <span class="jv-status"></span>
         </div>
@@ -317,6 +320,7 @@
     if (!stage) return;
     var jobview = stage.querySelector('.jobview');
     var status  = stage.querySelector('.jv-status');
+    var dir     = stage.querySelector('.jv-dir');
     var body    = stage.querySelector('.console-body');
 
     var WRK = 'wrk ./workspace "&lt;prompt&gt;"';
@@ -328,17 +332,18 @@
 
     function phase(p) {
       jobview.className = 'jobview ' + (p === 1 ? 'p-queue' : p === 2 ? 'p-proc' : 'p-done show-result');
-      status.innerHTML = p === 1 ? '<span class="st st-queue">created</span>'
+      status.innerHTML = p === 1 ? '<span class="st st-queue">queued</span>'
                        : p === 2 ? '<span class="st st-proc">running…</span>'
                                  : '<span class="st st-done">done ✓</span>';
+      dir.textContent  = p === 1 ? 'input/ready/' : p === 2 ? 'processing/' : 'output/';
     }
 
     var steps = [
-      { p:1, html: cmd(WRK, true) + note('you submit a prompt  ·  job_id/ holds prompt.txt'), hold:2800 },
-      { p:2, html: cmd(WRK) + cmd(NRV, true) + note('the daemon runs against the workspace'), hold:2800 },
-      { p:3, html: cmd(WRK) + cmd(NRV, true) + note('result.txt appears inside job_id/'),     hold:2600 },
-      { p:3, html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),  hold:2800 },
-      { p:3, html: recipe,                                                                     hold:3600 }
+      { p:1, html: cmd(WRK, true) + note('you submit  ·  job_id/ lands in input/ready/'),        hold:2800 },
+      { p:2, html: cmd(WRK) + cmd(NRV, true) + note('the daemon moves it to processing/'),       hold:2800 },
+      { p:3, html: cmd(WRK) + cmd(NRV, true) + note('result.txt is written  ·  now in output/'), hold:2600 },
+      { p:3, html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),     hold:2800 },
+      { p:3, html: recipe,                                                                        hold:3600 }
     ];
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
