@@ -94,56 +94,31 @@
   .card h3 { font-family:var(--display); font-weight:800; font-size:23px; margin:0 0 10px; letter-spacing:-0.03em; line-height:1.06; }
   .card p { margin:0; color:var(--muted); font-size:15px; line-height:1.55; }
 
-  /* pipeline: input/ready -> processing -> output, built up one stage at a time, centred */
-  .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 30px; }
-  .pipe { display:flex; align-items:center; justify-content:center; margin:34px auto 0; min-height:176px; }
-  .pstage { flex:0 0 224px; }
+  /* three independent primitives — one row each, built up one at a time, then loop */
   #how .sec-label, #how .sec-title, #how .sec-note, #how .pull { text-align:center; margin-left:auto; margin-right:auto; }
-  .pstage, .parrow { display:none; }
-  .pipe.p1 .s-in,
-  .pipe.p2 .s-in, .pipe.p2 .a-1, .pipe.p2 .s-proc,
-  .pipe.p3 .s-in, .pipe.p3 .a-1, .pipe.p3 .s-proc, .pipe.p3 .a-2, .pipe.p3 .s-out { display:block; }
-  .ps-bin { min-height:140px; margin:0 8px; border:1px solid var(--line); border-radius:12px;
-    display:flex; flex-direction:column; align-items:center; gap:9px; padding:14px 10px;
-    transition:border-color .4s ease, background .4s ease; }
-  .pipe.p2 .s-proc .ps-bin { border-color:color-mix(in srgb,var(--st-proc) 45%,var(--line)); background:color-mix(in srgb,var(--st-proc) 7%,transparent); }
-  .pipe.p3 .s-out .ps-bin { border-color:var(--st-done); background:var(--accent-soft); }
-  .ps-label { font-family:var(--mono); font-size:14px; color:var(--muted); white-space:nowrap; transition:color .4s ease; }
-  .pipe.p2 .s-proc .ps-label { color:var(--st-proc); }
-  .pipe.p3 .s-out .ps-label { color:var(--st-done); }
-  .jobcard { opacity:0; transition:opacity .4s ease; display:flex; flex-direction:column; align-items:center; gap:5px; }
-  .pipe.p1 .s-in .jobcard, .pipe.p2 .s-proc .jobcard, .pipe.p3 .s-out .jobcard { opacity:1; }
-  .jc-name { font-family:var(--mono); font-weight:700; font-size:15px; color:var(--ink); display:flex; align-items:center; gap:8px; }
-  .jc-name .ic { width:20px; height:15px; flex:none; fill:var(--st-queue); }
-  .pipe.p2 .s-proc .jc-name .ic { fill:var(--st-proc); }
-  .pipe.p3 .s-out .jc-name .ic { fill:var(--st-done); }
-  .jc-file { font-family:var(--mono); font-size:12.5px; color:var(--muted); }
-  .jc-file.res { color:var(--accent-ink); }
-  .parrow { flex:0 0 52px; position:relative; height:12px; }
-  .parrow::before { content:""; position:absolute; left:2px; right:9px; top:5px; height:2px;
-    background-image:repeating-linear-gradient(90deg, var(--faint) 0 6px, transparent 6px 12px); background-size:12px 2px; }
-  .parrow::after { content:""; position:absolute; right:0; top:1px; border:5px solid transparent; border-left-color:var(--faint); }
-  @media (max-width:640px) {
-    .pipe { flex-direction:column; min-height:0; }
-    .pstage { flex:0 0 auto; width:100%; max-width:300px; }
-    .ps-bin { margin:0; }
-    .parrow { flex:0 0 auto; width:38px; height:12px; transform:rotate(90deg); margin:4px 0; }
-  }
-  .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
-    padding:26px; min-height:170px; display:flex; align-items:flex-start; }
-  .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
-  .console .cmd { background:none; border:0; padding:0; border-radius:0;
-    font-size:20px; color:#8A93A3; font-weight:400; letter-spacing:-0.01em; white-space:nowrap; overflow-x:auto; }
-  .console .cmd + .cmd { margin-top:14px; }
-  .console .cmd.active { color:#FFFFFF; font-weight:600; }
-  .console .cmd b { color:#2CCB92; margin-right:12px; font-weight:700; }
-  .console .note { margin-top:18px; font-size:15px; color:#949FB0; }
-  .console .note.ok { color:#2CCB92; }
-  @media (max-width:640px) {
-    .console { padding:18px 16px; min-height:150px; }
-    .console .cmd { font-size:13.5px; white-space:normal; overflow-wrap:anywhere; overflow-x:visible; line-height:1.5; }
-    .console .cmd b { margin-right:8px; }
-    .console .note { font-size:13px; margin-top:14px; }
+  .rows { display:flex; flex-direction:column; gap:18px; margin:40px auto 0; max-width:880px; }
+  .prow { display:none; grid-template-columns:1.05fr 1fr; gap:34px; align-items:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:30px 34px; }
+  .rows.r1 .pr-1,
+  .rows.r2 .pr-1, .rows.r2 .pr-2,
+  .rows.r3 .pr-1, .rows.r3 .pr-2, .rows.r3 .pr-3 { display:grid; }
+  .pr-cmd { font-family:var(--mono); font-size:19px; color:var(--ink); white-space:nowrap; overflow-x:auto; }
+  .pr-cmd b { color:var(--accent); margin-right:10px; font-weight:700; }
+  .pr-note { margin:16px 0 0; color:var(--muted); font-size:16px; line-height:1.5; }
+  .pr-vis { display:flex; justify-content:center; }
+  .dcard { width:100%; max-width:300px; border:1px solid var(--line); border-radius:12px; background:var(--paper); overflow:hidden; }
+  .dc-dir { font-family:var(--mono); font-size:13px; color:var(--muted); padding:11px 16px; border-bottom:1px solid var(--line); }
+  .dc-job { padding:14px 16px 16px; display:flex; flex-direction:column; gap:9px; }
+  .dc-folder { font-family:var(--mono); font-weight:700; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:8px; }
+  .dc-folder .ic { width:20px; height:15px; flex:none; fill:var(--st-queue); }
+  .dc-file { font-family:var(--mono); font-size:13px; color:var(--muted); padding-left:3px; }
+  .dc-file.res { color:var(--accent-ink); }
+  .pr-2 .dc-dir { color:var(--st-proc); } .pr-2 .dc-folder .ic { fill:var(--st-proc); }
+  .pr-3 .dcard { border-color:var(--st-done); } .pr-3 .dc-dir { color:var(--st-done); } .pr-3 .dc-folder .ic { fill:var(--st-done); }
+  @media (max-width:720px) {
+    .prow { grid-template-columns:1fr; gap:20px; padding:24px; }
+    .pr-cmd { font-size:14px; white-space:normal; overflow-wrap:anywhere; }
+    .dcard { max-width:100%; }
   }
   .legend { display:flex; flex-wrap:wrap; gap:20px; margin-top:22px; padding-top:20px;
     border-top:1px solid var(--line); font-family:var(--mono); font-size:12.5px; color:var(--muted); }
@@ -191,9 +166,9 @@
     .reveal { opacity:0; transform:translateY(12px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
     .d1{ animation-delay:.06s; } .d2{ animation-delay:.15s; } .d3{ animation-delay:.24s; } .d4{ animation-delay:.33s; }
     @keyframes rise { to { opacity:1; transform:none; } }
-    /* the pipeline is JS-driven (step storyboard) — see the script near the end */
-    .parrow::before { animation:aflow 1s linear infinite; }
-    @keyframes aflow { to { background-position:12px 0; } }
+    /* the rows are JS-driven (build-up storyboard) — see the script near the end */
+    .prow { animation:rowin .5s ease both; }
+    @keyframes rowin { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
   }
 </style>
 </head>
@@ -221,47 +196,61 @@
 <section id="how">
   <div class="wrap">
     <p class="sec-label">/how-it-works</p>
-    <h2 class="sec-title">State is location</h2>
-    <p class="sec-note">A workspace is a directory. A job is a folder. Its place is its state.</p>
+    <h2 class="sec-title">Three primitives. Fire and forget.</h2>
+    <p class="sec-note">wrk, nrvnad, and flw are independent — run each anytime, anywhere, in any order.</p>
 
-    <div class="stage">
-      <div class="console" aria-hidden="true"><div class="console-body"><div class="cmd"><b>$</b>wrk ./workspace "&lt;prompt&gt;"</div><div class="cmd"><b>$</b>nrvnad ./models/model.gguf ./workspace</div><div class="cmd"><b>$</b>flw ./workspace "$job"</div></div></div>
+    <div class="rows r1">
 
-      <div class="pipe p1">
-        <div class="pstage s-in">
-          <div class="ps-bin">
-            <div class="ps-label">input/ready/</div>
-            <div class="jobcard">
-              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
-              <div class="jc-file">prompt.txt</div>
-            </div>
-          </div>
+      <div class="prow pr-1">
+        <div class="pr-text">
+          <div class="pr-cmd"><b>$</b>wrk ./workspace "&lt;prompt&gt;"</div>
+          <p class="pr-note">Submit work anytime — no daemon has to be running. It waits as a job.</p>
         </div>
-        <div class="parrow a-1"></div>
-        <div class="pstage s-proc">
-          <div class="ps-bin">
-            <div class="ps-label">processing/</div>
-            <div class="jobcard">
-              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
-              <div class="jc-file">prompt.txt</div>
-            </div>
-          </div>
-        </div>
-        <div class="parrow a-2"></div>
-        <div class="pstage s-out">
-          <div class="ps-bin">
-            <div class="ps-label">output/</div>
-            <div class="jobcard">
-              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
-              <div class="jc-file">prompt.txt</div>
-              <div class="jc-file res">result.txt</div>
+        <div class="pr-vis">
+          <div class="dcard">
+            <div class="dc-dir">input/ready/</div>
+            <div class="dc-job">
+              <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="dc-file">prompt.txt</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <p class="pull">The workspace remembers.<br><b>The model does not.</b></p>
+      <div class="prow pr-2">
+        <div class="pr-text">
+          <div class="pr-cmd"><b>$</b>nrvnad ./models/model.gguf ./workspace</div>
+          <p class="pr-note">Start the daemon whenever, wherever. It claims the waiting job and runs it.</p>
+        </div>
+        <div class="pr-vis">
+          <div class="dcard">
+            <div class="dc-dir">processing/</div>
+            <div class="dc-job">
+              <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="dc-file">prompt.txt</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="prow pr-3">
+        <div class="pr-text">
+          <div class="pr-cmd"><b>$</b>flw ./workspace "$job"</div>
+          <p class="pr-note">Come back whenever and read the result straight off disk.</p>
+        </div>
+        <div class="pr-vis">
+          <div class="dcard">
+            <div class="dc-dir">output/</div>
+            <div class="dc-job">
+              <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="dc-file">prompt.txt</div>
+              <div class="dc-file res">result.txt</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </section>
 
@@ -280,54 +269,29 @@
 </footer>
 
 <script>
-  // The commands build up top; the pipeline below grows one stage at a time —
-  // input/ready -> processing -> output — the job moving through. Loops when in view.
+  // Three independent primitives, one row each — the rows build up (wrk, then
+  // nrvnad, then flw), then all three stay, then it loops. Starts when in view.
   (function () {
-    var stage = document.querySelector('.stage');
-    if (!stage) return;
-    var pipe = stage.querySelector('.pipe');
-    var body = stage.querySelector('.console-body');
+    var rows = document.querySelector('#how .rows');
+    if (!rows) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { rows.className = 'rows r3'; return; }
 
-    var WRK = 'wrk ./workspace "&lt;prompt&gt;"';
-    var NRV = 'nrvnad ./models/model.gguf ./workspace';
-    var FLW = 'flw ./workspace "$job"';
-    function cmd(c, active) { return '<div class="cmd' + (active ? ' active' : '') + '"><b>$</b>' + c + '</div>'; }
-    function note(t, ok) { return '<div class="note' + (ok ? ' ok' : '') + '">' + t + '</div>'; }
-    var recipe = cmd(WRK) + cmd(NRV) + cmd(FLW);
-
-    function phase(p) { pipe.className = 'pipe p' + p; }
-
-    var steps = [
-      { p:1, html: cmd(WRK, true) + note('you submit  ·  job_id/ lands in input/ready/'),        hold:2800 },
-      { p:2, html: cmd(WRK) + cmd(NRV, true) + note('the daemon moves it to processing/'),       hold:2800 },
-      { p:3, html: cmd(WRK) + cmd(NRV, true) + note('result.txt is written  ·  now in output/'), hold:2600 },
-      { p:3, html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),     hold:2800 },
-      { p:3, html: recipe,                                                                        hold:3600 }
-    ];
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      phase(3); body.innerHTML = recipe; return;
-    }
-
-    function poster() { phase(1); body.innerHTML = steps[0].html; }
-    poster();
-
+    var seq = ['r1', 'r2', 'r3'];
+    var hold = { r1: 1900, r2: 1900, r3: 3600 };
     var i = 0, timer = null;
     function run() {
-      var s = steps[i];
-      phase(s.p);
-      body.style.opacity = 0;
-      setTimeout(function () { body.innerHTML = s.html; body.style.opacity = 1; }, 220);
-      i = (i + 1) % steps.length;
-      timer = setTimeout(run, s.hold);
+      var s = seq[i];
+      rows.className = 'rows ' + s;
+      i = (i + 1) % seq.length;
+      timer = setTimeout(run, hold[s]);
     }
+    rows.className = 'rows r1';   // poster: first row only
 
-    // Begin from step 1 whenever the job view scrolls into view, then loop while visible.
     function start() { clearTimeout(timer); i = 0; run(); }
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) { if (e.isIntersecting) start(); });
-      }, { threshold: 0.4 }).observe(stage);
+      }, { threshold: 0.3 }).observe(rows);
     } else { setTimeout(start, 400); }
   })();
 </script>
