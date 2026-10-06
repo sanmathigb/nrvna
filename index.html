@@ -95,28 +95,40 @@
   .card h3 { font-family:var(--display); font-weight:800; font-size:23px; margin:0 0 10px; letter-spacing:-0.03em; line-height:1.06; }
   .card p { margin:0; color:var(--muted); font-size:15px; line-height:1.55; }
 
-  /* job view: one job_id/ folder whose contents change as the commands run */
+  /* pipeline: input/ready -> processing -> output, built up one stage at a time, centred */
   .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 30px; }
-  .jobview { max-width:440px; margin:32px auto 0; background:var(--paper); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
-  .jv-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); }
-  .jv-name { font-family:var(--mono); font-weight:700; font-size:16px; letter-spacing:-0.01em; display:flex; align-items:center; gap:10px; color:var(--ink); }
-  .jv-name .ic { width:22px; height:17px; flex:none; fill:var(--st-queue); transition:fill .4s ease; }
-  .jobview.p-proc .jv-name .ic { fill:var(--st-proc); }
-  .jobview.p-done .jv-name .ic { fill:var(--st-done); }
-  .jv-dir { color:var(--muted); transition:color .4s ease; }
-  .jobview.p-proc .jv-dir { color:var(--st-proc); }
-  .jobview.p-done .jv-dir { color:var(--st-done); }
-  .jv-status .st { font-family:var(--mono); font-size:12px; padding:4px 11px; border-radius:999px; white-space:nowrap; }
-  .st-queue { color:var(--st-queue); background:color-mix(in srgb, var(--st-queue) 13%, transparent); }
-  .st-proc  { color:var(--st-proc);  background:color-mix(in srgb, var(--st-proc) 15%, transparent); }
-  .st-done  { color:var(--st-done);  background:var(--accent-soft); }
-  .jv-files { padding:16px 20px 20px; display:flex; flex-direction:column; gap:12px; }
-  .jv-file { font-family:var(--mono); font-size:15px; color:var(--muted); display:flex; align-items:center; gap:10px; }
-  .jv-file .ic-file { width:14px; height:18px; flex:none; fill:none; stroke:var(--faint); stroke-width:1.6; }
-  .jv-result { max-height:0; opacity:0; overflow:hidden; transform:translateY(-4px);
-    transition:max-height .45s ease, opacity .45s ease, transform .45s ease; }
-  .jobview.show-result .jv-result { max-height:34px; opacity:1; transform:none; color:var(--accent-ink); }
-  .jobview.show-result .jv-result .ic-file { stroke:var(--st-done); }
+  .pipe { display:flex; align-items:center; justify-content:center; margin:34px auto 0; min-height:176px; }
+  .pstage { flex:0 0 192px; }
+  .pstage, .parrow { display:none; }
+  .pipe.p1 .s-in,
+  .pipe.p2 .s-in, .pipe.p2 .a-1, .pipe.p2 .s-proc,
+  .pipe.p3 .s-in, .pipe.p3 .a-1, .pipe.p3 .s-proc, .pipe.p3 .a-2, .pipe.p3 .s-out { display:block; }
+  .ps-bin { min-height:118px; margin:0 8px; border:1px solid var(--line); border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; gap:9px; padding:14px 10px;
+    transition:border-color .4s ease, background .4s ease; }
+  .pipe.p2 .s-proc .ps-bin { border-color:color-mix(in srgb,var(--st-proc) 45%,var(--line)); background:color-mix(in srgb,var(--st-proc) 7%,transparent); }
+  .pipe.p3 .s-out .ps-bin { border-color:var(--st-done); background:var(--accent-soft); }
+  .ps-label { font-family:var(--mono); font-size:13px; color:var(--muted); white-space:nowrap; transition:color .4s ease; }
+  .pipe.p2 .s-proc .ps-label { color:var(--st-proc); }
+  .pipe.p3 .s-out .ps-label { color:var(--st-done); }
+  .jobcard { opacity:0; transition:opacity .4s ease; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .pipe.p1 .s-in .jobcard, .pipe.p2 .s-proc .jobcard, .pipe.p3 .s-out .jobcard { opacity:1; }
+  .jc-name { font-family:var(--mono); font-weight:700; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:8px; }
+  .jc-name .ic { width:20px; height:15px; flex:none; fill:var(--st-queue); }
+  .pipe.p2 .s-proc .jc-name .ic { fill:var(--st-proc); }
+  .pipe.p3 .s-out .jc-name .ic { fill:var(--st-done); }
+  .jc-file { font-family:var(--mono); font-size:12.5px; color:var(--muted); }
+  .jc-file.res { color:var(--accent-ink); }
+  .parrow { flex:0 0 52px; position:relative; height:12px; }
+  .parrow::before { content:""; position:absolute; left:2px; right:9px; top:5px; height:2px;
+    background-image:repeating-linear-gradient(90deg, var(--faint) 0 6px, transparent 6px 12px); background-size:12px 2px; }
+  .parrow::after { content:""; position:absolute; right:0; top:1px; border:5px solid transparent; border-left-color:var(--faint); }
+  @media (max-width:640px) {
+    .pipe { flex-direction:column; min-height:0; }
+    .pstage { flex:0 0 auto; width:100%; max-width:300px; }
+    .ps-bin { margin:0; }
+    .parrow { flex:0 0 auto; width:38px; height:12px; transform:rotate(90deg); margin:4px 0; }
+  }
   .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
     padding:26px; min-height:170px; display:flex; align-items:flex-start; }
   .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
@@ -179,9 +191,9 @@
     .reveal { opacity:0; transform:translateY(12px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
     .d1{ animation-delay:.06s; } .d2{ animation-delay:.15s; } .d3{ animation-delay:.24s; } .d4{ animation-delay:.33s; }
     @keyframes rise { to { opacity:1; transform:none; } }
-    /* the job view is JS-driven (step storyboard) — see the script near the end */
-    .st-proc { animation:pulse 1.6s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+    /* the pipeline is JS-driven (step storyboard) — see the script near the end */
+    .parrow::before { animation:aflow 1s linear infinite; }
+    @keyframes aflow { to { background-position:12px 0; } }
   }
 </style>
 </head>
@@ -246,17 +258,36 @@
     <div class="stage">
       <div class="console" aria-hidden="true"><div class="console-body"><div class="cmd"><b>$</b>wrk ./workspace "&lt;prompt&gt;"</div><div class="cmd"><b>$</b>nrvnad ./models/model.gguf ./workspace</div><div class="cmd"><b>$</b>flw ./workspace "$job"</div></div></div>
 
-      <div class="jobview p-queue">
-        <div class="jv-head">
-          <span class="jv-name">
-            <svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>
-            <span class="jv-dir">input/ready/</span>job_id/
-          </span>
-          <span class="jv-status"></span>
+      <div class="pipe p1">
+        <div class="pstage s-in">
+          <div class="ps-bin">
+            <div class="ps-label">input/ready/</div>
+            <div class="jobcard">
+              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="jc-file">prompt.txt</div>
+            </div>
+          </div>
         </div>
-        <div class="jv-files">
-          <div class="jv-file"><svg class="ic-file" viewBox="0 0 20 24" aria-hidden="true"><path d="M3.5,1.5 h8 l5,5 v15 a1.5,1.5 0 0 1 -1.5,1.5 h-11.5 a1.5,1.5 0 0 1 -1.5,-1.5 V3 A1.5,1.5 0 0 1 3.5,1.5 z M11.5,1.5 v5 h5" stroke-linejoin="round"></path></svg><span>prompt.txt</span></div>
-          <div class="jv-file jv-result"><svg class="ic-file" viewBox="0 0 20 24" aria-hidden="true"><path d="M3.5,1.5 h8 l5,5 v15 a1.5,1.5 0 0 1 -1.5,1.5 h-11.5 a1.5,1.5 0 0 1 -1.5,-1.5 V3 A1.5,1.5 0 0 1 3.5,1.5 z M11.5,1.5 v5 h5" stroke-linejoin="round"></path></svg><span>result.txt</span></div>
+        <div class="parrow a-1"></div>
+        <div class="pstage s-proc">
+          <div class="ps-bin">
+            <div class="ps-label">processing/</div>
+            <div class="jobcard">
+              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="jc-file">prompt.txt</div>
+            </div>
+          </div>
+        </div>
+        <div class="parrow a-2"></div>
+        <div class="pstage s-out">
+          <div class="ps-bin">
+            <div class="ps-label">output/</div>
+            <div class="jobcard">
+              <div class="jc-name"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
+              <div class="jc-file">prompt.txt</div>
+              <div class="jc-file res">result.txt</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -313,15 +344,13 @@
 </footer>
 
 <script>
-  // The commands build up top; the job_id/ folder below changes to match —
-  // prompt.txt, then running, then result.txt appears inside. Loops when in view.
+  // The commands build up top; the pipeline below grows one stage at a time —
+  // input/ready -> processing -> output — the job moving through. Loops when in view.
   (function () {
     var stage = document.querySelector('.stage');
     if (!stage) return;
-    var jobview = stage.querySelector('.jobview');
-    var status  = stage.querySelector('.jv-status');
-    var dir     = stage.querySelector('.jv-dir');
-    var body    = stage.querySelector('.console-body');
+    var pipe = stage.querySelector('.pipe');
+    var body = stage.querySelector('.console-body');
 
     var WRK = 'wrk ./workspace "&lt;prompt&gt;"';
     var NRV = 'nrvnad ./models/model.gguf ./workspace';
@@ -330,13 +359,7 @@
     function note(t, ok) { return '<div class="note' + (ok ? ' ok' : '') + '">' + t + '</div>'; }
     var recipe = cmd(WRK) + cmd(NRV) + cmd(FLW);
 
-    function phase(p) {
-      jobview.className = 'jobview ' + (p === 1 ? 'p-queue' : p === 2 ? 'p-proc' : 'p-done show-result');
-      status.innerHTML = p === 1 ? '<span class="st st-queue">queued</span>'
-                       : p === 2 ? '<span class="st st-proc">running…</span>'
-                                 : '<span class="st st-done">done ✓</span>';
-      dir.textContent  = p === 1 ? 'input/ready/' : p === 2 ? 'processing/' : 'output/';
-    }
+    function phase(p) { pipe.className = 'pipe p' + p; }
 
     var steps = [
       { p:1, html: cmd(WRK, true) + note('you submit  ·  job_id/ lands in input/ready/'),        hold:2800 },
