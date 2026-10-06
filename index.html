@@ -83,7 +83,7 @@
     font-size:clamp(32px,4.8vw,52px); margin:0 0 16px; line-height:0.98; }
   .sec-note { color:var(--muted); max-width:50ch; margin:0 0 40px; font-size:18px; line-height:1.5; }
 
-  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
   @media (max-width:860px){ .grid{ grid-template-columns:repeat(2,1fr); } }
   @media (max-width:520px){ .grid{ grid-template-columns:1fr; } }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
@@ -197,8 +197,8 @@
   <div class="wrap">
     <p class="eyebrow reveal">Unix-like primitives for durable local inference</p>
     <h1 class="reveal d1"><span class="soft">The model is a utility.</span><br>Your work is central.</h1>
-    <p class="lede reveal d2">Local AI as background jobs. Submit, walk away, read the result as a file.</p>
-    <p class="hero-tags reveal d3">no always-on server&ensp;·&ensp;no database&ensp;·&ensp;files in, files out</p>
+    <p class="lede reveal d2">Local AI as background jobs. Submit, walk away, read the result later.</p>
+    <p class="hero-tags reveal d3">no always-on server&ensp;·&ensp;no database</p>
     <div class="cta-row reveal d4">
       <a class="btn btn-primary" href="#start">Quickstart →</a>
       <a class="btn btn-ghost" href="https://github.com/sanmathigb/nrvna">GitHub</a>
@@ -211,26 +211,20 @@
   <div class="wrap">
     <p class="sec-label">/what-you-get</p>
     <h2 class="sec-title">Files in. Files out.</h2>
-    <p class="sec-note">Work first or model first. Connect it with tools you already know.</p>
     <div class="grid">
       <div class="card">
-        <p class="k">walk away</p>
-        <h3>Submit and leave</h3>
-        <p>The answer is a file when you return.</p>
-      </div>
-      <div class="card">
-        <p class="k">everything is a file</p>
+        <p class="k">your tools</p>
         <h3>grep still works</h3>
-        <p>Text, image, or audio in. Plain files out.</p>
+        <p>Results are plain files. Search them, pipe them, back them up.</p>
       </div>
       <div class="card">
         <p class="k">at least once</p>
         <h3>Survives a crash</h3>
-        <p>A new run recovers the job — not from the last word.</p>
+        <p>A new run picks up the job — not from the last word.</p>
       </div>
       <div class="card">
         <p class="k">any order</p>
-        <h3>No server to babysit</h3>
+        <h3>Work first or model first</h3>
         <p>Submit before the model runs, or after.</p>
       </div>
     </div>
@@ -309,7 +303,7 @@
   <div class="wrap">
     <p class="sec-label">/three-primitives</p>
     <h2 class="sec-title">Models get wrk. You get flw.</h2>
-    <p class="sec-note">You own both ends. The model just runs in between, then exits.</p>
+    <p class="sec-note">You own both ends.</p>
     <div class="cmds">
       <div class="cmd"><div class="name">wrk</div><p>You give the model work.</p></div>
       <div class="cmd"><div class="name">nrvnad</div><p>The model runs it, then exits.</p></div>
@@ -341,7 +335,6 @@
 <section class="closing">
   <div class="wrap">
     <p>The work outlives the process.</p>
-    <p class="sub">Once the work is at the center, the intelligence doesn't have to be.</p>
   </div>
 </section>
 
