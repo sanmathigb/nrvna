@@ -62,9 +62,11 @@
   .hero { padding:80px 0 34px; text-align:center; }
   .hero h1 {
     font-family:var(--display); font-weight:700; letter-spacing:-0.025em;
-    font-size:clamp(30px, 4.8vw, 56px); line-height:1.12; margin:0 auto 32px; max-width:22ch;
+    font-size:clamp(28px, 4.8vw, 56px); line-height:1.16; margin:0 auto;
   }
-  .hero h1 .dot { color:var(--accent); }
+  .scratch { position:relative; white-space:nowrap; }
+  .scribble { position:absolute; left:-3%; bottom:-0.2em; width:106%; height:0.42em; overflow:visible; }
+  .scribble path { fill:none; stroke:var(--accent); stroke-width:3.4; stroke-linecap:round; }
   .hero-def { font-family:var(--sans); font-size:clamp(18px, 2.8vw, 27px); color:var(--muted);
     max-width:30ch; margin:0 auto 32px; line-height:1.35; }
   .cta-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
@@ -78,8 +80,8 @@
 
   section { padding:72px 0; border-top:1px solid var(--line); }
   .sec-label { font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--accent); letter-spacing:0.05em; margin:0 0 16px; }
-  .sec-title { font-family:var(--display); font-weight:800; letter-spacing:-0.04em;
-    font-size:clamp(32px,4.8vw,52px); margin:0 0 16px; line-height:0.98; }
+  .sec-title { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
+    font-size:clamp(24px,3.4vw,38px); margin:0 0 8px; line-height:1.12; max-width:22ch; }
   .sec-note { color:var(--muted); max-width:50ch; margin:0 0 40px; font-size:18px; line-height:1.5; }
 
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
@@ -108,10 +110,7 @@
   .pr-note { margin:16px 0 0; color:var(--muted); font-size:16px; line-height:1.5; }
   .pr-vis { display:flex; justify-content:center; }
   .dcard { width:100%; max-width:300px; border:1px solid var(--line); border-radius:12px; background:var(--paper); overflow:hidden; }
-  .dc-dir { font-family:var(--mono); font-size:13px; color:var(--muted); padding:11px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .dc-dot { width:7px; height:7px; border-radius:50%; background:var(--st-queue); flex:none; }
-  .pr-2 .dc-dot { background:var(--st-proc); }
-  .dc-check { color:var(--st-done); font-weight:700; }
+  .dc-dir { font-family:var(--mono); font-size:13px; color:var(--muted); padding:11px 16px; border-bottom:1px solid var(--line); }
   .dc-job { padding:14px 16px 16px; display:flex; flex-direction:column; gap:9px; }
   .dc-folder { font-family:var(--mono); font-weight:700; font-size:14px; color:var(--ink); display:flex; align-items:center; gap:8px; }
   .dc-folder .ic { width:20px; height:15px; flex:none; fill:var(--st-queue); }
@@ -173,12 +172,6 @@
     /* the rows are JS-driven (build-up storyboard) — see the script near the end */
     .prow { animation:rowin .5s ease both; }
     @keyframes rowin { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
-    /* the daemon is working — pulse the running dot */
-    .pr-2 .dc-dot { animation:rpulse 1.3s ease-in-out infinite; }
-    @keyframes rpulse { 0%,100% { opacity:.3; transform:scale(.8); } 50% { opacity:1; transform:scale(1); } }
-    /* the result arrives — slide it in after the row shows */
-    .pr-3 .dc-file.res { animation:filein .55s ease .3s both; }
-    @keyframes filein { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:none; } }
   }
 </style>
 </head>
@@ -187,27 +180,19 @@
 <div class="topbar">
   <div class="wrap">
     <div class="brand">nrvna<span class="dot">.</span></div>
-    <nav class="topnav">
-      <a href="https://github.com/sanmathigb/nrvna">GitHub</a>
-    </nav>
   </div>
 </div>
 
 <header class="hero">
   <div class="wrap">
-    <h1 class="reveal">asynchronous inference primitives for durable local AI</h1>
-    <div class="cta-row reveal d1">
-      <a class="btn btn-primary" href="https://github.com/sanmathigb/nrvna">Get it on GitHub →</a>
-    </div>
+    <h1 class="reveal">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
   </div>
 </header>
 
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <p class="sec-label">/how-it-works</p>
-    <h2 class="sec-title">Three primitives. Fire and forget.</h2>
-    <p class="sec-note">wrk, nrvnad, and flw are independent — run each anytime, anywhere, in any order.</p>
+    <h2 class="sec-title">Three primitives to make your work central &amp; turn the model into a utility.</h2>
 
     <div class="rows r1">
 
@@ -218,7 +203,7 @@
         </div>
         <div class="pr-vis">
           <div class="dcard">
-            <div class="dc-dir"><span>input/ready/</span><span class="dc-dot"></span></div>
+            <div class="dc-dir">input/ready/</div>
             <div class="dc-job">
               <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
               <div class="dc-file">prompt.txt</div>
@@ -234,7 +219,7 @@
         </div>
         <div class="pr-vis">
           <div class="dcard">
-            <div class="dc-dir"><span>processing/</span><span class="dc-dot"></span></div>
+            <div class="dc-dir">processing/</div>
             <div class="dc-job">
               <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
               <div class="dc-file">prompt.txt</div>
@@ -250,7 +235,7 @@
         </div>
         <div class="pr-vis">
           <div class="dcard">
-            <div class="dc-dir"><span>output/</span><span class="dc-check">✓</span></div>
+            <div class="dc-dir">output/</div>
             <div class="dc-job">
               <div class="dc-folder"><svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>job_id/</div>
               <div class="dc-file">prompt.txt</div>
@@ -266,8 +251,7 @@
 
 <section class="closing">
   <div class="wrap">
-    <p>The model is a utility. Your work is central.</p>
-    <p class="sub">The work outlives the process.</p>
+    <p>The work outlives the process.</p>
   </div>
 </section>
 
