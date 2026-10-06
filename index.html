@@ -108,8 +108,21 @@
   .job .jname { font-family:var(--mono); font-size:12.5px; font-weight:700; fill:var(--ink); }
   .job .fcont { font-family:var(--mono); font-size:11px; font-weight:500; fill:var(--muted); }
   .job.is-done .fcont { fill:var(--accent-ink); }
-  /* full pipeline always visible so the canvas never looks empty; stages activate as the job arrives */
+  /* Full pipeline always on the canvas (never empty). Each downstream stage stays a
+     neutral grey slot until the job reaches it, then activates with colour — that is
+     the progression: wrk -> input, then processing, then output. */
   .g-proc, .g-out, .g-fail { opacity:1; }
+  .g-proc rect, .g-out rect { fill:none; stroke:var(--line); transition:fill .5s ease, stroke .5s ease; }
+  .g-out text { fill:var(--muted); transition:fill .5s ease; }
+  .g-fail path, .g-fail rect { stroke:var(--line); transition:stroke .5s ease; }
+  .g-fail text { fill:var(--muted); transition:fill .5s ease; }
+  .proc-pulse { display:none; }
+  .stage svg.lvl2 .g-proc rect, .stage svg.lvl3 .g-proc rect { fill:color-mix(in srgb, var(--st-proc) 7%, transparent); stroke:color-mix(in srgb, var(--st-proc) 45%, var(--line)); }
+  .stage svg.lvl2 .proc-pulse, .stage svg.lvl3 .proc-pulse { display:block; }
+  .stage svg.lvl3 .g-out rect { fill:var(--accent-soft); stroke:var(--st-done); }
+  .stage svg.lvl3 .g-out text { fill:var(--st-done); }
+  .stage svg.lvl3 .g-fail path, .stage svg.lvl3 .g-fail rect { stroke:color-mix(in srgb, var(--st-fail) 45%, var(--line)); }
+  .stage svg.lvl3 .g-fail text { fill:var(--st-fail); }
   .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
     padding:26px; min-height:170px; display:flex; align-items:flex-start; }
   .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
