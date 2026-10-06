@@ -95,34 +95,25 @@
   .card h3 { font-family:var(--display); font-weight:800; font-size:23px; margin:0 0 10px; letter-spacing:-0.03em; line-height:1.06; }
   .card p { margin:0; color:var(--muted); font-size:15px; line-height:1.55; }
 
-  /* diagram */
-  .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 24px; }
-  .stage svg { width:100%; height:auto; display:block; margin-top:30px; }
-  .job { transform:translate(797px,82px); transform-box:view-box; transform-origin:0 0;
-    transition:transform .9s cubic-bezier(.4,.1,.2,1); }
-  .job .fld { fill:var(--st-done); stroke:var(--st-done); stroke-width:2; transition:fill .5s, stroke .5s; }
-  .job .chk { opacity:1; }
-  .job.is-queue .fld { fill:var(--st-queue); stroke:var(--st-queue); }
-  .job.is-proc  .fld { fill:var(--st-proc);  stroke:var(--st-proc); }
-  .job.is-queue .chk, .job.is-proc .chk { opacity:0; }
-  .job .jname { font-family:var(--mono); font-size:12.5px; font-weight:700; fill:var(--ink); }
-  .job .fcont { font-family:var(--mono); font-size:11px; font-weight:500; fill:var(--muted); }
-  .job.is-done .fcont { fill:var(--accent-ink); }
-  /* Full pipeline always on the canvas (never empty). Each downstream stage stays a
-     neutral grey slot until the job reaches it, then activates with colour — that is
-     the progression: wrk -> input, then processing, then output. */
-  .g-proc, .g-out, .g-fail { opacity:1; }
-  .g-proc rect, .g-out rect { fill:none; stroke:var(--line); transition:fill .5s ease, stroke .5s ease; }
-  .g-out text { fill:var(--muted); transition:fill .5s ease; }
-  .g-fail path, .g-fail rect { stroke:var(--line); transition:stroke .5s ease; }
-  .g-fail text { fill:var(--muted); transition:fill .5s ease; }
-  .proc-pulse { display:none; }
-  .stage svg.lvl2 .g-proc rect, .stage svg.lvl3 .g-proc rect { fill:color-mix(in srgb, var(--st-proc) 7%, transparent); stroke:color-mix(in srgb, var(--st-proc) 45%, var(--line)); }
-  .stage svg.lvl2 .proc-pulse, .stage svg.lvl3 .proc-pulse { display:block; }
-  .stage svg.lvl3 .g-out rect { fill:var(--accent-soft); stroke:var(--st-done); }
-  .stage svg.lvl3 .g-out text { fill:var(--st-done); }
-  .stage svg.lvl3 .g-fail path, .stage svg.lvl3 .g-fail rect { stroke:color-mix(in srgb, var(--st-fail) 45%, var(--line)); }
-  .stage svg.lvl3 .g-fail text { fill:var(--st-fail); }
+  /* job view: one job_id/ folder whose contents change as the commands run */
+  .stage { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:34px 26px 30px; }
+  .jobview { max-width:440px; margin:32px auto 0; background:var(--paper); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .jv-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .jv-name { font-family:var(--mono); font-weight:700; font-size:16px; letter-spacing:-0.01em; display:flex; align-items:center; gap:10px; color:var(--ink); }
+  .jv-name .ic { width:22px; height:17px; flex:none; fill:var(--st-queue); transition:fill .4s ease; }
+  .jobview.p-proc .jv-name .ic { fill:var(--st-proc); }
+  .jobview.p-done .jv-name .ic { fill:var(--st-done); }
+  .jv-status .st { font-family:var(--mono); font-size:12px; padding:4px 11px; border-radius:999px; white-space:nowrap; }
+  .st-queue { color:var(--st-queue); background:color-mix(in srgb, var(--st-queue) 13%, transparent); }
+  .st-proc  { color:var(--st-proc);  background:color-mix(in srgb, var(--st-proc) 15%, transparent); }
+  .st-done  { color:var(--st-done);  background:var(--accent-soft); }
+  .jv-files { padding:16px 20px 20px; display:flex; flex-direction:column; gap:12px; }
+  .jv-file { font-family:var(--mono); font-size:15px; color:var(--muted); display:flex; align-items:center; gap:10px; }
+  .jv-file .ic-file { width:14px; height:18px; flex:none; fill:none; stroke:var(--faint); stroke-width:1.6; }
+  .jv-result { max-height:0; opacity:0; overflow:hidden; transform:translateY(-4px);
+    transition:max-height .45s ease, opacity .45s ease, transform .45s ease; }
+  .jobview.show-result .jv-result { max-height:34px; opacity:1; transform:none; color:var(--accent-ink); }
+  .jobview.show-result .jv-result .ic-file { stroke:var(--st-done); }
   .console { margin-top:0; background:#0B0F15; border:1px solid #1C232E; border-radius:14px;
     padding:26px; min-height:170px; display:flex; align-items:flex-start; }
   .console-body { font-family:var(--mono); width:100%; transition:opacity .17s ease; }
@@ -185,11 +176,9 @@
     .reveal { opacity:0; transform:translateY(12px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
     .d1{ animation-delay:.06s; } .d2{ animation-delay:.15s; } .d3{ animation-delay:.24s; } .d4{ animation-delay:.33s; }
     @keyframes rise { to { opacity:1; transform:none; } }
-    /* the pipeline journey is JS-driven (step storyboard) — see the script near the end */
-    .proc-pulse { animation:pulse 1.8s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{ opacity:.3; } 50%{ opacity:1; } }
-    .flow { stroke-dasharray:5 6; animation:dash 1.4s linear infinite; }
-    @keyframes dash { to { stroke-dashoffset:-22; } }
+    /* the job view is JS-driven (step storyboard) — see the script near the end */
+    .st-proc { animation:pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
   }
 </style>
 </head>
@@ -254,56 +243,18 @@
     <div class="stage">
       <div class="console" aria-hidden="true"><div class="console-body"><div class="cmd"><b>$</b>wrk ./workspace "&lt;prompt&gt;"</div><div class="cmd"><b>$</b>nrvnad ./models/model.gguf ./workspace</div><div class="cmd"><b>$</b>flw ./workspace "$job"</div></div></div>
 
-      <svg viewBox="0 0 960 236" class="lvl1" role="img" aria-label="A job folder moves from input to processing to output as each command runs.">
-        <defs>
-          <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
-            <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--faint)"></path>
-          </marker>
-          <marker id="arrowFail" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
-            <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--st-fail)"></path>
-          </marker>
-          <g id="folder">
-            <path d="M2,6 h12 l4,5 h24 a3,3 0 0 1 3,3 v18 a3,3 0 0 1 -3,3 h-40 a3,3 0 0 1 -3,-3 V9 a3,3 0 0 1 3,-3 z"></path>
-          </g>
-        </defs>
-
-        <g class="g-input">
-          <text x="140" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--muted)">input/</text>
-          <rect x="40" y="64" width="200" height="96" rx="12" fill="none" stroke="var(--line)" stroke-width="1.5"></rect>
-        </g>
-
-        <g class="g-proc">
-          <line class="flow" x1="246" y1="112" x2="374" y2="112" stroke="var(--faint)" stroke-width="2" marker-end="url(#arrow)"></line>
-          <text x="480" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--muted)">processing/</text>
-          <rect x="380" y="64" width="200" height="96" rx="12" fill="color-mix(in srgb, var(--st-proc) 7%, transparent)" stroke="color-mix(in srgb, var(--st-proc) 45%, var(--line))" stroke-width="1.5"></rect>
-          <circle class="proc-pulse" cx="480" cy="72" r="4.5" fill="var(--st-proc)"></circle>
-        </g>
-
-        <g class="g-out">
-          <line class="flow" x1="586" y1="112" x2="714" y2="112" stroke="var(--faint)" stroke-width="2" marker-end="url(#arrow)"></line>
-          <text x="820" y="44" text-anchor="middle" font-family="var(--mono)" font-size="13.5" fill="var(--st-done)">output/</text>
-          <rect x="720" y="64" width="200" height="96" rx="12" fill="var(--accent-soft)" stroke="var(--st-done)" stroke-width="1.5"></rect>
-        </g>
-
-        <g class="g-fail">
-          <path d="M480,160 L480,186" fill="none" stroke="var(--st-fail)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrowFail)"></path>
-          <rect x="380" y="188" width="200" height="34" rx="10" fill="none" stroke="color-mix(in srgb, var(--st-fail) 45%, var(--line))" stroke-width="1.5"></rect>
-          <text x="480" y="210" text-anchor="middle" font-family="var(--mono)" font-size="12.5" fill="var(--st-fail)">failed/</text>
-        </g>
-
-        <g class="job">
-          <use class="fld" href="#folder"></use>
-          <path class="chk" d="M15,16 l5,5 l10,-12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
-          <text class="jname" x="23" y="52" text-anchor="middle">job_id/</text>
-          <text class="fcont" x="23" y="67" text-anchor="middle">prompt.txt</text>
-        </g>
-      </svg>
-
-      <div class="legend">
-        <span><i class="swatch" style="background:var(--st-queue)"></i> queued</span>
-        <span><i class="swatch" style="background:var(--st-proc)"></i> processing</span>
-        <span><i class="swatch" style="background:var(--st-done)"></i> done</span>
-        <span><i class="swatch" style="background:var(--st-fail)"></i> failed · retry is yours</span>
+      <div class="jobview p-queue">
+        <div class="jv-head">
+          <span class="jv-name">
+            <svg class="ic" viewBox="0 0 24 19" aria-hidden="true"><path d="M2,4 h7 l2.2,2.6 h10.8 a2,2 0 0 1 2,2 v8.4 a2,2 0 0 1 -2,2 h-20 a2,2 0 0 1 -2,-2 V6 a2,2 0 0 1 2,-2 z"></path></svg>
+            job_id/
+          </span>
+          <span class="jv-status"></span>
+        </div>
+        <div class="jv-files">
+          <div class="jv-file"><svg class="ic-file" viewBox="0 0 20 24" aria-hidden="true"><path d="M3.5,1.5 h8 l5,5 v15 a1.5,1.5 0 0 1 -1.5,1.5 h-11.5 a1.5,1.5 0 0 1 -1.5,-1.5 V3 A1.5,1.5 0 0 1 3.5,1.5 z M11.5,1.5 v5 h5" stroke-linejoin="round"></path></svg><span>prompt.txt</span></div>
+          <div class="jv-file jv-result"><svg class="ic-file" viewBox="0 0 20 24" aria-hidden="true"><path d="M3.5,1.5 h8 l5,5 v15 a1.5,1.5 0 0 1 -1.5,1.5 h-11.5 a1.5,1.5 0 0 1 -1.5,-1.5 V3 A1.5,1.5 0 0 1 3.5,1.5 z M11.5,1.5 v5 h5" stroke-linejoin="round"></path></svg><span>result.txt</span></div>
+        </div>
       </div>
     </div>
 
@@ -359,17 +310,15 @@
 </footer>
 
 <script>
-  // Step storyboard: one command at a time, the folder moves to match, then the
-  // full recipe surfaces and the whole thing loops. Starts when scrolled into view.
+  // The commands build up top; the job_id/ folder below changes to match —
+  // prompt.txt, then running, then result.txt appears inside. Loops when in view.
   (function () {
     var stage = document.querySelector('.stage');
     if (!stage) return;
-    var job  = stage.querySelector('.job');
-    var svg  = stage.querySelector('svg');
-    var body = stage.querySelector('.console-body');
-    var POS  = { input:'translate(117px,82px)', proc:'translate(457px,82px)', out:'translate(797px,82px)' };
+    var jobview = stage.querySelector('.jobview');
+    var status  = stage.querySelector('.jv-status');
+    var body    = stage.querySelector('.console-body');
 
-    var fcont = job.querySelector('.fcont');
     var WRK = 'wrk ./workspace "&lt;prompt&gt;"';
     var NRV = 'nrvnad ./models/model.gguf ./workspace';
     var FLW = 'flw ./workspace "$job"';
@@ -377,58 +326,44 @@
     function note(t, ok) { return '<div class="note' + (ok ? ' ok' : '') + '">' + t + '</div>'; }
     var recipe = cmd(WRK) + cmd(NRV) + cmd(FLW);
 
-    // commands AND canvas build up together, step by step
+    function phase(p) {
+      jobview.className = 'jobview ' + (p === 1 ? 'p-queue' : p === 2 ? 'p-proc' : 'p-done show-result');
+      status.innerHTML = p === 1 ? '<span class="st st-queue">created</span>'
+                       : p === 2 ? '<span class="st st-proc">running…</span>'
+                                 : '<span class="st st-done">done ✓</span>';
+    }
+
     var steps = [
-      { lvl:'lvl1', pos:'input', cls:'job is-queue', file:'prompt.txt', html: cmd(WRK, true) + note('you submit a prompt  ·  creates job_id/'),                  hold:2700 },
-      { lvl:'lvl2', pos:'proc',  cls:'job is-proc',  file:'prompt.txt', html: cmd(WRK) + cmd(NRV, true) + note('a worker picks up the job  ·  processing/'),     hold:2700 },
-      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: cmd(WRK) + cmd(NRV, true) + note('result.txt written inside job_id/  ·  output/'), hold:2700 },
-      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),          hold:2700 },
-      { lvl:'lvl3', pos:'out',   cls:'job is-done',  file:'result.txt', html: recipe,                                                                            hold:3800 }
+      { p:1, html: cmd(WRK, true) + note('you submit a prompt  ·  job_id/ holds prompt.txt'), hold:2800 },
+      { p:2, html: cmd(WRK) + cmd(NRV, true) + note('the daemon runs against the workspace'), hold:2800 },
+      { p:3, html: cmd(WRK) + cmd(NRV, true) + note('result.txt appears inside job_id/'),     hold:2600 },
+      { p:3, html: cmd(WRK) + cmd(NRV) + cmd(FLW, true) + note('you read the result', true),  hold:2800 },
+      { p:3, html: recipe,                                                                     hold:3600 }
     ];
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      job.setAttribute('class', 'job is-done'); job.style.transform = POS.out;
-      svg.setAttribute('class', 'lvl3');
-      if (fcont) fcont.textContent = 'result.txt';
-      body.innerHTML = recipe; return;
+      phase(3); body.innerHTML = recipe; return;
     }
 
-    // poster frame = step 1 (wrk · input), shown before and between plays.
-    // Snapping with transition off avoids a backward slide on loop restart.
-    function poster() {
-      job.style.transition = 'none';
-      job.setAttribute('class', 'job is-queue');
-      svg.setAttribute('class', 'lvl1');
-      job.style.transform = POS.input;
-      if (fcont) fcont.textContent = 'prompt.txt';
-      void job.offsetWidth;
-      job.style.transition = '';
-      body.innerHTML = steps[0].html;
-    }
+    function poster() { phase(1); body.innerHTML = steps[0].html; }
     poster();
 
     var i = 0, timer = null;
     function run() {
       var s = steps[i];
-      if (i === 0) job.style.transition = 'none';   // snap to start, no backward glide
-      job.setAttribute('class', s.cls);
-      svg.setAttribute('class', s.lvl);
-      job.style.transform = POS[s.pos];
-      if (fcont) fcont.textContent = s.file;
-      if (i === 0) { void job.offsetWidth; job.style.transition = ''; }
+      phase(s.p);
       body.style.opacity = 0;
       setTimeout(function () { body.innerHTML = s.html; body.style.opacity = 1; }, 220);
       i = (i + 1) % steps.length;
       timer = setTimeout(run, s.hold);
     }
 
-    // Begin from step 1 whenever the diagram scrolls into view — so it is never
-    // caught mid-sequence — and keep looping while visible.
+    // Begin from step 1 whenever the job view scrolls into view, then loop while visible.
     function start() { clearTimeout(timer); i = 0; run(); }
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) { if (e.isIntersecting) start(); });
-      }, { threshold: 0.5 }).observe(stage);
+      }, { threshold: 0.4 }).observe(stage);
     } else { setTimeout(start, 400); }
   })();
 </script>
