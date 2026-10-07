@@ -7,7 +7,7 @@
 <meta name="description" content="Local AI as background jobs. Submit, walk away, read the result as a file. No server stays running. A crash does not lose your work. Built on llama.cpp." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Caveat:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
     --paper:#EFF3F8;
@@ -187,21 +187,16 @@
   .frame-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
     font-size:clamp(23px,3.4vw,33px); color:var(--ink); margin:24px 0; }
 
-  .why .wrap { max-width:700px; }
-  .why-card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent);
-    border-radius:14px; padding:38px 42px; }
-  .why .label { font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:0.09em;
-    text-transform:uppercase; color:var(--accent-ink); margin:0 0 20px; }
-  .why p { color:var(--muted); font-size:16.5px; line-height:1.6; margin:0 0 16px; }
-  .why .lead { color:var(--ink); font-size:20px; line-height:1.5; font-weight:500; }
-  .why .xt { text-decoration:line-through; text-decoration-thickness:2px; color:var(--faint); }
-  .why .fix { color:var(--accent-ink); font-weight:700; font-style:italic; }
-  .why .punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
-    font-size:clamp(23px,3.2vw,31px); color:var(--ink); margin:26px 0; }
-  .why .punch b { color:var(--accent); }
-  .why .more { margin:24px 0 0; }
-  .why .more a { font-family:var(--mono); font-size:14px; font-weight:600; color:var(--accent-ink); }
-  .why p:last-child { margin-bottom:0; }
+  .realrl { text-align:center; }
+  .rl { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
+    font-size:clamp(27px,4.2vw,46px); color:var(--ink); margin:0; }
+  .corr { position:relative; display:inline-block; color:var(--muted); }
+  .corr .scr { position:absolute; left:-7%; top:40%; width:114%; height:0.6em; overflow:visible; }
+  .corr .scr path { fill:none; stroke:var(--st-fail); stroke-width:3.2; stroke-linecap:round; }
+  .corr .ins { position:absolute; left:50%; top:-0.72em; transform:translateX(-50%) rotate(-6deg);
+    font-family:"Caveat",cursive; font-weight:700; font-size:0.74em; color:var(--accent); line-height:1; }
+  .corr .caret { position:absolute; left:50%; top:-0.1em; transform:translateX(-50%);
+    font-family:"Caveat",cursive; font-weight:700; font-size:0.6em; color:var(--accent); line-height:1; }
 
   footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
@@ -292,13 +287,9 @@
   </div>
 </section>
 
-<section class="why">
+<section class="realrl">
   <div class="wrap">
-    <div class="why-card">
-      <p class="label">Why this exists</p>
-      <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted real-<s class="xt">time</s> <span class="fix">life</span> AI. Submit work when I had a minute, read the result when I had another.</p>
-      <p class="more"><a href="https://sanmathigb.com">More on why I built this →</a></p>
-    </div>
+    <p class="rl">nrvna is for real-<span class="corr">time<svg class="scr" viewBox="0 0 120 20" preserveAspectRatio="none" aria-hidden="true"><path d="M3,13 C28,6 54,16 80,9 C96,5 109,13 117,8"></path></svg><span class="ins">life</span><span class="caret">^</span></span> AI.</p>
   </div>
 </section>
 
