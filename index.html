@@ -173,10 +173,18 @@
   .closing .sub { font-family:var(--sans); font-weight:400; font-size:16px; color:var(--muted);
     letter-spacing:0; margin-top:16px; max-width:40ch; }
 
-  #how .how-lead, #how .how-punch { text-align:center; margin-left:auto; margin-right:auto; }
-  .how-lead { color:var(--muted); font-size:18px; line-height:1.55; max-width:50ch; margin-bottom:8px; }
+  #how .how-punch { text-align:center; margin:0 auto; }
   .how-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
-    font-size:clamp(22px,3.4vw,34px); color:var(--ink); margin:0; }
+    font-size:clamp(22px,3.4vw,34px); color:var(--ink); }
+
+  .frame { text-align:center; }
+  .frame .wrap { max-width:660px; }
+  .frame-lead { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
+    font-size:clamp(23px,3.2vw,32px); margin:0 0 20px; }
+  .frame-body { color:var(--muted); font-size:18px; line-height:1.6; margin:0 auto 18px; max-width:54ch; }
+  .frame-body code { font-family:var(--mono); font-size:0.9em; color:var(--accent-ink); font-weight:500; }
+  .frame-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
+    font-size:clamp(23px,3.4vw,33px); color:var(--ink); margin:24px 0; }
 
   .why .wrap { max-width:700px; }
   .why-card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent);
@@ -219,10 +227,18 @@
   </div>
 </header>
 
+<section class="frame">
+  <div class="wrap">
+    <p class="frame-lead">Old tools, new work.</p>
+    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. A prompt to a model is work, and the model's intelligence is a utility: the latest and greatest, on demand.</p>
+    <p class="frame-punch">No chat. No server. No database.</p>
+    <p class="frame-body">Three primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, build apps on top, or hand them to an agent.</p>
+  </div>
+</section>
+
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <p class="how-lead">Submit work even when no model is running, and it waits as a job with its own id. Start a model whenever you want, and it writes the result back as a file in the same workspace.</p>
     <p class="how-punch">Files in. Files out.</p>
 
     <div class="stage" data-phase="1">
@@ -278,8 +294,6 @@
       <p class="label">Why this exists</p>
       <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI. Submit work when I had a minute, read the result when I had another.</p>
       <p class="punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
-      <p>No chat. No server. No database. Just files, directories, and processes, the stack already on your machine.</p>
-      <p>Use it as-is, build something on top, or hand it to an agent. It's all simple CLI.</p>
     </div>
   </div>
 </section>
