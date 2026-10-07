@@ -176,6 +176,7 @@
   #how .how-punch { text-align:center; margin:0 auto; }
   .how-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
     font-size:clamp(22px,3.4vw,34px); color:var(--ink); }
+  .how-punch b { color:var(--accent); }
 
   .frame { text-align:center; }
   .frame .wrap { max-width:660px; }
@@ -197,6 +198,8 @@
   .why .punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
     font-size:clamp(23px,3.2vw,31px); color:var(--ink); margin:26px 0; }
   .why .punch b { color:var(--accent); }
+  .why .more { margin:24px 0 0; }
+  .why .more a { font-family:var(--mono); font-size:14px; font-weight:600; color:var(--accent-ink); }
   .why p:last-child { margin-bottom:0; }
 
   footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
@@ -230,7 +233,7 @@
 <section class="frame">
   <div class="wrap">
     <p class="frame-lead">Old tools, new work.</p>
-    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. A prompt to a model is work, and the model's intelligence is a utility: the latest and greatest, on demand.</p>
+    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. A prompt to a model is work, and the model's intelligence is a utility: the latest and greatest, on demand. Files in. Files out.</p>
     <p class="frame-punch">No chat. No server. No database.</p>
     <p class="frame-body">Three primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, build apps on top, or hand them to an agent.</p>
   </div>
@@ -239,7 +242,7 @@
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <p class="how-punch">Files in. Files out.</p>
+    <p class="how-punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
 
     <div class="stage" data-phase="1">
       <div class="cmds-col">
@@ -293,7 +296,7 @@
     <div class="why-card">
       <p class="label">Why this exists</p>
       <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI. Submit work when I had a minute, read the result when I had another.</p>
-      <p class="punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
+      <p class="more"><a href="https://sanmathigb.com">More on why I built this →</a></p>
     </div>
   </div>
 </section>
