@@ -194,7 +194,8 @@
     text-transform:uppercase; color:var(--accent-ink); margin:0 0 20px; }
   .why p { color:var(--muted); font-size:16.5px; line-height:1.6; margin:0 0 16px; }
   .why .lead { color:var(--ink); font-size:20px; line-height:1.5; font-weight:500; }
-  .why em { color:var(--accent-ink); font-style:italic; }
+  .why .xt { text-decoration:line-through; text-decoration-thickness:2px; color:var(--faint); }
+  .why .fix { color:var(--accent-ink); font-weight:700; font-style:italic; }
   .why .punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
     font-size:clamp(23px,3.2vw,31px); color:var(--ink); margin:26px 0; }
   .why .punch b { color:var(--accent); }
@@ -295,7 +296,7 @@
   <div class="wrap">
     <div class="why-card">
       <p class="label">Why this exists</p>
-      <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted <em>real-life</em> AI, not real-time AI. Submit work when I had a minute, read the result when I had another.</p>
+      <p class="lead">I built nrvna on a 2017 laptop, in the stop-and-go time of being a new dad. I wanted real-<s class="xt">time</s> <span class="fix">life</span> AI. Submit work when I had a minute, read the result when I had another.</p>
       <p class="more"><a href="https://sanmathigb.com">More on why I built this →</a></p>
     </div>
   </div>
