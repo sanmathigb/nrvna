@@ -64,6 +64,10 @@
     background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:5px 14px; margin:0 0 28px; }
   .credit a { color:var(--accent-ink); font-weight:600; }
   .spec { font-family:var(--mono); font-size:12.5px; color:var(--faint); letter-spacing:0.02em; margin:26px 0 0; }
+  .opener { font-family:var(--sans); font-size:clamp(18px,2.3vw,23px); line-height:1.5; color:var(--muted);
+    max-width:34ch; margin:0 auto 32px; }
+  .opener .life { font-family:"Caveat",cursive; font-weight:700; font-size:1.32em; color:var(--accent); }
+  .opener .time { text-decoration:line-through; text-decoration-color:var(--st-fail); color:var(--faint); }
   .hero h1 {
     font-family:var(--display); font-weight:700; letter-spacing:-0.025em;
     font-size:clamp(28px, 4.8vw, 56px); line-height:1.16; margin:0 auto;
@@ -194,11 +198,7 @@
   .realrl { text-align:center; }
   .rl { font-family:var(--display); font-weight:800; letter-spacing:-0.03em;
     font-size:clamp(27px,4.2vw,46px); color:var(--ink); margin:0; }
-  .corr { position:relative; display:inline-block; color:var(--muted); }
-  .corr .scr { position:absolute; left:-7%; top:40%; width:114%; height:0.6em; overflow:visible; }
-  .corr .scr path { fill:none; stroke:var(--st-fail); stroke-width:3.2; stroke-linecap:round; }
-  .corr .ins { position:absolute; left:50%; top:-0.72em; transform:translateX(-50%) rotate(-6deg);
-    font-family:"Caveat",cursive; font-weight:700; font-size:0.74em; color:var(--accent); line-height:1; }
+  .rl b { color:var(--accent); }
 
   footer { border-top:1px solid var(--line); padding:34px 0 56px; color:var(--muted); font-size:14px; }
   footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
@@ -225,15 +225,16 @@
 <header class="hero">
   <div class="wrap">
     <p class="credit reveal">Built on <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></p>
-    <h1 class="reveal d1">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
-    <p class="spec reveal d2">MIT · open source · runs offline · old hardware OK</p>
+    <p class="opener reveal d1">Not all AI needs chatting. Especially the kind you run locally, and the kind that should be more <span class="life">real-life</span> than <span class="time">real-time</span>.</p>
+    <h1 class="reveal d2">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
+    <p class="spec reveal d3">MIT · open source · runs offline · old hardware OK</p>
   </div>
 </header>
 
 <section class="frame">
   <div class="wrap">
     <p class="frame-lead">Work is a prompt. A model runs it.</p>
-    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. The model's intelligence is a utility: the latest and greatest, on demand. Files in. Files out.</p>
+    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. The model's intelligence is a utility: the latest and greatest, on demand.</p>
     <p class="frame-punch">No chat. No server. No database.</p>
     <p class="frame-body">Three primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, build apps on top, or hand them to an agent.</p>
   </div>
@@ -242,7 +243,7 @@
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <p class="how-punch">Models get <b>wrk</b>. You get <b>flw</b>.</p>
+    <p class="how-punch">Files in. Files out.</p>
 
     <div class="stage" data-phase="1">
       <div class="cmds-col">
@@ -293,7 +294,7 @@
 
 <section class="realrl">
   <div class="wrap">
-    <p class="rl">nrvna is for real-<span class="corr">time<svg class="scr" viewBox="0 0 120 20" preserveAspectRatio="none" aria-hidden="true"><path d="M3,13 C28,6 54,16 80,9 C96,5 109,13 117,8"></path></svg><span class="ins">life</span></span> AI.</p>
+    <p class="rl">With nrvna, models get <b>wrk</b>. You get <b>flw</b>.</p>
   </div>
 </section>
 
