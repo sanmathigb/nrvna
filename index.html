@@ -59,7 +59,11 @@
   @media (max-width:640px){ .topnav{ display:none; } }
 
   /* hero */
-  .hero { padding:80px 0 34px; text-align:center; }
+  .hero { padding:68px 0 34px; text-align:center; }
+  .credit { display:inline-block; font-family:var(--mono); font-size:12px; color:var(--muted);
+    background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:5px 14px; margin:0 0 28px; }
+  .credit a { color:var(--accent-ink); font-weight:600; }
+  .spec { font-family:var(--mono); font-size:12.5px; color:var(--faint); letter-spacing:0.02em; margin:26px 0 0; }
   .hero h1 {
     font-family:var(--display); font-weight:700; letter-spacing:-0.025em;
     font-size:clamp(28px, 4.8vw, 56px); line-height:1.16; margin:0 auto;
@@ -222,14 +226,16 @@
 
 <header class="hero">
   <div class="wrap">
-    <h1 class="reveal">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
+    <p class="credit reveal">Built on <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></p>
+    <h1 class="reveal d1">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
+    <p class="spec reveal d2">MIT · open source · runs offline · old hardware OK</p>
   </div>
 </header>
 
 <section class="frame">
   <div class="wrap">
-    <p class="frame-lead">Old tools, new work.</p>
-    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. A prompt to a model is work, and the model's intelligence is a utility: the latest and greatest, on demand. Files in. Files out.</p>
+    <p class="frame-lead">A prompt to a model is work.</p>
+    <p class="frame-body">Processing here is Unix-like, built on files, directories, and processes. The model's intelligence is a utility: the latest and greatest, on demand. Files in. Files out.</p>
     <p class="frame-punch">No chat. No server. No database.</p>
     <p class="frame-body">Three primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, build apps on top, or hand them to an agent.</p>
   </div>
@@ -295,8 +301,7 @@
 
 <footer>
   <div class="wrap">
-    <div>Built on <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>. Runs on ordinary, even old, hardware.</div>
-    <div class="mono">MIT · experimental preview · local-first</div>
+    <div class="mono">experimental preview · local-first</div>
   </div>
 </footer>
 
