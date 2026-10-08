@@ -74,7 +74,7 @@
     font-family:var(--display); font-weight:800; letter-spacing:-0.035em;
     font-size:clamp(32px, 5.4vw, 62px); line-height:1.05; margin:0 auto; max-width:16ch;
   }
-  .hero h1 .hl { color:var(--accent); }
+  .hero h1 .hl { color:var(--accent); font-style:italic; }
   .scratch { position:relative; white-space:nowrap; }
   .scribble { position:absolute; left:-3%; bottom:-0.2em; width:106%; height:0.42em; overflow:visible; }
   .scribble path { fill:none; stroke:var(--accent); stroke-width:3.4; stroke-linecap:round; }
@@ -197,7 +197,7 @@
   .frame { text-align:center; }
   .frame .wrap { max-width:720px; }
   .frame-lead { font-family:var(--display); font-weight:800; letter-spacing:-0.025em; color:var(--ink);
-    font-size:clamp(22px,2.9vw,31px); line-height:1.2; margin:0 0 24px; }
+    font-size:clamp(22px,2.9vw,31px); line-height:1.18; margin:0 0 18px; }
   .frame-body { color:var(--muted); font-size:clamp(18px,2.1vw,21px); line-height:1.55; margin:0 auto 18px; max-width:50ch; }
   .frame-body code { font-family:var(--mono); font-size:0.9em; color:var(--accent-ink); font-weight:500; }
   .frame-punch { font-family:var(--display); font-weight:800; letter-spacing:-0.02em;
@@ -240,7 +240,8 @@
 
 <section class="frame">
   <div class="wrap">
-    <p class="frame-lead">nrvna is an asynchronous inference platform<br>to make local AI durable.</p>
+    <p class="frame-lead">nrvna is an asynchronous inference platform</p>
+    <p class="frame-lead">to make local AI <span class="ac">durable</span>.</p>
     <p class="frame-body">Three Unix-like primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, or build on top.</p>
     <p class="frame-body">Text, vision, voice: inputs to the model are all just work. Run one model or more, each in its own workspace. Retrieve inference whenever you're ready.</p>
   </div>
