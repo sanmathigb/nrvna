@@ -65,12 +65,13 @@
   .credit a { color:var(--accent-ink); font-weight:600; }
   .spec { font-family:var(--mono); font-size:12.5px; color:var(--faint); letter-spacing:0.02em; margin:26px 0 0; }
   .opener { font-family:var(--sans); font-size:clamp(18px,2.3vw,23px); line-height:1.5; color:var(--muted);
-    max-width:34ch; margin:0 auto 32px; }
+    max-width:42ch; margin:0 auto 32px; }
+  .opener b { color:var(--ink); font-weight:600; }
   .opener .life { font-family:"Caveat",cursive; font-weight:700; font-size:1.32em; color:var(--accent); }
   .opener .time { text-decoration:line-through; text-decoration-color:var(--st-fail); color:var(--faint); }
   .hero h1 {
-    font-family:var(--display); font-weight:700; letter-spacing:-0.025em;
-    font-size:clamp(28px, 4.8vw, 56px); line-height:1.16; margin:0 auto;
+    font-family:var(--display); font-weight:800; letter-spacing:-0.035em;
+    font-size:clamp(32px, 5.4vw, 62px); line-height:1.05; margin:0 auto; max-width:16ch;
   }
   .scratch { position:relative; white-space:nowrap; }
   .scribble { position:absolute; left:-3%; bottom:-0.2em; width:106%; height:0.42em; overflow:visible; }
@@ -223,24 +224,22 @@
 <header class="hero">
   <div class="wrap">
     <p class="credit reveal">Built on <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></p>
-    <p class="opener reveal d1">In real <span class="life">life</span>, AI doesn't always have to be real-<span class="time">time</span>.</p>
-    <h1 class="reveal d2">Asynchronous inference primitives<br><span class="l2">for <span class="scratch">durable<svg class="scribble" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4,9 C42,3 74,12 104,6 C134,1 168,11 196,5"></path></svg></span> local AI</span></h1>
-    <p class="spec reveal d3">MIT · open source · runs offline · old hardware OK</p>
+    <h1 class="reveal d1">Real life does not always need<br>real-time AI.</h1>
+    <p class="spec reveal d2">MIT · open source · runs offline · old hardware OK</p>
   </div>
 </header>
 
 <section class="frame">
   <div class="wrap">
-    <p class="frame-body">Your prompts turn into files, and so does your inference. All in the workspace. Always. The model's intelligence is a utility: the latest and greatest, on demand.</p>
-    <p class="frame-punch">No chat. No server. No database.</p>
-    <p class="frame-body">Three primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, build apps on top, or hand them to an agent.</p>
+    <p class="frame-body">nrvna is an asynchronous inference platform with three Unix-like primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, or build on top.</p>
+    <p class="frame-body">Text, vision, voice: inputs to the model are all just work. Run one model or more, each in its own workspace. Retrieve inference whenever you're ready.</p>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
-    <p class="how-punch">Files in. Files out.</p>
+    <p class="how-punch">It's all files. Always in the workspace.</p>
 
     <div class="stage" data-phase="1">
       <div class="cmds-col">
