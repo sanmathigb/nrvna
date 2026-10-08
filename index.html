@@ -190,7 +190,7 @@
   .how-punch b { color:var(--accent); }
   .ac { color:var(--accent); }
   .corr { position:relative; display:inline-block; color:var(--muted); }
-  .corr .scr { position:absolute; left:-6%; top:46%; width:112%; height:0.5em; overflow:visible; }
+  .corr .scr { position:absolute; left:-6%; top:50%; transform:translateY(-50%); width:112%; height:0.5em; overflow:visible; }
   .corr .scr path { fill:none; stroke:var(--st-fail); stroke-width:3.4; stroke-linecap:round; }
   .corr .ins { position:absolute; left:50%; top:-0.82em; transform:translateX(-50%); color:var(--accent); font-size:0.86em; line-height:1; white-space:nowrap; }
 
@@ -240,9 +240,9 @@
 
 <section class="frame">
   <div class="wrap">
-    <p class="frame-lead">nrvna is an asynchronous inference platform.</p>
-    <p class="frame-lead">To make local AI <span class="ac">durable</span>.</p>
-    <p class="frame-body">Three Unix-like primitives: <code>wrk</code>, <code>nrvnad</code>, <code>flw</code>. Use them as-is, or build on top.</p>
+    <p class="frame-lead">nrvna is a set of three Unix-like primitives.</p>
+    <p class="frame-lead">wrk, nrvnad, and flw, to make local AI <span class="ac">durable</span>.</p>
+    <p class="frame-body">Use them as-is, or build on top.</p>
     <p class="frame-body">Text, vision, voice: inputs to the model are all just work. Run one model or more, each in its own workspace. Retrieve inference whenever you're ready.</p>
   </div>
 </section>
