@@ -70,7 +70,7 @@ void printUsage() {
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  -i, --image <path>        Attach an image (repeatable)\n";
-    std::cout << "      --audio <path>        Attach audio (repeatable)\n";
+    std::cout << "  -a, --audio <path>        Attach audio; transcribes by default (repeatable)\n";
     std::cout << "      --embed               Create an embedding\n";
     std::cout << "      --tts                 Generate speech\n";
     std::cout << "      --stt                 Transcribe audio\n";
@@ -85,6 +85,8 @@ void printUsage() {
     std::cout << "  wrk ./ws \"Explain why local inference benefits from durable jobs.\"\n";
     std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
     std::cout << "  flw ./ws <job-id>\n\n";
+    std::cout << "  cat report.txt | wrk ./ws -\n";
+    std::cout << "  wrk ./ws -a memo.wav\n";
     std::cout << "Prompt words form one prompt. Use '-' to read prompt text from stdin.\n";
     std::cout << "wrk prints the job ID. A file path alone does not read that file.\n";
 }
@@ -143,7 +145,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             imagePaths.emplace_back(argv[++i]);
-        } else if (arg == "--audio") {
+        } else if (arg == "--audio" || arg == "-a") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --audio requires a path\n";
                 return 1;
@@ -217,8 +219,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // --audio alone transcribes (STT). Passing --stt explicitly still works.
+    if (!audioPaths.empty() && mode.empty() && !useEmbed) {
+        mode = "stt";
+    }
     if (!audioPaths.empty() && mode != "stt") {
-        std::cerr << "Error: --audio requires --stt\n";
+        std::cerr << "Error: --audio can only be combined with --stt\n";
         return 1;
     }
 
