@@ -61,6 +61,28 @@ if "$bin_dir/wrk" "$tmp" "audio" --tts --stt >/dev/null 2>&1; then
     echo "wrk accepted contradictory TTS and STT modes" >&2; exit 1
 fi
 
+# Attaching audio transcribes by default: --audio alone (via the -a alias) is a
+# complete STT job, no separate --stt needed. Submit only validates path+ext.
+audio_ws="$tmp/audio"
+dummy_wav="$tmp/memo.wav"
+printf 'RIFFdummyWAVE' > "$dummy_wav"
+audio_id="$("$bin_dir/wrk" "$audio_ws" -a "$dummy_wav")"
+[ -n "$audio_id" ] || { echo "wrk -a audio.wav did not print a job id" >&2; exit 1; }
+audio_dir="$audio_ws/input/ready/$audio_id"
+[ -d "$audio_dir" ] || { echo "audio-only job was not published" >&2; exit 1; }
+[ "$(cat "$audio_dir/type.txt")" = "stt" ] || { echo "audio-only job did not default to STT" >&2; exit 1; }
+# The explicit long form still works.
+"$bin_dir/wrk" "$audio_ws" --audio "$dummy_wav" --stt >/dev/null || { echo "explicit --audio --stt was rejected" >&2; exit 1; }
+# Audio paired with a conflicting output mode is still rejected.
+if "$bin_dir/wrk" "$audio_ws" "speak" --audio "$dummy_wav" --tts >/dev/null 2>&1; then
+    echo "wrk accepted --audio combined with --tts" >&2; exit 1
+fi
+# Help advertises the alias and the default.
+case "$wrk_help" in
+    *'-a, --audio'*) ;;
+    *) echo "wrk help omits the -a audio alias" >&2; exit 1 ;;
+esac
+
 # Structured output is part of the durable job contract. JSON Schema input is
 # preserved, converted to effective GBNF before publication, and identified in
 # metadata so consumers do not need to infer the format from filenames.

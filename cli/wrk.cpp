@@ -70,10 +70,10 @@ void printUsage() {
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  -i, --image <path>   Attach an image (repeatable)\n";
-    std::cout << "      --audio <path>   Attach audio (repeatable)\n";
+    std::cout << "  -a, --audio <path>   Attach audio; transcribes by default (repeatable)\n";
     std::cout << "      --embed          Create an embedding\n";
     std::cout << "      --tts            Generate speech\n";
-    std::cout << "      --stt            Transcribe audio\n";
+    std::cout << "      --stt            Transcribe audio (implied by --audio)\n";
     std::cout << "      --parent <id>    Set the parent job\n";
     std::cout << "      --tag <tag>      Add a tag (repeatable)\n";
     std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
@@ -85,6 +85,7 @@ void printUsage() {
     std::cout << "  cat report.txt | wrk ./ws -\n";
     std::cout << "  { echo \"Summarize:\"; cat notes.md; } | wrk ./ws -\n";
     std::cout << "  wrk ./ws \"What is this screenshot about?\" --image shot.png\n";
+    std::cout << "  wrk ./ws -a memo.wav\n";
     std::cout << "  wrk ./ws \"Extract the fields\" --json-schema fields.schema.json\n";
     std::cout << "\n";
     std::cout << "wrk creates the workspace when it is missing.\n";
@@ -146,7 +147,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             imagePaths.emplace_back(argv[++i]);
-        } else if (arg == "--audio") {
+        } else if (arg == "--audio" || arg == "-a") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --audio requires a path\n";
                 return 1;
@@ -220,8 +221,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // --audio alone transcribes (STT). Passing --stt explicitly still works.
+    if (!audioPaths.empty() && mode.empty() && !useEmbed) {
+        mode = "stt";
+    }
     if (!audioPaths.empty() && mode != "stt") {
-        std::cerr << "Error: --audio requires --stt\n";
+        std::cerr << "Error: --audio can only be combined with --stt\n";
         return 1;
     }
 
