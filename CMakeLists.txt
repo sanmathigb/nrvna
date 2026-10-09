@@ -73,6 +73,14 @@ target_link_libraries(wrk nrvna_core)
 add_executable(flw cli/flw.cpp)
 target_link_libraries(flw nrvna_core)
 
+add_executable(file-organizer-validator EXCLUDE_FROM_ALL
+    examples/file-organizer/validator.cpp
+)
+target_include_directories(file-organizer-validator PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/llama.cpp/vendor
+)
+target_compile_options(file-organizer-validator PRIVATE -Wall -Wextra -Wpedantic)
+
 foreach(_cli nrvnad wrk flw)
     target_compile_definitions(${_cli} PRIVATE NRVNA_VERSION="${PROJECT_VERSION}")
     target_compile_options(${_cli} PRIVATE -Wall -Wextra -Wpedantic)
@@ -84,6 +92,7 @@ if(BUILD_TESTING)
         meta_test
         recovery_test
         crash_recovery_test
+        file-organizer-validator
     )
 
     # This contract test uses headers and does not link llama.cpp.
@@ -117,6 +126,12 @@ if(BUILD_TESTING)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
     add_test(NAME shell_helper COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/nrvna-lib-contract.sh ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME contract_literals COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/contract-literals.sh)
+    add_test(
+        NAME file_organizer_contract
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/file-organizer-contract.sh
+                $<TARGET_FILE:file-organizer-validator>
+                ${CMAKE_CURRENT_SOURCE_DIR}/examples/file-organizer
+    )
 endif()
 
 # Install targets

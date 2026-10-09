@@ -1,0 +1,9 @@
+{
+  "moves": [
+    { "file": "v0.1.1-release-notes.md", "category": "Release" },
+    { "file": "release-checklist.txt", "category": "Release" },
+    { "file": "h264-encoder-notes.md", "category": "Encoders" },
+    { "file": "hevc-rate-control.md", "category": "Encoders" }
+  ],
+  "review": ["team-lunch.txt", "scratchpad.md"]
+}

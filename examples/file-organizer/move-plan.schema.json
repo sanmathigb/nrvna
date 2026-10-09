@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["moves", "review"],
+  "properties": {
+    "moves": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "category"],
+        "properties": {
+          "file": { "type": "string" },
+          "category": { "enum": ["Release", "Encoders"] }
+        }
+      }
+    },
+    "review": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "string" }
+    }
+  }
+}

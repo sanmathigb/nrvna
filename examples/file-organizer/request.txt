@@ -1,0 +1,20 @@
+Create a file move plan for this inbox.
+
+Use Release for release notes and release process files.
+Use Encoders for video encoder and codec implementation files.
+Leave unrelated or ambiguous files in review.
+
+The inbox contains these direct files:
+
+- v0.1.1-release-notes.md: changes and compatibility notes for version 0.1.1
+- release-checklist.txt: steps for publishing a release
+- h264-encoder-notes.md: H.264 encoder implementation notes
+- hevc-rate-control.md: HEVC encoder rate-control notes
+- team-lunch.txt: lunch choices for the team
+- scratchpad.md: uncategorized reminders
+
+Put each file in exactly one place. Use its exact file name.
+Return moves for categorized files. Return file names in review for all others.
+The moves array must contain four files. The review array must contain two files.
+A review file must not also occur in moves.
+Return only the JSON object required by the schema.

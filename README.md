@@ -6,12 +6,25 @@
 
 Unix-like primitives for durable local inference. No always-on server.
 
-Give `nrvnad` a GGUF model and a directory. That directory becomes the
-workspace. Each job is a folder inside it. Moving that folder changes the job
-state. Results stay there as files.
+Submit work to a directory. Bring in a model when you want. Read the saved
+results later. No model needs to be running when you submit.
+
+That directory is the workspace. Each job is a folder inside it. nrvna moves
+the folder as the job changes state. Inputs and results stay there as files.
 
 ![A terminal demo that submits a job while no daemon is running and shows one
 queued job](assets/submit-without-daemon.gif)
+
+## Three primitives
+
+| Command | Contract |
+| --- | --- |
+| `wrk` | Save one independent job and print its ID |
+| `nrvnad` | Load one model and process one workspace |
+| `flw` | Inspect status or read results |
+
+[llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs GGUF models.
+nrvna adds durable jobs, workspaces, and process lifecycle.
 
 ## Start
 
@@ -25,44 +38,46 @@ export PATH="$HOME/.local/bin:$PATH"
 Use a compatible instruction-tuned GGUF. [INSTALL.md](INSTALL.md) includes a
 verified example model, manual archive steps, and source build steps.
 
-Load the model only when work is ready:
+`wrk` creates the workspace when needed. Submit two smoke-test jobs without
+waiting for either answer:
 
 ```bash
-job=$(wrk ./workspace "Reply with exactly: first")
+first=$(wrk ./workspace "Reply with exactly: first")
+second=$(wrk ./workspace "Reply with exactly: second")
 nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
-flw ./workspace "$job"
+flw ./workspace "$first"
+flw ./workspace "$second"
 ```
 
-The result is:
+`--drain` processes queued work and exits when idle. The results remain readable
+after the model exits. Submission does not wait for inference.
 
-```text
-first
+For useful work, save instructions and source notes in `meeting.md`:
+
+```markdown
+Extract the owners and the publication blocker in three short bullets.
+
+Maya reviews the draft. Ben checks the screenshots.
+Do not publish until both reviews are complete.
 ```
 
-Keep the model ready when low latency matters:
+For repeated work, keep the model available. Check status first; start it only
+when no daemon owns this workspace:
 
 ```bash
+nrvnad status ./workspace
 nrvnad ./models/smollm2-1.7b.gguf ./workspace &
-job=$(wrk ./workspace "Reply with exactly: first")
+job=$(wrk ./workspace - < meeting.md)
 flw ./workspace -w "$job"
 nrvnad stop ./workspace
 ```
 
-`wrk` and `flw` work the same way in both modes.
+The shell sends the file's text to `wrk`. `flw -w` waits for this job's result.
+Omit the wait and retrieve it later if you prefer. Each submission has fresh
+context; include all required evidence in its input.
 
 **Experimental developer preview.** Tests cover the filesystem and lifecycle
 contracts. nrvna does not claim production readiness.
-
-## Three primitives
-
-| Command | Contract |
-| --- | --- |
-| `wrk` | Publish one independent job and print its ID |
-| `nrvnad` | Load one model and process one workspace |
-| `flw` | Inspect status or read results |
-
-[llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs GGUF models.
-nrvna adds durable jobs, workspaces, process lifecycle, and file composition.
 
 ## State is location
 
@@ -73,15 +88,13 @@ input/writing/ -> input/ready/ -> processing/ -> output/
 
 The workspace remembers. The model does not.
 
-Each job uses a fresh model context. `--parent` records lineage only. It does
-not copy context, wait for another job, or set execution order.
-
 Atomic renames publish, claim, and complete jobs. The next daemon recovers
 jobs left in `processing/`. Repeated recovery stops at a fixed ceiling and
 moves the job to `failed/`.
 
-Execution is at least once. Write jobs whose repetition is safe. The caller
-owns retry policy.
+An interrupted job starts again with fresh context. Token generation does not
+resume. Execution is at least once: a job may run more than once after a crash.
+The caller decides whether to retry jobs that end in `failed/`.
 
 ## The work outlives the process
 
@@ -98,7 +111,7 @@ result          hello
 recovery_attempts 1
 ```
 
-This is a lifecycle check. It is not a performance benchmark.
+This is a process-crash check, not a speed benchmark or a power-loss guarantee.
 
 ## Why
 
@@ -106,8 +119,8 @@ I built nrvna on a 2017 Intel MacBook while caring for two young children. My
 time and compute were both interrupted. I wanted to submit work, leave, and
 read the results later.
 
-Local compute is finite. A caller, terminal, or model process can stop. The
-work should remain.
+Once the work is at the center, the intelligence doesn't have to be.
+A caller, terminal, or model process can stop. The work should remain.
 
 ## Work types
 
@@ -116,8 +129,12 @@ work should remain.
 | Text generation | prompt or stdin | `result.txt` |
 | Embedding | `--embed` | `embedding.json` |
 | Vision | `--image` | `result.txt` |
-| Speech to text | `--audio ... --stt` | `transcript.txt` |
+| Speech to text | `--audio` (or `-a`) | `transcript.txt` |
 | Text to speech | `--tts` | `audio.wav` |
+
+Vision and speech transcription need compatible models and projector files.
+Text to speech needs a compatible model and vocoder. Use a separate workspace
+for each model role. One model does not necessarily support every work type.
 
 Use `wrk --json-schema <file>` for schema-constrained text or vision output.
 The job preserves the schema and effective grammar. Invalid JSON fails before
@@ -139,6 +156,8 @@ artifacts, and recovery.
 
 ## Applications
 
+- [Verified file organizer example](examples/file-organizer/README.md) asks a
+  model for a move plan, then validates the plan before files move.
 - [imgsrch](apps/imgsrch/README.md) searches local screenshots by visible
   words and meaning. It uses caption, OCR, and embedding workspaces.
 - [bckbrnr](apps/bckbrnr/README.md) runs local prompt work from the macOS menu
@@ -151,9 +170,12 @@ These applications add product behavior. They use the same three primitives.
 nrvna is not a chat interface, agent framework, orchestrator, model router,
 semantic index, or distributed queue.
 
-It does not assemble parent context, execute dependency graphs, choose models,
-parse documents, search artifacts, or retry failures. llama.cpp owns model
-inference. The calling application owns orchestration and product behavior.
+`--parent` records lineage only. It does not copy context, wait for another
+job, or set execution order.
+
+The caller owns dependencies, model selection, document parsing, search, and
+retries of failed jobs. nrvna saves and processes the work; applications decide
+what work to submit and what to do with the results.
 
 ## Reference
 
