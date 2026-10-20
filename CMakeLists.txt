@@ -6,6 +6,10 @@ include(CTest)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(APPLE)
+    set(CMAKE_INSTALL_RPATH "@loader_path/../lib")
+endif()
+
 # Find required packages
 find_package(Threads REQUIRED)
 
