@@ -25,8 +25,8 @@ case "${1:-}" in
         ;;
 esac
 
-model="$1"
-ws="$2"
+ws="$1"
+model="$2"
 mkdir -p "$ws"
 printf '%s\n' "$model" >> "$ws/launches"
 if [ "$model" = fail ]; then
@@ -77,7 +77,7 @@ if nrvna_start 2>"$tmp/usage.err"; then
 fi
 grep -q 'usage: nrvna_start' "$tmp/usage.err"
 NRVNA_START_TIMEOUT=invalid
-if nrvna_start model.gguf "$tmp/invalid" 2>"$tmp/invalid.err"; then
+if nrvna_start "$tmp/invalid" model.gguf 2>"$tmp/invalid.err"; then
     echo "nrvna_start accepted an invalid timeout" >&2
     exit 1
 fi
@@ -86,7 +86,7 @@ NRVNA_START_TIMEOUT=3
 
 # Start an absent daemon, wait for readiness, then stop it.
 ws="$tmp/start"
-nrvna_start model.gguf "$ws"
+nrvna_start "$ws" model.gguf
 nrvna_status "$ws"
 [ "$(wc -l < "$ws/launches")" -eq 1 ]
 nrvna_stop "$ws"
@@ -97,7 +97,7 @@ mkdir -p "$ws"
 touch "$ws/starting"
 (sleep 1; mv "$ws/starting" "$ws/ready") &
 starter=$!
-nrvna_start model.gguf "$ws"
+nrvna_start "$ws" model.gguf
 wait "$starter"
 [ ! -f "$ws/launches" ] || {
     echo "nrvna_start launched a second daemon" >&2
@@ -106,7 +106,7 @@ wait "$starter"
 
 # Report startup failure and include the daemon log.
 ws="$tmp/fail"
-if nrvna_start fail "$ws" 2>"$tmp/failure.err"; then
+if nrvna_start "$ws" fail 2>"$tmp/failure.err"; then
     echo "nrvna_start accepted a failed daemon" >&2
     exit 1
 fi
@@ -118,7 +118,7 @@ ws="$tmp/timeout"
 mkdir -p "$ws"
 touch "$ws/starting"
 NRVNA_START_TIMEOUT=1
-if nrvna_start model.gguf "$ws" 2>"$tmp/timeout.err"; then
+if nrvna_start "$ws" model.gguf 2>"$tmp/timeout.err"; then
     echo "nrvna_start ignored its timeout" >&2
     exit 1
 fi

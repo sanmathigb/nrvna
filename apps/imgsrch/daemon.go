@@ -56,7 +56,8 @@ func drainWorker(label, model, ws string, env map[string]string, args ...string)
 	if err := os.MkdirAll(ws, 0o755); err != nil {
 		return err
 	}
-	cmdArgs := []string{model, ws}
+	cmdArgs := []string{ws, model} // nrvnad <workspace> <model>
+
 	cmdArgs = append(cmdArgs, args...)
 	cmdArgs = append(cmdArgs, "--drain")
 	logPath := filepath.Join(filepath.Dir(filepath.Dir(ws)), "logs", label+".log")

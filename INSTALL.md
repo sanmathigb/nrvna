@@ -41,11 +41,39 @@ fi
 
 ```bash
 job=$(wrk ./workspace "Reply with exactly: first")
-nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
+nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
 flw ./workspace "$job"
 ```
 
 The result is `first`. `wrk` creates the workspace when needed.
+
+## Choose a run mode
+
+Use drain mode for a bounded batch. It loads the model, processes queued jobs,
+then exits:
+
+```bash
+nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+```
+
+Use a persistent daemon when you expect repeated work. Check the workspace
+first. Start one daemon only when status reports that none is running:
+
+```bash
+nrvnad status ./workspace
+nrvnad ./workspace ./models/smollm2-1.7b.gguf
+```
+
+Keep the daemon terminal open. Submit and read work from another terminal:
+
+```bash
+job=$(wrk ./workspace "Summarize this report")
+flw ./workspace -w "$job"
+nrvnad stop ./workspace
+```
+
+Use separate workspaces for different model roles. Drain them in sequence when
+their models cannot fit in memory together.
 
 ## Build from source
 
@@ -60,7 +88,7 @@ Source builds put the commands under `./build`:
 
 ```bash
 job=$(./build/wrk ./workspace "Reply with exactly: first")
-./build/nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
+./build/nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
 ./build/flw ./workspace "$job"
 ```
 

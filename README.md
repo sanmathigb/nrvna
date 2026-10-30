@@ -2,125 +2,77 @@
 
 [![CI](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Built on llama.cpp](https://img.shields.io/badge/llama.cpp-v0.4.1-orange.svg)](https://github.com/ggml-org/llama.cpp/commit/b29c606e28a01b1bc8c1351026a0fa6e616bf6c4)
+[![Built on llama.cpp](https://img.shields.io/badge/built%20on-llama.cpp-orange.svg)](https://github.com/ggml-org/llama.cpp/tree/8642541b255bfb5dc39cd351a178be09013a55d6)
 
-Unix-like primitives for durable local inference. No always-on server.
+Durable local AI work, built from three commands.
 
-Submit work to a directory. Bring in a model when you want. Read the saved
-results later. No model needs to be running when you submit.
+nrvna gives agents and apps a durable way to run local inference. Jobs,
+inputs, results, and failures live as files in a workspace. Run a bounded batch
+with `--drain`, or keep a daemon ready for repeated work. Agents can use the
+commands directly or follow the [nrvna skill](skills/nrvna/SKILL.md). Apps can
+compose the same primitives into complete workflows.
 
-That directory is the workspace. Each job is a folder inside it. nrvna moves
-the folder as the job changes state. Inputs and results stay there as files.
+[Try nrvna](#start-with-the-commands) · [How it works](docs/how-it-works.md) · [Build an app](#build-on-it)
+
+`wrk` creates jobs. `nrvnad` runs them with a local model. `flw` reads their
+status and results. Each job has fresh context; the caller chooses what to
+include.
 
 ![A terminal demo that submits a job while no daemon is running and shows one
 queued job](assets/submit-without-daemon.gif)
 
-## Three primitives
+## Start with the commands
 
-| Command | Contract |
-| --- | --- |
-| `wrk` | Save one independent job and print its ID |
-| `nrvnad` | Load one model and process one workspace |
-| `flw` | Inspect status or read results |
-
-[llama.cpp](https://github.com/ggml-org/llama.cpp) loads and runs GGUF models.
-nrvna adds durable jobs, workspaces, and process lifecycle.
-
-## Start
-
-Install the prebuilt binaries:
+Install the prebuilt commands:
 
 ```bash
 curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Use a compatible instruction-tuned GGUF. [INSTALL.md](INSTALL.md) includes a
-verified example model, manual archive steps, and source build steps.
+Use a compatible instruction-tuned GGUF model. [INSTALL.md](INSTALL.md) has a
+verified example, manual archive steps, and source build instructions.
 
-`wrk` creates the workspace when needed. Submit two smoke-test jobs without
-waiting for either answer:
-
-```bash
-first=$(wrk ./workspace "Reply with exactly: first")
-second=$(wrk ./workspace "Reply with exactly: second")
-nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain
-flw ./workspace "$first"
-flw ./workspace "$second"
-```
-
-`--drain` processes queued work and exits when idle. The results remain readable
-after the model exits. Submission does not wait for inference.
-
-For useful work, save instructions and source notes in `meeting.md`:
-
-```markdown
-Extract the owners and the publication blocker in three short bullets.
-
-Maya reviews the draft. Ben checks the screenshots.
-Do not publish until both reviews are complete.
-```
-
-For repeated work, keep the model available. Check status first; start it only
-when no daemon owns this workspace:
+Run two independent jobs in one bounded batch:
 
 ```bash
-nrvnad status ./workspace
-nrvnad ./models/smollm2-1.7b.gguf ./workspace &
-job=$(wrk ./workspace - < meeting.md)
-flw ./workspace -w "$job"
-nrvnad stop ./workspace
+wrk ./workspace "Summarize this report in five bullets: Sales rose 8%, costs rose 3%. Name one risk." --tag report
+wrk ./workspace "List two decisions from this note: Ship on Friday. Mira owns the final test." --tag report
+nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+flw ./workspace --tag report --json
 ```
 
-The shell sends the file's text to `wrk`. `flw -w` waits for this job's result.
-Omit the wait and retrieve it later if you prefer. Each submission has fresh
-context; include all required evidence in its input.
+`wrk` creates the workspace when needed. `--drain` loads the model, processes
+the queued jobs, then exits. Results remain in the workspace.
 
-**Experimental developer preview.** Tests cover the filesystem and lifecycle
-contracts. nrvna does not claim production readiness.
+## Choose how the model runs
 
-## State is location
+Use `--drain` for bounded batches, first runs, or model swaps. It loads the
+model, processes queued work, and exits when the workspace is idle.
+
+For repeated work, keep one daemon running for the workspace. Check its status
+first. Use `nrvnad stop <workspace>` when you finish. Both modes use the same
+workspace and durable job files. See [INSTALL.md](INSTALL.md) for setup.
+
+## Work stays on disk
 
 ```text
-input/writing/ -> input/ready/ -> processing/ -> output/
-                                         \-> failed/
+input/ready/ → processing/ → output/
+                         └→ failed/
 ```
 
 The workspace remembers. The model does not.
 
-Atomic renames publish, claim, and complete jobs. The next daemon recovers
-jobs left in `processing/`. Repeated recovery stops at a fixed ceiling and
-moves the job to `failed/`.
-
-An interrupted job starts again with fresh context. Token generation does not
-resume. Execution is at least once: a job may run more than once after a crash.
-The caller decides whether to retry jobs that end in `failed/`.
-
-## The work outlives the process
+Atomic renames publish and claim jobs. After a crash, the next daemon can
+recover an abandoned job from its saved input. It starts again with fresh
+context; token generation does not resume. Execution is at least once, so a
+job may run more than once after a crash. Recovery stops at a fixed ceiling.
 
 ![A terminal demo that kills nrvnad, shows the claimed job on disk, and
 recovers that job](assets/crash-recovery.gif)
 
-I ran this check with the `v0.1.1` release on a 2017 Intel MacBook Pro. I sent
-`SIGKILL` while one job was in `processing/`. The next daemon recovered it.
-
-```text
-before SIGKILL  {"queued":0,"running":1,"done":0,"failed":0}
-after restart   {"queued":0,"running":0,"done":1,"failed":0}
-result          hello
-recovery_attempts 1
-```
-
-This is a process-crash check, not a speed benchmark or a power-loss guarantee.
-
-## Why
-
-I built nrvna on a 2017 Intel MacBook while caring for two young children. My
-time and compute were both interrupted. I wanted to submit work, leave, and
-read the results later.
-
-Once the work is at the center, the intelligence doesn't have to be.
-A caller, terminal, or model process can stop. The work should remain.
+The process-crash check used the `v0.1.1` release on a 2017 Intel MacBook Pro.
+It does not prove recovery from power loss or hardware failure.
 
 ## Work types
 
@@ -129,57 +81,65 @@ A caller, terminal, or model process can stop. The work should remain.
 | Text generation | prompt or stdin | `result.txt` |
 | Embedding | `--embed` | `embedding.json` |
 | Vision | `--image` | `result.txt` |
-| Speech to text | `--audio` (or `-a`) | `transcript.txt` |
+| Speech to text | `--audio` and `--stt` | `transcript.txt` |
 | Text to speech | `--tts` | `audio.wav` |
 
-Vision and speech transcription need compatible models and projector files.
-Text to speech needs a compatible model and vocoder. Use a separate workspace
-for each model role. One model does not necessarily support every work type.
+Some work types need matching projector or vocoder files. Use a separate
+workspace for each model role. See [CONFIGURATION.md](CONFIGURATION.md).
 
-Use `wrk --json-schema <file>` for schema-constrained text or vision output.
-The job preserves the schema and effective grammar. Invalid JSON fails before
-publication and keeps the partial response for inspection.
+LFM3 text, vision, and audio models use llama.cpp support added upstream in
+October 2026. Vision and audio jobs need the matching `--mmproj` file. LFM3
+audio models use that projector for speech output; older TTS models use a
+vocoder. nrvna does not yet accept video or mixed image-and-audio jobs.
+Liquid d1 decision models are also outside the current text-generation job
+interface.
 
-## Give it to an agent
+Each job gets fresh context. Put required instructions and evidence in its
+input. `--parent` records lineage only; it does not pass context or set order.
 
-Paste this into an agent with shell access:
+## Why
 
-```text
-Read https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md.
-Explain nrvna's job, context, drain, and failure contracts before using it.
-Use an isolated workspace and an existing local model. Do not download models
-or modify existing workspaces without asking me first.
-```
+I wanted to submit work, leave, and read the results later. The lifetime of
+the work should not be tied to the runtime of a model. More on the thinking:
+[Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
+and [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
 
-`AGENTS.md` defines stdout, JSON, exit codes, tags, lineage, daemon lifecycle,
-artifacts, and recovery.
+## Build on it
 
-## Applications
+Use `wrk`, `nrvnad`, and `flw` from a shell, or install the skill so a supported
+coding agent can call them from a conversation. Build a focused app when a
+workflow needs more than the primitives.
 
-- [Verified file organizer example](examples/file-organizer/README.md) asks a
-  model for a move plan, then validates the plan before files move.
-- [imgsrch](apps/imgsrch/README.md) searches local screenshots by visible
-  words and meaning. It uses caption, OCR, and embedding workspaces.
-- [bckbrnr](apps/bckbrnr/README.md) runs local prompt work from the macOS menu
-  bar and writes answers as files.
+- [File organizer](examples/file-organizer/README.md) validates a model's move
+  plan before it moves files.
+- [imgsrch](apps/imgsrch/README.md) searches images by visible words and
+  meaning. It uses caption, OCR, and embedding jobs.
+- [bckbrnr](apps/bckbrnr/README.md) submits local work from the macOS menu bar
+  and saves answers as files.
 
-These applications add product behavior. They use the same three primitives.
+These applications add product behavior. They use the same three commands.
 
-## Boundaries
+## What nrvna does not do
 
-nrvna is not a chat interface, agent framework, orchestrator, model router,
-semantic index, or distributed queue.
+nrvna is not a chat interface, agent framework, model router, search index, or
+distributed queue. It does not parse documents or retry failed jobs.
 
-`--parent` records lineage only. It does not copy context, wait for another
-job, or set execution order.
+The caller chooses models, selects context, composes jobs, and handles failed
+work. nrvna saves and runs independent inference jobs.
 
-The caller owns dependencies, model selection, document parsing, search, and
-retries of failed jobs. nrvna saves and processes the work; applications decide
-what work to submit and what to do with the results.
+## Status
+
+**Experimental developer preview.** Tests cover the filesystem and lifecycle
+contracts. nrvna does not claim production readiness.
 
 ## Reference
 
-- [Install](INSTALL.md): binaries, example model, and source build
+- [Install](INSTALL.md): binaries, example model, and run modes
+- [Changelog](CHANGELOG.md): user-visible changes and breaking CLI updates
+- [Documentation](docs/README.md): guides and reference pages
+- [Why nrvna](docs/why.md): the problem shape behind independent durable jobs
+- [Contributing](CONTRIBUTING.md): build and review expectations
+- [Security](SECURITY.md): private vulnerability reports
 - [Agent guide](AGENTS.md): operational and machine contract
 - [Domain language](CONTEXT.md): canonical terms
 - [Advanced patterns](ADVANCED.md): composition examples
@@ -187,6 +147,6 @@ what work to submit and what to do with the results.
 - [Architecture](ARCHITECTURE.md): ownership and state transitions
 
 nrvna builds on macOS and Linux with CMake 3.16+ and C++17. CPU inference is
-the default. Supported llama.cpp GPU backends use `NRVNA_GPU_LAYERS`.
+the default. Model licenses remain model-specific.
 
-MIT licensed. Model licenses remain model-specific.
+MIT licensed.

@@ -67,6 +67,7 @@ public:
     [[nodiscard]] RunResult transcribe(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths);
     [[nodiscard]] EmbedResult embed(const std::string& text);
     [[nodiscard]] EmbedResult embedVision(const std::string& prompt, const std::vector<std::filesystem::path>& imagePaths);
+    [[nodiscard]] bool supportsLfm3AudioGeneration() const noexcept;
     // Load the model briefly to read GGUF metadata without starting a server.
     [[nodiscard]] static ModelInfo probeModelInfo(const std::string& modelPath);
 

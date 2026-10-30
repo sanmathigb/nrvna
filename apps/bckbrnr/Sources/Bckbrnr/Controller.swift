@@ -392,7 +392,7 @@ final class BckbrnrController: ObservableObject {
     private func startDaemon(model: URL, engine: EnginePaths) throws {
         let process = Process()
         process.executableURL = engine.nrvnad
-        process.arguments = [model.path, workspace.path, "-w", "1"]
+        process.arguments = [workspace.path, model.path, "-w", "1"]
         let logURL = responseDir.appendingPathComponent("bckbrnr-engine.log")
         if !FileManager.default.fileExists(atPath: logURL.path) {
             FileManager.default.createFile(atPath: logURL.path, contents: nil)

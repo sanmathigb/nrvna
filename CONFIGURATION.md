@@ -11,6 +11,7 @@ Most users need only these:
 | `NRVNA_MODELS_DIR` | discovered `models/` | Model search directory |
 | `NRVNA_WORKERS` | `4` | Worker threads |
 | `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to a supported GPU backend |
+| `NRVNA_REPACK` | `1` | Set `0` to disable CPU weight repacking and reduce extra memory use |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
 | `NRVNA_PREDICT` | `2048` | Maximum generated tokens |
 | `NRVNA_MAX_RECOVERY_ATTEMPTS` | `3` | Orphaned `processing/` recoveries before terminal failure |
@@ -18,6 +19,10 @@ Most users need only these:
 CPU inference is the default. `nrvnad` resolves model names under `./models` or
 `NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching
 projector and vocoder files beside the model.
+
+`NRVNA_REPACK=0` disables llama.cpp's extra CPU buffer types for CPU model
+loads. It can reduce memory use. It can also change speed. Measure both modes
+for the model and machine. This setting does not affect GPU model loads.
 
 ## Generation
 
@@ -54,7 +59,7 @@ Increasing `NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `NRVNA_VISION_TEMP` | `0.3` | Vision sampling temperature |
+| `NRVNA_VISION_TEMP` | Model or general temperature; else `0.3` | Vision sampling temperature override |
 | `NRVNA_IMAGE_MAX_TOKENS` | model default | Image-token cap; `0` keeps the model default |
 | `NRVNA_STT_TEMP` | base temperature | Speech-to-text sampling temperature |
 | `NRVNA_STT_PREDICT` | base prediction limit | Speech-to-text generated-token limit |
@@ -66,6 +71,10 @@ Increasing `NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
 | `NRVNA_MAX_IMAGE_SIZE` | `52428800` | Maximum submitted image size in bytes (50 MiB) |
 | `NRVNA_MAX_AUDIO_SIZE` | `209715200` | Maximum submitted audio size in bytes (200 MiB) |
 | `NRVNA_MAX_PROMPT_SIZE` | `10000000` | Maximum `prompt.txt` size read by the daemon |
+
+For vision jobs, `NRVNA_VISION_TEMP` has the highest priority. Otherwise,
+nrvna uses `NRVNA_TEMP`, then the GGUF temperature hint. It uses `0.3` only
+when neither value exists. Other sampling values use their normal precedence.
 
 ## Logs and terminal output
 

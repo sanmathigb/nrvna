@@ -131,7 +131,7 @@ model, workers, and start time as JSON.
 Use `nrvnad status` to read daemon state. It returns `0` for ready, `2` for
 starting, and `1` for not running. Use `nrvnad stop` for a graceful stop.
 
-`nrvnad <model> <ws> --drain` processes work until it observes an idle queue.
+`nrvnad <ws> <model> --drain` processes work until it observes an idle queue.
 It then exits. If another daemon owns the workspace, drain waits for that
 daemon to finish the queue.
 
@@ -139,19 +139,23 @@ daemon to finish the queue.
 
 ### Backend version
 
-The backend is llama.cpp v0.4.1 (`b29c606e28a01b1bc8c1351026a0fa6e616bf6c4`).
-The update preserves the job contract and does not enable the upstream HTTP server.
-The text reference, `examples/simple/simple.cpp`, is unchanged from the previous pin.
-Media loading uses the new helper options. Penalty samplers receive vocabulary size.
-Schema conversion adapts the validated JSON to upstream's `common_json` type.
+The backend submodule is pinned to llama.cpp commit
+`8642541b255bfb5dc39cd351a178be09013a55d6` (upstream CMake version
+`0.8.0-dev`). The update preserves the job contract and does not enable the
+upstream HTTP server. The upstream `examples/simple/simple.cpp` changed between
+the previous pin and this one. nrvna adopts the API updates it needs, not the
+chat or server flow. Media loading uses the new helper options. Penalty samplers
+receive vocabulary size. Schema conversion adapts validated JSON to upstream's
+`common_json` type.
 
-Run `tests/backend-smoke.sh` with existing models to check text, structured JSON,
-and embeddings. Supply a vision model and projector to also check image input.
-The script retains temporary artifacts and downloads nothing.
+Run `bash tests/backend-smoke.sh` with existing models to check text, structured
+JSON, and embeddings. Supply a vision model and projector to also check image
+input. The script retains temporary artifacts and downloads nothing.
 
-The September 22, 2026 update passed these checks on Intel macOS with SmolLM2,
-nomic-embed, and LFM2.5-VL. It also passed the eight contract tests and imgsrch tests.
-Speech recognition, TTS, GPU inference, and Linux were not runtime-tested locally.
+The October 29, 2026 local check passed all ten CTest cases and the backend smoke
+checks for text, constrained JSON, and embeddings on Intel macOS. It used
+SmolLM2 and nomic-embed. Speech, vision, TTS, GPU inference, and Linux were not
+runtime-tested in this check.
 
 ### Text/Vision (Runner)
 
@@ -216,10 +220,10 @@ export LLAMA_LOG_LEVEL=error    # Controls llama.cpp verbosity (default: error)
 
 | Tool | Purpose | Example |
 |------|---------|---------|
-| `nrvnad` | Start daemon | `nrvnad model.gguf workspace` |
+| `nrvnad` | Start daemon | `nrvnad workspace model.gguf` |
 | `nrvnad status` | Daemon state | `nrvnad status workspace --json` |
 | `nrvnad stop` | Stop a workspace daemon | `nrvnad stop workspace` |
-| `nrvnad --drain` | Process queue to quiet, then exit | `nrvnad model.gguf workspace --drain` |
+| `nrvnad --drain` | Process queue to quiet, then exit | `nrvnad workspace model.gguf --drain` |
 | `wrk` | Submit jobs | `wrk workspace "prompt"` |
 | `flw` | Inspect or wait for results | `flw workspace -w job-id` |
 

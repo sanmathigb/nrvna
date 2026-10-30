@@ -122,6 +122,9 @@ docs/*
 !docs/internal/
 docs/internal/*
 !docs/internal/cold-agent-test.md
+!docs/README.md
+!docs/how-it-works.md
+!docs/why.md
 testing/
 scripts/*
 !scripts/imgsrch

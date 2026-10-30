@@ -159,11 +159,13 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
 
         // TTS uses its own runner and does not need a text Runner.
         if (jobType == JobType::Tts) {
-            if (vocoderPath_.empty()) {
+            Runner* modelRunner = getRunnerForWorker(workerId);
+            if (vocoderPath_.empty() &&
+                (!modelRunner || !modelRunner->supportsLfm3AudioGeneration())) {
                 auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
                 completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
                 printJobStatus(jobId, contract::toString(Status::Failed), elapsed);
-                (void)finalizeFailure(jobId, "TTS requires --vocoder flag");
+                (void)finalizeFailure(jobId, "TTS requires a supported audio-generation model and projector, or --vocoder");
                 return ProcessResult::Failed;
             }
 
@@ -698,8 +700,12 @@ Runner* Processor::getRunnerForWorker(int workerId) {
 }
 
 bool Processor::initializeTtsRunners(int numWorkers) {
-    if (vocoderPath_.empty()) {
-        LOG_DEBUG("No vocoder path, skipping TTS runner init");
+    bool supportsLfm3Audio = false;
+    if (!runners_.empty()) {
+        supportsLfm3Audio = runners_.begin()->second->supportsLfm3AudioGeneration();
+    }
+    if (vocoderPath_.empty() && !supportsLfm3Audio) {
+        LOG_DEBUG("No audio-generation model or vocoder, skipping TTS runner init");
         return true;
     }
 
@@ -707,7 +713,7 @@ bool Processor::initializeTtsRunners(int numWorkers) {
     try {
         for (int i = 0; i < numWorkers; ++i) {
             LOG_DEBUG("Pre-creating TtsRunner instance for worker " + std::to_string(i));
-            ttsRunners_[i] = std::make_unique<TtsRunner>(modelPath_, vocoderPath_);
+            ttsRunners_[i] = std::make_unique<TtsRunner>(modelPath_, mmprojPath_, vocoderPath_);
         }
         LOG_DEBUG("All " + std::to_string(numWorkers) + " TtsRunner instances initialized");
         return true;

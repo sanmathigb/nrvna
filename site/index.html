@@ -216,8 +216,9 @@
   <div class="hero">
     <div class="wrap">
       <h1>Submit now.<br>Run the model later.</h1>
-      <p>Unix-like primitives for durable local inference. No always-on
-      server.</p>
+      <p>Three commands. Independent jobs. Results saved as files.</p>
+      <p class="caption">Install: <code>curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh</code><br>Then add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
+      <p class="caption"><a href="https://github.com/sanmathigb/nrvna#start-with-the-commands">First run</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/how-it-works.md">How it works</a> · <a href="https://github.com/sanmathigb/nrvna#build-on-it">Build an app</a></p>
       <p class="caption">Give <code>nrvnad</code> a GGUF model and a directory.
       That directory becomes the workspace. Each job is a folder inside it.
       Moving that folder changes the job state. Results stay there as files.</p>
@@ -230,7 +231,7 @@
         </div>
         <div class="terminal">
           <div class="term-title">07:30 | bring a model to the queue</div>
-<pre><span class="p">$</span> nrvnad smollm2.gguf ~/workspace
+<pre><span class="p">$</span> nrvnad ~/workspace smollm2.gguf
 <span class="o">RUNNING</span></pre>
         </div>
         <div class="terminal">

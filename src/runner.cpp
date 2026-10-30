@@ -11,6 +11,8 @@
 #include "llama.h"
 #include "mtmd.h"
 #include "mtmd-helper.h"
+#include "think_filter.hpp"
+#include "vision_sampling.hpp"
 #include <chrono>
 #include <thread>
 #include <algorithm>
@@ -78,76 +80,8 @@ struct LlamaBatchOwner {
     ~LlamaBatchOwner() { llama_batch_free(value); }
 };
 
-// Remove closed and unclosed <think> blocks from reasoning model output.
-// A block can remain open when the model reaches n_predict during reasoning.
-static std::string trimWhitespace(const std::string& text) {
-    size_t start = text.find_first_not_of(" \t\n\r");
-    if (start == std::string::npos) {
-        return "";
-    }
-    size_t end = text.find_last_not_of(" \t\n\r");
-    return text.substr(start, end - start + 1);
-}
-
-static std::string stripThinkBlocks(const std::string& text) {
-    std::string result = text;
-    size_t pos = 0;
-
-    // Strip <think>...</think> blocks (Qwen/DeepSeek style)
-    while ((pos = result.find("<think>", pos)) != std::string::npos) {
-        size_t end = result.find("</think>", pos);
-        if (end != std::string::npos) {
-            end += 8;
-            while (end < result.size() && (result[end] == ' ' || result[end] == '\t' || result[end] == '\n' || result[end] == '\r'))
-                ++end;
-            result.erase(pos, end - pos);
-        } else {
-            result.erase(pos);
-        }
-    }
-
-    // Strip <|channel>thought...<channel|> blocks (Gemma 4 style)
-    pos = 0;
-    while ((pos = result.find("<|channel>thought", pos)) != std::string::npos) {
-        size_t end = result.find("<channel|>", pos);
-        if (end != std::string::npos) {
-            end += 10;
-            while (end < result.size() && (result[end] == ' ' || result[end] == '\t' || result[end] == '\n' || result[end] == '\r'))
-                ++end;
-            result.erase(pos, end - pos);
-        } else {
-            result.erase(pos);
-        }
-    }
-
-    // Strip [Start thinking]...[/End thinking] or similar (Gemma 4 alternate)
-    pos = 0;
-    while ((pos = result.find("[Start thinking]", pos)) != std::string::npos) {
-        size_t end = result.find("[/End thinking]", pos);
-        if (end != std::string::npos) {
-            end += 15; // strlen("[/End thinking]")
-            while (end < result.size() && (result[end] == ' ' || result[end] == '\t' || result[end] == '\n' || result[end] == '\r'))
-                ++end;
-            result.erase(pos, end - pos);
-        } else {
-            // Also check for Thinking Process: pattern without explicit end
-            size_t thinkEnd = result.find("<channel|>", pos);
-            if (thinkEnd != std::string::npos) {
-                thinkEnd += 10;
-                while (thinkEnd < result.size() && (result[thinkEnd] == ' ' || result[thinkEnd] == '\t' || result[thinkEnd] == '\n' || result[thinkEnd] == '\r'))
-                    ++thinkEnd;
-                result.erase(pos, thinkEnd - pos);
-            } else {
-                result.erase(pos);
-            }
-        }
-    }
-
-    return trimWhitespace(result);
-}
-
 static std::string extractAsrText(const std::string& text) {
-    std::string result = stripThinkBlocks(text);
+    std::string result = detail::stripThinkBlocks(text);
     const std::string marker = "<asr_text>";
     size_t pos = result.find(marker);
     if (pos != std::string::npos) {
@@ -157,7 +91,7 @@ static std::string extractAsrText(const std::string& text) {
             result = result.substr(0, end);
         }
     }
-    return trimWhitespace(result);
+    return detail::trimThinkWhitespace(result);
 }
 
 static std::optional<std::string> tokenPiece(const llama_vocab* vocab, llama_token token) {
@@ -205,6 +139,7 @@ static void restrictModelToCpu(llama_model_params& params) {
     cpu_only_devices[1] = nullptr;
     if (cpu_dev) {
         params.devices = cpu_only_devices;
+        params.use_extra_bufts = env_int("NRVNA_REPACK", 1) != 0;
     }
 }
 
@@ -562,7 +497,7 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
     std::vector<mtmd_bitmap*> bitmaps;
     llama_context* ctx = nullptr;
     try {
-        const char* marker = mtmd_default_marker();
+        const char* marker = mtmd_get_marker(mtmd_ctx_);
         std::string formatted_prompt = formatMultimodalPrompt(prompt, imagePaths.size(), marker);
 
         bitmaps = loadImages(imagePaths);
@@ -762,6 +697,7 @@ RunResult Runner::runText(const std::string& prompt, const GenerationOptions& op
 
         std::string output;
         llama_token new_token_id;
+        const bool prompt_opens_think = detail::promptEndsWithOpenThinkBlock(formatted_prompt);
 
         int generated = 0;
         for (; generated < config.n_predict; ) {
@@ -787,7 +723,10 @@ RunResult Runner::runText(const std::string& prompt, const GenerationOptions& op
         }
 
         LOG_INFO("Generated " + std::to_string(output.size()) + " bytes");
-        output = stripThinkBlocks(output);
+        output = detail::stripThinkBlocks(output, prompt_opens_think);
+        if (prompt_opens_think && output.empty()) {
+            return {false, "", "No answer remained after removing model reasoning; increase NRVNA_PREDICT or disable thinking"};
+        }
         return {true, output, ""};
 
     } catch (const std::exception& e) {
@@ -810,7 +749,15 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         SamplingConfig config = buildSamplingConfig();
 
         // Lower temperature for vision tasks (more accurate OCR/descriptions)
-        config.temp = env_float("NRVNA_VISION_TEMP", 0.3f);
+        const char* vision_temp = std::getenv("NRVNA_VISION_TEMP");
+        const char* general_temp = std::getenv("NRVNA_TEMP");
+        const bool has_model_temp = readModelFloatMeta(shared_model_.get(), "general.sampling.temp", -1.0f) >= 0.0f;
+        config.temp = detail::resolveVisionTemperature(
+            config.temp,
+            has_model_temp,
+            general_temp != nullptr,
+            vision_temp != nullptr,
+            vision_temp ? env_float("NRVNA_VISION_TEMP", config.temp) : config.temp);
 
         LOG_INFO("Vision job: " + std::to_string(imagePaths.size()) + " image(s), temp=" + std::to_string(config.temp));
 
@@ -886,6 +833,7 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         // Token generation loop with explicit position tracking (matches reference)
         std::string output;
         llama_token new_token_id;
+        const bool prompt_opens_think = detail::promptEndsWithOpenThinkBlock(formatted_prompt);
         LlamaBatchOwner batchOwner(1);
         llama_batch& batch = batchOwner.value;
         std::string generationError;
@@ -923,7 +871,10 @@ RunResult Runner::runVision(const std::string& prompt, const std::vector<std::fi
         }
 
         LOG_INFO("Generated " + std::to_string(output.size()) + " bytes before strip");
-        output = stripThinkBlocks(output);
+        output = detail::stripThinkBlocks(output, prompt_opens_think);
+        if (prompt_opens_think && output.empty()) {
+            return {false, "", "No answer remained after removing model reasoning; increase NRVNA_PREDICT or disable thinking"};
+        }
         return {true, output, ""};
 
     } catch (const std::exception& e) {
@@ -956,8 +907,35 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
         LOG_INFO("STT job: " + std::to_string(audioPaths.size()) + " audio file(s), temp=" + std::to_string(config.temp));
 
         const char* marker = mtmd_default_marker();
-        const std::string task = prompt.empty() ? "Transcribe the audio." : prompt;
-        std::string formatted_prompt = formatMultimodalPrompt(task, audioPaths.size(), marker);
+        const auto asr_preset = common_chat_get_asr_prompt(chat_templates_, "");
+        const std::string task = prompt.empty()
+            ? (asr_preset.user.empty() ? "Transcribe the audio." : asr_preset.user)
+            : prompt;
+        std::string content = task;
+        for (size_t i = 0; i < audioPaths.size(); ++i) {
+            content += marker;
+        }
+
+        std::string formatted_prompt;
+        if (chat_templates_) {
+            common_chat_templates_inputs inputs;
+            if (!asr_preset.system.empty()) {
+                common_chat_msg system;
+                system.role = "system";
+                system.content = asr_preset.system;
+                inputs.messages.push_back(std::move(system));
+            }
+            common_chat_msg user;
+            user.role = "user";
+            user.content = std::move(content);
+            inputs.messages.push_back(std::move(user));
+            inputs.use_jinja = true;
+            inputs.add_generation_prompt = true;
+            inputs.enable_thinking = false;
+            formatted_prompt = common_chat_templates_apply(chat_templates_, inputs).prompt.str();
+        } else {
+            formatted_prompt = std::move(content);
+        }
 
         BitmapList audioBitmaps{loadAudio(audioPaths)};
         if (audioBitmaps.values.empty()) {
@@ -1063,6 +1041,10 @@ RunResult Runner::runStt(const std::string& prompt, const std::vector<std::files
     }
 }
 
+bool Runner::supportsLfm3AudioGeneration() const noexcept {
+    return mtmd_ctx_ && mtmd_gen_audio_get_info(mtmd_ctx_).type == MTMD_GEN_AUDIO_TYPE_LFM3A;
+}
+
 std::string Runner::formatPrompt(const std::string& content) {
     if (!chat_templates_) {
         return content;
@@ -1084,7 +1066,7 @@ std::string Runner::formatPrompt(const std::string& content) {
     }
 
     auto params = common_chat_templates_apply(chat_templates_, inputs);
-    return params.prompt;
+    return params.prompt.str();
 }
 
 std::string Runner::formatMultimodalPrompt(const std::string& prompt, size_t imageCount, const char* marker) {
@@ -1117,7 +1099,7 @@ std::string Runner::formatMultimodalPrompt(const std::string& prompt, size_t ima
     }
 
     auto params = common_chat_templates_apply(chat_templates_, inputs);
-    return params.prompt;
+    return params.prompt.str();
 }
 
 std::vector<mtmd_bitmap*> Runner::loadImages(const std::vector<std::filesystem::path>& imagePaths) const {

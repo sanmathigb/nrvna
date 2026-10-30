@@ -16,6 +16,11 @@ case "$stop_help" in
     *'Usage: nrvnad stop <workspace> [--timeout <1-3600>]'*) ;;
     *) echo "stop --help did not show stop help" >&2; exit 1 ;;
 esac
+daemon_help="$("$bin_dir/nrvnad" --help)"
+case "$daemon_help" in
+    *'nrvnad <workspace> <model> [options]'*) ;;
+    *) echo "daemon help does not show workspace-first run syntax" >&2; exit 1 ;;
+esac
 
 # An option cannot stand in for the required workspace.
 status_out="$tmp/status-option.out"
@@ -73,7 +78,26 @@ fi
 if "$bin_dir/nrvnad" status "$tmp/ws3" --bogus >/dev/null 2>&1; then
     echo "status accepted an unknown option" >&2; exit 1
 fi
-if "$bin_dir/nrvnad" "$tmp/model.gguf" "$tmp/ws3" --workers 2oops >/dev/null 2>&1; then
+if "$bin_dir/nrvnad" "$tmp/ws3" --workers 1 >/dev/null 2>&1; then
+    echo "daemon accepted a missing model" >&2; exit 1
+fi
+if "$bin_dir/nrvnad" "$tmp/correct-workspace" definitely-missing-model >"$tmp/missing-model.out" 2>"$tmp/missing-model.err"; then
+    echo "daemon accepted a missing model file" >&2; exit 1
+fi
+grep -Fq "Model not found: definitely-missing-model" "$tmp/missing-model.err" || {
+    echo "daemon did not treat the first positional as the workspace" >&2; exit 1;
+}
+test -d "$tmp/correct-workspace" || {
+    echo "daemon did not create the first positional workspace" >&2; exit 1;
+}
+: > "$tmp/model.gguf"
+if "$bin_dir/nrvnad" "$tmp/model.gguf" "$tmp/ws3" --drain >"$tmp/reversed.out" 2>"$tmp/reversed.err"; then
+    echo "daemon accepted model-first arguments" >&2; exit 1
+fi
+grep -q 'arguments appear reversed; use nrvnad <workspace> <model>' "$tmp/reversed.err" || {
+    echo "daemon did not explain reversed arguments" >&2; exit 1;
+}
+if "$bin_dir/nrvnad" "$tmp/ws3" "$tmp/model.gguf" --workers 2oops >/dev/null 2>&1; then
     echo "daemon accepted a partially numeric worker count" >&2; exit 1
 fi
 

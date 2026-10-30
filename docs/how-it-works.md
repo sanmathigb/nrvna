@@ -1,0 +1,69 @@
+# How nrvna works
+
+nrvna stores independent inference jobs in a workspace. A job keeps its input,
+state, and result as files. The model process can stop without deleting that
+work.
+
+## Submit work
+
+`wrk` writes a job and returns its ID. You can submit jobs before starting a
+model.
+
+```sh
+wrk ./writing "Write a short essay about neighborhood repair shops."
+{ printf '%s\n' 'Summarize this meeting transcript in ten bullets:'; cat meeting.txt; } | wrk ./writing -
+```
+
+Each job starts with fresh context. nrvna does not add earlier jobs to a later
+prompt. To use an earlier result, read it and include the needed evidence in
+the next prompt. `--parent` records lineage only.
+
+## Run the jobs
+
+`nrvnad` loads a model and claims jobs from one workspace. Use `--drain` for a
+bounded batch. The command exits when the queue becomes idle.
+
+```sh
+nrvnad ./writing ./models/smollm2-1.7b.gguf --drain
+```
+
+For repeated work, run one daemon for the workspace. Check its state with
+`nrvnad status`. Use `nrvnad stop` to stop it cleanly.
+
+## Read results
+
+`flw` reads job state or output. A completed text job has `result.txt`. Other
+job types can produce `embedding.json`, `transcript.txt`, or `audio.wav`.
+
+```sh
+flw ./writing
+```
+
+The workspace stores jobs in state folders:
+
+```text
+input/ready/  →  processing/  →  output/
+                             └→ failed/
+```
+
+Workers claim jobs and publish results with atomic directory renames. Do not
+edit a job after `wrk` publishes it under `input/ready/`.
+
+## Recovery
+
+After a daemon crash, the next daemon can recover a job left in `processing/`.
+It starts that job again from its saved input. Generated tokens do not resume.
+Execution is at least once, so a job can run more than once after a crash.
+Recovery stops after a fixed number of attempts. Failed jobs remain available
+for inspection; the caller decides whether to submit a new job.
+
+This recovery behavior covers process crashes. It is not a guarantee against
+power loss or storage failure.
+
+## What callers build
+
+nrvna does not parse documents, search files, pass context between jobs, or
+choose which model runs next. A shell script or app can submit work, inspect
+results, and decide what to do next. Each app owns that workflow.
+
+See [Advanced patterns](../ADVANCED.md) for batch and pipeline examples.

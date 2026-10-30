@@ -10,10 +10,14 @@ case "$help" in
     *'https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md'*) ;;
     *) echo "nrvnad help does not link the configuration reference" >&2; exit 1 ;;
 esac
+case "$help" in
+    *'nrvnad <workspace> <model> [options]'*'Each job starts with fresh context.'*) ;;
+    *) echo "nrvnad help does not explain its workspace-first job model" >&2; exit 1 ;;
+esac
 
 flw_help="$("$bin_dir/flw" --help)"
 case "$flw_help" in
-    *'wait for this batch (no result output)'*'then collect the batch as NDJSON'*) ;;
+    *'wait for a tagged batch'*'read tagged results as NDJSON'*) ;;
     *) echo "flw help does not distinguish batch barriers from collection" >&2; exit 1 ;;
 esac
 
@@ -22,12 +26,16 @@ case "$wrk_help" in
     *'--json-schema <path>'*'--grammar <path>'*) ;;
     *) echo "wrk help omits structured output options" >&2; exit 1 ;;
 esac
+case "$wrk_help" in
+    *'wrk prints the job ID.'*'A file path alone does not read that file.'*) ;;
+    *) echo "wrk help does not explain prompt input and job ID output" >&2; exit 1 ;;
+esac
 case "$flw_help" in
-    *'Job result: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
+    *'One job: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
     *) echo "flw help does not scope job-result exit codes" >&2; exit 1 ;;
 esac
 case "$flw_help" in
-    *'Wait requires a positional or piped job ID.'*) ;;
+    *'-w needs a job ID.'*) ;;
     *) echo "flw help does not require an explicit wait job ID" >&2; exit 1 ;;
 esac
 

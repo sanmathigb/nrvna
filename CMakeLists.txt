@@ -92,6 +92,7 @@ if(BUILD_TESTING)
         meta_test
         recovery_test
         crash_recovery_test
+        runner-settings-test
         file-organizer-validator
     )
 
@@ -116,12 +117,15 @@ if(BUILD_TESTING)
     target_link_libraries(crash_recovery_test nrvna_core)
     target_include_directories(crash_recovery_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+    add_executable(runner-settings-test tests/runner-settings-test.cpp)
+
     add_custom_target(nrvna_test_binaries DEPENDS ${NRVNA_TEST_BINS})
 
     add_test(NAME contract COMMAND contract_test)
     add_test(NAME metadata COMMAND meta_test)
     add_test(NAME recovery COMMAND recovery_test)
     add_test(NAME crash_recovery COMMAND crash_recovery_test)
+    add_test(NAME runner_settings COMMAND runner-settings-test)
     add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
     add_test(NAME shell_helper COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/nrvna-lib-contract.sh ${CMAKE_CURRENT_SOURCE_DIR})

@@ -50,7 +50,7 @@ Type `job=$(wrk ./workspace "Say only: hello")` Enter
 Wait+Line /\$$/
 Sleep 600ms
 
-Type `nrvnad ./models/smollm2-1.7b.gguf ./workspace &` Enter
+Type `nrvnad ./workspace ./models/smollm2-1.7b.gguf &` Enter
 Wait+Line /\$$/
 Hide
 Type `sync_demo "$!"` Enter
@@ -72,7 +72,7 @@ Type `ls ./workspace/processing/` Enter
 Wait+Line /\$$/
 Sleep 700ms
 
-Type `nrvnad ./models/smollm2-1.7b.gguf ./workspace --drain` Enter
+Type `nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain` Enter
 Wait+Line@120s /\$$/
 Type `flw ./workspace "$job"` Enter
 Wait+Line /\$$/

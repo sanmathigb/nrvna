@@ -66,6 +66,6 @@ Next:
   MODEL=models/smollm2-1.7b.gguf
   WS=./workspace
   JOB=\$(wrk "\$WS" "Reply with exactly: first")
-  nrvnad "\$MODEL" "\$WS" --drain
+  nrvnad "\$WS" "\$MODEL" --drain
   flw "\$WS" "\$JOB"
 EOF

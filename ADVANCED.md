@@ -19,7 +19,7 @@ for img in photos/*.jpg; do
 done
 
 # Load once, drain the queued work, and release the model
-nrvnad vision-model.gguf ./workspace --drain
+nrvnad ./workspace vision-model.gguf --drain
 
 # Drain has already waited; collect this batch as NDJSON
 flw ./workspace --tag "$BATCH" --json > results.ndjson
@@ -45,7 +45,7 @@ job2=$({ echo "Summarize the key claims:"; cat report/ch2.txt; } | wrk ./workspa
 job3=$({ echo "Summarize the key claims:"; cat report/ch3.txt; } | wrk ./workspace -)
 
 # Load once and finish the queued summaries
-nrvnad "$MODEL" ./workspace --drain
+nrvnad ./workspace "$MODEL" --drain
 result1=$(flw ./workspace "$job1")
 result2=$(flw ./workspace "$job2")
 result3=$(flw ./workspace "$job3")
@@ -56,7 +56,7 @@ Preserve exact terms and numbers. Do not add new facts.
 $result1
 $result2
 $result3")
-nrvnad "$MODEL" ./workspace --drain
+nrvnad ./workspace "$MODEL" --drain
 flw ./workspace "$final_job"
 ```
 
@@ -92,7 +92,7 @@ persistent_job() (
   }
   trap cleanup EXIT
 
-  nrvna_start "$model" "$workspace"
+  nrvna_start "$workspace" "$model"
   job=$(wrk "$workspace" "Reply with exactly: ready")
   flw "$workspace" -w "$job"
 )
@@ -112,7 +112,7 @@ Save results and include them in a later prompt:
 MODEL=/path/to/model.gguf
 
 first=$(wrk ./workspace "Extract the important facts")
-nrvnad "$MODEL" ./workspace --drain
+nrvnad ./workspace "$MODEL" --drain
 
 # Put the prior result in the next prompt
 second=$({
@@ -122,7 +122,7 @@ second=$({
   echo "What themes appear? List contradictions separately."
 } | wrk ./workspace - --parent "$first")
 
-nrvnad "$MODEL" ./workspace --drain
+nrvnad ./workspace "$MODEL" --drain
 flw ./workspace "$second"
 ```
 
@@ -138,9 +138,9 @@ vision_job=$(wrk ./ws-vision "Describe this image" --image screenshot.png)
 code_job=$({ echo "Review this code:"; cat app.py; } | wrk ./ws-code -)
 text_job=$(wrk ./ws-fast "Classify this request: reset my password")
 
-nrvnad qwen-vl.gguf    ./ws-vision --drain    # mmproj auto-detected
-nrvnad codellama.gguf  ./ws-code   --drain
-nrvnad phi-3-mini.gguf ./ws-fast   --drain
+nrvnad ./ws-vision qwen-vl.gguf    --drain    # mmproj auto-detected
+nrvnad ./ws-code   codellama.gguf  --drain
+nrvnad ./ws-fast   phi-3-mini.gguf --drain
 
 flw ./ws-vision "$vision_job"
 flw ./ws-code "$code_job"

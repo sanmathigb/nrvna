@@ -24,7 +24,8 @@ struct TtsResult {
 
 class TtsRunner final {
 public:
-    explicit TtsRunner(const std::string& modelPath, const std::string& vocoderPath);
+    explicit TtsRunner(const std::string& modelPath, const std::string& mmprojPath,
+                       const std::string& vocoderPath);
     ~TtsRunner();
 
     TtsRunner(const TtsRunner&) = delete;
@@ -35,6 +36,9 @@ public:
     [[nodiscard]] TtsResult run(const std::string& text);
 
 private:
+    [[nodiscard]] TtsResult runLfm3Audio(const std::string& text);
+
+    bool lfm3_audio_ = false;
     static std::shared_ptr<llama_model> shared_tts_model_;
     static std::shared_ptr<llama_model> shared_vocoder_;
     static std::string current_tts_model_path_;

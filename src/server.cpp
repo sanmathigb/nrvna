@@ -224,15 +224,13 @@ bool Server::start() {
         }
         LOG_DEBUG("All " + std::to_string(workers_) + " Runner instances initialized successfully");
 
-        // Pre-initialize TTS Runners if vocoder is available
-        if (!vocoderPath_.empty()) {
-            LOG_DEBUG("Pre-initializing TTS runners...");
-            if (!processor_->initializeTtsRunners(workers_)) {
-                LOG_ERROR("Failed to initialize TTS runners");
-                return false;
-            }
-            LOG_DEBUG("TTS runners initialized successfully");
+        // Initialize TTS for legacy vocoder models or LFM3 audio models.
+        LOG_DEBUG("Pre-initializing TTS runners...");
+        if (!processor_->initializeTtsRunners(workers_)) {
+            LOG_ERROR("Failed to initialize TTS runners");
+            return false;
         }
+        LOG_DEBUG("TTS runners initialized successfully");
 
         // Start pool with processor function
         LOG_DEBUG("Starting worker pool with " + std::to_string(workers_) + " threads...");

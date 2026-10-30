@@ -8,13 +8,16 @@ import (
 
 func TestUsageListsPublicCommandsAndFlags(t *testing.T) {
 	for _, want := range []string{
-		"Search local images by visible text and meaning.",
+		"Search image projects by visible text and meaning.",
 		"Usage:",
 		"imgsrch <command> [arguments]",
 		"setup",
 		"search",
+		"Examples:",
+		"Indexing runs in the background.",
+		"Check progress with status.",
 		"eval",
-		"eval <project> <hardset.json> [--top-k n] [--scorer s]",
+		"eval <project> <hardset.json>",
 		"--scorer",
 		"IMGSRCH_MODELS_DIR",
 		"CONFIGURATION.md",

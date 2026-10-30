@@ -64,32 +64,29 @@ bool readStructuredFile(const std::filesystem::path& path, std::string& content,
 } // namespace
 
 void printUsage() {
-    std::cout << "Submit work to an nrvna workspace.\n\n";
+    std::cout << "Submit one independent job to a workspace.\n\n";
     std::cout << "Usage:\n";
     std::cout << "  wrk <workspace> [prompt...] [options]\n";
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "  -i, --image <path>   Attach an image (repeatable)\n";
-    std::cout << "      --audio <path>   Attach audio (repeatable)\n";
-    std::cout << "      --embed          Create an embedding\n";
-    std::cout << "      --tts            Generate speech\n";
-    std::cout << "      --stt            Transcribe audio\n";
-    std::cout << "      --parent <id>    Set the parent job\n";
-    std::cout << "      --tag <tag>      Add a tag (repeatable)\n";
+    std::cout << "  -i, --image <path>        Attach an image (repeatable)\n";
+    std::cout << "      --audio <path>        Attach audio (repeatable)\n";
+    std::cout << "      --embed               Create an embedding\n";
+    std::cout << "      --tts                 Generate speech\n";
+    std::cout << "      --stt                 Transcribe audio\n";
+    std::cout << "      --parent <job-id>     Record lineage; does not add context\n";
+    std::cout << "      --tag <name>          Add a tag (repeatable)\n";
     std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
     std::cout << "      --grammar <path>      Constrain text or vision output with GBNF\n";
     std::cout << "  -h, --help           Show help\n";
     std::cout << "  -v, --version        Show version\n";
     std::cout << "\n";
     std::cout << "Examples:\n";
-    std::cout << "  cat report.txt | wrk ./ws -\n";
-    std::cout << "  { echo \"Summarize:\"; cat notes.md; } | wrk ./ws -\n";
-    std::cout << "  wrk ./ws \"What is this screenshot about?\" --image shot.png\n";
-    std::cout << "  wrk ./ws \"Extract the fields\" --json-schema fields.schema.json\n";
-    std::cout << "\n";
-    std::cout << "wrk creates the workspace when it is missing.\n";
-    std::cout << "It prints only the job ID on stdout. Collect the result with:\n";
-    std::cout << "  flw <workspace> -w <job-id>\n";
+    std::cout << "  wrk ./ws \"Explain why local inference benefits from durable jobs.\"\n";
+    std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
+    std::cout << "  flw ./ws <job-id>\n\n";
+    std::cout << "Prompt words form one prompt. Use '-' to read prompt text from stdin.\n";
+    std::cout << "wrk prints the job ID. A file path alone does not read that file.\n";
 }
 
 int main(int argc, char* argv[]) {

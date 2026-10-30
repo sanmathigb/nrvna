@@ -35,7 +35,7 @@ nrvna_stop() {
 
 nrvna_start() {
     [ "$#" -ge 2 ] || {
-        echo "usage: nrvna_start <model> <workspace> [nrvnad options]" >&2
+        echo "usage: nrvna_start <workspace> <model> [nrvnad options]" >&2
         return 2
     }
     case "$NRVNA_START_TIMEOUT" in
@@ -44,7 +44,7 @@ nrvna_start() {
             return 2
             ;;
     esac
-    local model="$1" ws="$2"; shift 2
+    local ws="$1" model="$2"; shift 2
     local code=0 daemon launcher="" log=""
     daemon="$(nrvna__bin)" || {
         echo "nrvna-lib: nrvnad not found" >&2
@@ -57,7 +57,7 @@ nrvna_start() {
         mkdir -p "$ws" || return 1
         mkdir -p "$NRVNA_LOG_DIR" || return 1
         log="${NRVNA_LOG_DIR%/}/nrvna-$(basename "$ws").log"
-        "$daemon" "$model" "$ws" "$@" >"$log" 2>&1 &
+        "$daemon" "$ws" "$model" "$@" >"$log" 2>&1 &
         launcher=$!
     fi
     local waited=0

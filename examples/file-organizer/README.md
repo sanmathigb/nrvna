@@ -29,7 +29,7 @@ job=$(wrk ./workspace - \
   --json-schema move-plan.schema.json \
   < request.txt)
 
-nrvnad "$MODEL" ./workspace --drain
+nrvnad ./workspace "$MODEL" --drain
 flw ./workspace "$job" > plan.json
 ```
 

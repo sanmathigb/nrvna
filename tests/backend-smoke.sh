@@ -13,14 +13,14 @@ printf '%s\n' '{"type":"object","properties":{"answer":{"const":"ready"}},"requi
 text_id=$("$bin_dir/wrk" "$smoke_dir/text" "Reply with exactly: ready")
 json_id=$("$bin_dir/wrk" "$smoke_dir/text" 'Return {"answer":"ready"}.' --json-schema "$smoke_dir/schema.json")
 "$bin_dir/nrvnad" status "$smoke_dir/text" --json || test "$?" -eq 1
-"$bin_dir/nrvnad" "$text_model" "$smoke_dir/text" --workers 1 --drain > "$smoke_dir/text.log" 2>&1
+"$bin_dir/nrvnad" "$smoke_dir/text" "$text_model" --workers 1 --drain > "$smoke_dir/text.log" 2>&1
 "$bin_dir/flw" "$smoke_dir/text" "$text_id" --json > "$smoke_dir/text.json"
 "$bin_dir/flw" "$smoke_dir/text" "$json_id" > "$smoke_dir/answer.json"
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"answer":"ready"}' "$smoke_dir/answer.json"
 
 embed_id=$("$bin_dir/wrk" "$smoke_dir/embed" "search_query: local inference" --embed)
 "$bin_dir/nrvnad" status "$smoke_dir/embed" --json || test "$?" -eq 1
-"$bin_dir/nrvnad" "$embedding_model" "$smoke_dir/embed" --workers 1 --drain > "$smoke_dir/embed.log" 2>&1
+"$bin_dir/nrvnad" "$smoke_dir/embed" "$embedding_model" --workers 1 --drain > "$smoke_dir/embed.log" 2>&1
 "$bin_dir/flw" "$smoke_dir/embed" "$embed_id" --json > "$smoke_dir/embed.json"
 python3 - "$smoke_dir/embed/output/$embed_id/embedding.json" <<'PY'
 import json, math, sys
@@ -44,7 +44,7 @@ with open(sys.argv[1], 'wb') as f:
 PY
     vision_id=$("$bin_dir/wrk" "$smoke_dir/vision" "Name the dominant color." --image "$smoke_dir/red.png")
     "$bin_dir/nrvnad" status "$smoke_dir/vision" --json || test "$?" -eq 1
-    "$bin_dir/nrvnad" "$4" "$smoke_dir/vision" --mmproj "$5" --workers 1 --drain > "$smoke_dir/vision.log" 2>&1
+    "$bin_dir/nrvnad" "$smoke_dir/vision" "$4" --mmproj "$5" --workers 1 --drain > "$smoke_dir/vision.log" 2>&1
     "$bin_dir/flw" "$smoke_dir/vision" "$vision_id"
     test -s "$smoke_dir/vision/output/$vision_id/result.txt"
 fi

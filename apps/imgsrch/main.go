@@ -13,37 +13,38 @@ import (
 
 const version = "0.1.1"
 
-const usageText = `Search local images by visible text and meaning.
+const usageText = `Search image projects by visible text and meaning.
 
 Usage:
   imgsrch <command> [arguments]
 
 Commands:
-  setup                                                Download the default models
-  init <project>                                       Create a project
-  index <project> [image...]                           Add images (optional) and index
-  search <project> <query> [--top-k n] [--scorer s]    Search a project
-  status <project>                                     Show indexing status
-  add <project> <image...>                             Stage images without indexing
-  eval <project> <hardset.json> [--top-k n] [--scorer s] Evaluate scorers on a hard set
-  doctor [project]                                     Check the installation
+  setup                              Download default models
+  init <project>                     Create a project
+  add <project> <image...>           Stage images
+  index <project> [image...]         Index staged or named images
+  status <project>                   Show indexing progress
+  search <project> <query> [options] Find matching images
+  eval <project> <hardset.json>      Compare ranking methods
+  doctor [project]                   Check setup
 
-Scorers:
-  rrf       Reciprocal rank fusion over dense and BM25 rankings (default search scorer)
-  simple    Original 50/50 dense + normalized BM25 blend
-  dense     Semantic vector ranking only (diagnostic)
-  bm25      Exact-token ranking only (diagnostic)
+Examples:
+  imgsrch init ~/Pictures/shots
+  imgsrch index ~/Pictures/shots ~/Desktop/diagram.png
+  imgsrch search ~/Pictures/shots "prefill and decode"
 
 Options:
-  --top-k n                 Results to return (search) or eval cutoff; default 5
-  --scorer simple|rrf|dense|bm25   Select search scorer
-  --scorer all              Eval only; compare all scorers
-  -h, --help                Show help
-  -v, --version             Show version
+  --top-k n                   Results to return; default 5
+  --scorer rrf|simple|dense|bm25  Ranking method; default rrf
+  --scorer all                Eval only; compare methods
+  -h, --help                  Show this help
+  -v, --version               Show version
+
+Indexing runs in the background. Check progress with status.
 
 Configuration:
   Models default to ~/.imgsrch/models; override with IMGSRCH_MODELS_DIR.
-  Run 'imgsrch doctor' to show resolved model and engine paths.
+  Run 'imgsrch doctor' to check model and engine paths.
   Full reference: https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md
 `
 

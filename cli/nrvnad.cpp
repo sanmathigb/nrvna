@@ -299,42 +299,38 @@ void applyModelDefaults(const std::filesystem::path & modelPath, const ModelInfo
 }
 
 void printHelp() {
-    std::cout << "Run an nrvna workspace daemon.\n\n";
+    std::cout << "Run jobs from one workspace with a local GGUF model.\n\n";
     std::cout << "Usage:\n";
-    std::cout << "  nrvnad <model> <workspace> [options]\n\n";
+    std::cout << "  nrvnad <workspace> <model> [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "      --mmproj <path>    Multimodal projection model for vision and STT jobs\n";
+    std::cout << "      --mmproj <path>    Multimodal projector for vision, STT, and LFM3 TTS\n";
     std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
     std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
-    std::cout << "      --drain            Process everything queued, then exit; starts no lasting daemon\n";
+    std::cout << "      --drain            Process queued jobs until idle, then exit\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
-    std::cout << "Lifecycle:\n";
-    std::cout << "  nrvnad status <workspace> [--json]   Is the daemon running/ready? (exit 0 ready, 2 starting, 1 not running)\n";
+    std::cout << "Commands:\n";
+    std::cout << "  nrvnad status <workspace> [--json]   Check whether a daemon is ready\n";
     std::cout << "  nrvnad stop <workspace> [--timeout <1-3600>]\n";
-    std::cout << "                                           Stop gracefully (default timeout 20s)\n\n";
-    std::cout << "Model names resolve against ./models or NRVNA_MODELS_DIR (substring match).\n";
-    std::cout << "nrvnad detects a matching mmproj or vocoder .gguf beside the model.\n";
-    std::cout << "Use an explicit path to override automatic detection.\n\n";
-    std::cout << "Environment (common): NRVNA_GPU_LAYERS (default 0 = CPU), NRVNA_WORKERS,\n";
-    std::cout << "NRVNA_MODELS_DIR, NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
+    std::cout << "    Stop gracefully. Default timeout: 20 seconds.\n\n";
+    std::cout << "Model names resolve under ./models or NRVNA_MODELS_DIR.\n";
+    std::cout << "Matching mmproj and vocoder files beside the model are detected.\n\n";
+    std::cout << "Settings: NRVNA_GPU_LAYERS, NRVNA_WORKERS, NRVNA_MODELS_DIR,\n";
+    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
     std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
-    std::cout << "Job types are selected when submitting work, not when starting the daemon:\n";
-    std::cout << "  cat doc.txt | wrk <workspace> -           text\n";
-    std::cout << "  wrk <workspace> \"text\" --embed            embeddings\n";
-    std::cout << "  wrk <workspace> \"prompt\" --image img.png  vision (needs mmproj)\n";
-    std::cout << "  wrk <workspace> --audio memo.mp3 --stt    transcription (needs mmproj)\n";
-    std::cout << "  wrk <workspace> \"text\" --tts              speech (needs vocoder)\n";
+    std::cout << "Example:\n";
+    std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
+    std::cout << "Submit job types with wrk. Each job starts with fresh context.\n";
 }
 
 void printStatusHelp() {
-    std::cout << "Report daemon state.\n\n";
+    std::cout << "Check whether the daemon for a workspace is ready.\n\n";
     std::cout << "Usage: nrvnad status <workspace> [--json]\n\n";
-    std::cout << "Exit codes: 0 ready, 2 starting, 1 not running or error\n";
+    std::cout << "Exit codes: 0 ready, 2 starting, 1 stopped or error\n";
 }
 
 void printStopHelp() {
-    std::cout << "Stop a workspace daemon gracefully.\n\n";
+    std::cout << "Stop the daemon for a workspace.\n\n";
     std::cout << "Usage: nrvnad stop <workspace> [--timeout <1-3600>]\n\n";
     std::cout << "The default timeout is 20 seconds.\n";
 }
@@ -421,8 +417,8 @@ int main(int argc, char * argv[]) {
         }
     }
 
-    std::string modelPath;
     std::string workspace;
+    std::string modelPath;
     std::string mmprojPath;
     std::string vocoderPath;
     bool drainMode = false;
@@ -468,25 +464,32 @@ int main(int argc, char * argv[]) {
         }
     }
 
-    if (!positionalArgs.empty()) {
-        modelPath = positionalArgs[0];
-    }
+    if (!positionalArgs.empty()) workspace = positionalArgs[0];
     if (positionalArgs.size() > 1) {
-        workspace = positionalArgs[1];
+        modelPath = positionalArgs[1];
     }
     if (positionalArgs.size() > 2) {
         std::cerr << "Error: unexpected extra positional argument: " << positionalArgs[2] << "\n";
         return 1;
     }
 
-    if (modelPath.empty()) {
+    if (positionalArgs.empty()) {
         printHelp();
         return 0;
     }
 
-    if (workspace.empty()) {
-        std::cerr << "Error: workspace required\n";
-        std::cerr << "Usage: nrvnad <model> <workspace> [--mmproj <path>] [--vocoder <path>] [-w <n>]\n";
+    if (modelPath.empty()) {
+        std::cerr << "Error: model required\n";
+        std::cerr << "Usage: nrvnad <workspace> <model> [--mmproj <path>] [--vocoder <path>] [-w <n>]\n";
+        return 1;
+    }
+
+    const auto firstAsModel = resolveModelPath(workspace);
+    const auto secondAsModel = resolveModelPath(modelPath);
+    std::error_code pathError;
+    if (firstAsModel && std::filesystem::is_regular_file(*firstAsModel, pathError) &&
+        (!secondAsModel || !std::filesystem::is_regular_file(*secondAsModel, pathError))) {
+        std::cerr << "Error: arguments appear reversed; use nrvnad <workspace> <model> [options]\n";
         return 1;
     }
 

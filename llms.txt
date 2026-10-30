@@ -1,16 +1,18 @@
 # nrvna
 
-> Unix-like primitives for durable local inference.
+> Durable local AI work, built from three commands.
 
 `wrk` publishes one independent job. `nrvnad` runs one model against one
-workspace. `flw` reads status and results. Context does not continue between
-jobs. `--parent` records lineage only.
+workspace: `nrvnad <workspace> <model>`. `flw` reads status and results.
+Agents and apps can use or compose the same commands. Context does not
+continue between jobs. `--parent` records lineage only.
 
 ## Start
 
 - [README](https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md)
 - [Install](https://raw.githubusercontent.com/sanmathigb/nrvna/main/INSTALL.md)
 - [Agent guide](https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md)
+- [Agent skill](https://raw.githubusercontent.com/sanmathigb/nrvna/main/skills/nrvna/SKILL.md)
 
 ## Reference
 

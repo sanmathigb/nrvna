@@ -12,9 +12,13 @@
 #include "nrvna/runner_tts.hpp"
 #include "nrvna/logger.hpp"
 #include "llama_util.hpp"
+#include "chat.h"
 #include "llama.h"
+#include "mtmd.h"
+#include "mtmd-helper.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <regex>
@@ -25,9 +29,13 @@ namespace nrvna {
 // The TTS model is separate from the text and vision model.
 std::shared_ptr<llama_model> TtsRunner::shared_tts_model_ = nullptr;
 std::shared_ptr<llama_model> TtsRunner::shared_vocoder_ = nullptr;
+static std::shared_ptr<mtmd_context> shared_tts_mtmd_;
 std::string TtsRunner::current_tts_model_path_ = "";
 std::string TtsRunner::current_vocoder_path_ = "";
 std::mutex TtsRunner::tts_model_mutex_;
+static std::mutex tts_run_mutex_;
+static std::string current_tts_mmproj_path_;
+static bool shared_model_is_lfm3_audio_ = false;
 TtsVersion TtsRunner::detected_version_ = TtsVersion::V0_2;
 std::string TtsRunner::v3_audio_text_;
 std::string TtsRunner::v3_audio_data_;
@@ -414,14 +422,18 @@ lovely<|t_0.56|><|code_start|><|634|><|596|><|1766|><|1556|><|1306|><|1285|><|14
 // TtsRunner implementation
 // ============================================================================
 
-TtsRunner::TtsRunner(const std::string& modelPath, const std::string& vocoderPath) {
+TtsRunner::TtsRunner(const std::string& modelPath, const std::string& mmprojPath,
+                     const std::string& vocoderPath) {
     llama_log_set(filtered_llama_log, nullptr);
     ggml_backend_load_all();
 
     std::lock_guard<std::mutex> lock(tts_model_mutex_);
 
-    // Load TTS model (OuteTTS)
-    if (!shared_tts_model_ || current_tts_model_path_ != modelPath) {
+    const bool model_changed = !shared_tts_model_ || current_tts_model_path_ != modelPath;
+    if (model_changed) {
+        shared_tts_mtmd_.reset();
+        current_tts_mmproj_path_.clear();
+        shared_model_is_lfm3_audio_ = false;
         LOG_INFO("Loading TTS model: " + modelPath);
         llama_model_params model_params = llama_model_default_params();
         // Use CPU because discrete Metal GPUs can hang on long TTS sequences.
@@ -434,6 +446,28 @@ TtsRunner::TtsRunner(const std::string& modelPath, const std::string& vocoderPat
         shared_tts_model_ = std::shared_ptr<llama_model>(model, llama_model_free);
         current_tts_model_path_ = modelPath;
         LOG_INFO("TTS model loaded");
+    }
+
+    if (!mmprojPath.empty() && (!shared_tts_mtmd_ || current_tts_mmproj_path_ != mmprojPath)) {
+        mtmd_context_params mparams = mtmd_context_params_default();
+        mparams.use_gpu = false;
+        mtmd_context* ctx = mtmd_init_from_file(mmprojPath.c_str(), shared_tts_model_.get(), mparams);
+        if (!ctx) {
+            throw std::runtime_error("Failed to load TTS mmproj: " + mmprojPath);
+        }
+        shared_tts_mtmd_ = std::shared_ptr<mtmd_context>(ctx, mtmd_free);
+        current_tts_mmproj_path_ = mmprojPath;
+    }
+
+    shared_model_is_lfm3_audio_ = shared_tts_mtmd_ &&
+        mtmd_gen_audio_get_info(shared_tts_mtmd_.get()).type == MTMD_GEN_AUDIO_TYPE_LFM3A;
+    lfm3_audio_ = shared_model_is_lfm3_audio_;
+    if (lfm3_audio_) {
+        LOG_INFO("LFM3 audio generation enabled");
+        return;
+    }
+
+    if (model_changed) {
 
         // Detect OuteTTS version by probing for v0.3 special token <|space|>
         const llama_vocab* det_vocab = llama_model_get_vocab(shared_tts_model_.get());
@@ -554,6 +588,9 @@ TtsRunner::TtsRunner(const std::string& modelPath, const std::string& vocoderPat
 TtsRunner::~TtsRunner() = default;
 
 TtsResult TtsRunner::run(const std::string& text) {
+    if (lfm3_audio_) {
+        return runLfm3Audio(text);
+    }
     if (!shared_tts_model_ || !shared_vocoder_) {
         return {false, {}, 24000, "TTS models not loaded"};
     }
@@ -762,6 +799,104 @@ TtsResult TtsRunner::run(const std::string& text) {
     } catch (const std::exception& e) {
         LOG_ERROR("TTS error: " + std::string(e.what()));
         return {false, {}, 24000, "TTS error: " + std::string(e.what())};
+    }
+}
+
+TtsResult TtsRunner::runLfm3Audio(const std::string& text) {
+    std::lock_guard<std::mutex> run_lock(tts_run_mutex_);
+    if (!shared_tts_model_ || !shared_tts_mtmd_) {
+        return {false, {}, 24000, "LFM3 audio models not loaded"};
+    }
+
+    try {
+        auto templates = common_chat_templates_init(shared_tts_model_.get(), "");
+        std::string prompt = common_chat_get_tts_prompt(templates.get(), text, "en", "female");
+        if (prompt.empty()) {
+            return {false, {}, 24000, "LFM3 model has no TTS chat template"};
+        }
+
+        const int n_ctx_train = llama_model_n_ctx_train(shared_tts_model_.get());
+        const int n_ctx = std::min(n_ctx_train, env_positive_int("NRVNA_MAX_CTX", 8192));
+        llama_context_params params = llama_context_default_params();
+        params.n_ctx = n_ctx;
+        params.n_batch = std::max(1, std::min(n_ctx, env_positive_int("NRVNA_BATCH", 8192)));
+        params.embeddings = true;
+        params.offload_kqv = false;
+        params.op_offload = false;
+        ContextPtr ctx(llama_init_from_model(shared_tts_model_.get(), params));
+        if (!ctx) {
+            return {false, {}, 24000, "Failed to create LFM3 TTS context"};
+        }
+
+        mtmd_helper::gen_audio gen;
+        gen.init(ctx.get(), shared_tts_mtmd_.get());
+        if (!gen.valid()) {
+            return {false, {}, 24000, "Failed to initialize LFM3 audio generator"};
+        }
+
+        mtmd_helper_gen_audio_inp inp = mtmd_helper_gen_audio_inp_default();
+        inp.seq_id = 0;
+        inp.prompt = prompt.c_str();
+        inp.prompt_len = prompt.size();
+        inp.lang = "en";
+        inp.voice = "female";
+        inp.top_k = 128;
+        inp.seed = static_cast<uint32_t>(env_int("NRVNA_SEED", 0));
+        inp.out_type = MTMD_HELPER_GEN_AUDIO_OUTTYPE_PCM;
+        if (gen.set_input(&inp) != 0) {
+            return {false, {}, 24000, "Failed to set LFM3 TTS input"};
+        }
+
+        for (;;) {
+            const int32_t remaining = gen.step_prompt(params.n_batch);
+            if (remaining < 0) {
+                return {false, {}, 24000, "Failed to evaluate LFM3 TTS prompt"};
+            }
+            if (remaining == 0) break;
+        }
+
+        auto sampler_params = llama_sampler_chain_default_params();
+        SamplerPtr sampler(llama_sampler_chain_init(sampler_params));
+        llama_sampler_chain_add(sampler.get(), llama_sampler_init_temp(env_float("NRVNA_TTS_TEMP", 1.0f)));
+        llama_sampler_chain_add(sampler.get(), llama_sampler_init_top_k(128));
+        llama_sampler_chain_add(sampler.get(), llama_sampler_init_dist(env_int("NRVNA_SEED", 0)));
+
+        llama_token sampled = llama_sampler_sample(sampler.get(), ctx.get(), -1);
+        const float* h_state = llama_get_embeddings_ith(ctx.get(), -1);
+        if (!h_state) {
+            return {false, {}, 24000, "LFM3 TTS context returned no hidden state"};
+        }
+
+        const int max_frames = env_positive_int("NRVNA_TTS_PREDICT", 4096);
+        bool stop = false;
+        for (int frame = 0; frame < max_frames && !stop; ++frame) {
+            const float* next_state = nullptr;
+            if (gen.step_gen(sampled, h_state, &next_state, &stop) != 0) {
+                return {false, {}, 24000, "LFM3 TTS generation failed"};
+            }
+            if (!next_state) break;
+            h_state = next_state;
+            sampled = llama_sampler_sample(sampler.get(), ctx.get(), -1);
+        }
+
+        if (gen.flush() != 0) {
+            return {false, {}, 24000, "Failed to flush LFM3 TTS audio"};
+        }
+
+        int32_t sample_rate = 0;
+        const char* audio_data = nullptr;
+        size_t audio_bytes = 0;
+        int64_t sample_count = 0;
+        if (gen.get_output(&sample_rate, &audio_data, &audio_bytes, &sample_count) != 0 ||
+            !audio_data || audio_bytes == 0 || audio_bytes % sizeof(float) != 0) {
+            return {false, {}, 24000, "LFM3 TTS produced no valid audio"};
+        }
+
+        std::vector<float> audio(audio_bytes / sizeof(float));
+        std::memcpy(audio.data(), audio_data, audio_bytes);
+        return {true, std::move(audio), sample_rate, ""};
+    } catch (const std::exception& e) {
+        return {false, {}, 24000, "LFM3 TTS inference error: " + std::string(e.what())};
     }
 }
 

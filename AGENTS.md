@@ -68,7 +68,7 @@ MODEL=./models/model.gguf
 JOB1=$("$BIN/wrk" "$WS" "Reply with exactly: first" --tag quickstart)
 JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 "$BIN/flw" "$WS" --json
-"$BIN/nrvnad" "$MODEL" "$WS" --workers 2 --drain
+"$BIN/nrvnad" "$WS" "$MODEL" --workers 2 --drain
 "$BIN/flw" "$WS" "$JOB1" --json
 "$BIN/flw" "$WS" "$JOB2" --json
 ```
@@ -83,7 +83,7 @@ Use `--drain` for bounded batches, model swapping, and constrained hardware.
 For repeated low-latency work, keep one daemon on the workspace:
 
 ```bash
-"$BIN/nrvnad" "$MODEL" "$WS"
+"$BIN/nrvnad" "$WS" "$MODEL"
 JOB=$("$BIN/wrk" "$WS" "task")
 "$BIN/flw" "$WS" -w "$JOB"
 "$BIN/nrvnad" stop "$WS"
@@ -133,11 +133,11 @@ Put required prior evidence in the next prompt. Keep lineage separate.
 
 ```bash
 PARENT=$("$BIN/wrk" "$WS" "Extract the important facts")
-"$BIN/nrvnad" "$MODEL" "$WS" --drain
+"$BIN/nrvnad" "$WS" "$MODEL" --drain
 CHILD=$({ echo "Previous result:"; "$BIN/flw" "$WS" "$PARENT"; \
   echo "Convert those facts to JSON."; } \
   | "$BIN/wrk" "$WS" - --parent "$PARENT")
-"$BIN/nrvnad" "$MODEL" "$WS" --drain
+"$BIN/nrvnad" "$WS" "$MODEL" --drain
 "$BIN/flw" "$WS" "$CHILD"
 ```
 
