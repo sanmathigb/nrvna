@@ -81,7 +81,7 @@ It does not prove recovery from power loss or hardware failure.
 | Text generation | prompt or stdin | `result.txt` |
 | Embedding | `--embed` | `embedding.json` |
 | Vision | `--image` | `result.txt` |
-| Speech to text | `--audio` and `--stt` | `transcript.txt` |
+| Speech to text | `--audio` (or `-a`) | `transcript.txt` |
 | Text to speech | `--tts` | `audio.wav` |
 
 Some work types need matching projector or vocoder files. Use a separate
