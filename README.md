@@ -116,8 +116,13 @@ workflow needs more than the primitives.
   meaning. It uses caption, OCR, and embedding jobs.
 - [bckbrnr](apps/bckbrnr/README.md) submits local work from the macOS menu bar
   and saves answers as files.
+- [ask](apps/ask/README.md) retrieves text or image evidence, then saves a
+  generated answer as a durable job.
+- [codesrch](apps/codesrch/README.md) indexes and searches a Git repository by
+  meaning and keywords.
 
-These applications add product behavior. They use the same three commands.
+`ask` and `codesrch` are experimental. These applications add product behavior
+on top of the same three commands.
 
 ## What nrvna does not do
 

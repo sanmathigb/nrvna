@@ -26,6 +26,15 @@ flw
 *~
 .DS_Store
 .claude/
+__pycache__/
+
+# Local indexes, agent state, personal media, and generated video projects
+.codesrch/
+.codex/
+.entire/
+.pi/
+apps/imgsrch/shots/
+brag-output/
 
 # AI assistant configuration (local only)
 CLAUDE.md
