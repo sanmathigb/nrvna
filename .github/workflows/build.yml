@@ -56,6 +56,19 @@ jobs:
       - name: Test contracts
         run: ctest --test-dir build --output-on-failure
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test ask
+        run: python -m unittest discover -s apps/ask -v
+
+      - name: Build and test codesrch
+        run: |
+          cmake -S apps/codesrch -B build/codesrch -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/codesrch -j4
+          ctest --test-dir build/codesrch --output-on-failure
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
