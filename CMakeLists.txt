@@ -77,7 +77,7 @@ target_link_libraries(wrk nrvna_core)
 add_executable(flw cli/flw.cpp)
 target_link_libraries(flw nrvna_core)
 
-add_executable(file-organizer-validator EXCLUDE_FROM_ALL
+add_executable(file-organizer-validator
     examples/file-organizer/validator.cpp
 )
 target_include_directories(file-organizer-validator PRIVATE
