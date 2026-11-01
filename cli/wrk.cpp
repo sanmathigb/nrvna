@@ -73,7 +73,7 @@ void printUsage() {
     std::cout << "  -a, --audio <path>        Attach audio; transcribes by default (repeatable)\n";
     std::cout << "      --embed               Create an embedding\n";
     std::cout << "      --tts                 Generate speech\n";
-    std::cout << "      --stt                 Transcribe audio\n";
+    std::cout << "      --stt                 Transcribe audio (default with --audio)\n";
     std::cout << "      --parent <job-id>     Record lineage; does not add context\n";
     std::cout << "      --tag <name>          Add a tag (repeatable)\n";
     std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
