@@ -9,7 +9,7 @@ Most users need only these:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NRVNA_MODELS_DIR` | discovered `models/` | Model search directory |
-| `NRVNA_WORKERS` | `4` | Worker threads |
+| `NRVNA_WORKERS` | `4` | Concurrent jobs |
 | `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to a supported GPU backend |
 | `NRVNA_REPACK` | `1` | Set `0` to disable CPU weight repacking and reduce extra memory use |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
@@ -19,6 +19,11 @@ Most users need only these:
 CPU inference is the default. `nrvnad` resolves model names under `./models` or
 `NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching
 projector and vocoder files beside the model.
+
+There is no worker count that is fastest on every machine. More workers can run
+more jobs at once, but each active job needs its own context and compute
+memory. On a memory-limited machine, start with `--workers 1`. Increase the
+count only when your workload finishes sooner without causing memory pressure.
 
 `NRVNA_REPACK=0` disables llama.cpp's extra CPU buffer types for CPU model
 loads. It can reduce memory use. It can also change speed. Measure both modes
@@ -83,46 +88,3 @@ when neither value exists. Other sampling values use their normal precedence.
 | `NRVNA_LOG_LEVEL` | `info` | nrvna logging: error, warn, info, debug, trace |
 | `LLAMA_LOG_LEVEL` | `error` | llama.cpp logging: error, warn, info, debug |
 | `NO_COLOR` | unset | Any value disables ANSI color in terminal diagnostics |
-
-## Repository integrations
-
-Repository helpers and applications use these variables. Applications can set
-runtime defaults. They use the same nrvna inference path.
-
-| Variable | Default | Used by |
-| --- | --- | --- |
-| `NRVNA_BUILD_DIR` | repository `build/` | Shell helper, imgsrch, bckbrnr |
-| `NRVNA_DAEMON_BIN` | discovered `nrvnad` | Shell helper and imgsrch |
-| `NRVNA_WRK_BIN` | discovered `wrk` | imgsrch |
-| `NRVNA_FLW_BIN` | discovered `flw` | imgsrch |
-| `NRVNA_START_TIMEOUT` | `120` seconds | Persistent-daemon startup helper |
-| `NRVNA_LOG_DIR` | `/tmp` | Shell-helper daemon logs |
-
-### imgsrch
-
-`<project>/.imgsrch/config` accepts the same model keys. Environment variables
-override values in that file.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `IMGSRCH_MODELS_DIR` | `~/.imgsrch/models` | Managed model directory |
-| `CAPTION_MODEL` | managed LFM2.5 VL model | Caption-model path |
-| `CAPTION_MMPROJ` | managed LFM2.5 projector | Caption-projector path |
-| `OCR_MODEL` | managed GLM-OCR model | OCR-model path |
-| `OCR_MMPROJ` | managed GLM-OCR projector | OCR-projector path |
-| `EMBED_MODEL` | managed nomic-embed model | Embedding-model path |
-| `CAPTION_PROMPT` | built-in caption prompt | Caption instruction |
-| `OCR_PROMPT` | `Text Recognition:` | Model-specific OCR instruction |
-| `META_DOC_PREFIX` | `search_document: ` | Prefix applied to indexed text |
-| `META_QUERY_PREFIX` | `search_query: ` | Prefix applied to queries |
-
-### bckbrnr
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `BCKBRNR_ENGINE_DIR` | bundled engine directory | Directory containing `nrvnad`, `wrk`, and `flw` |
-| `BCKBRNR_TEXT_MODEL` | saved selection | Text-model path for tests and development launches |
-
-bckbrnr sets conservative defaults for `NRVNA_GPU_LAYERS=0`,
-`NRVNA_TEMP=0.3`, `NRVNA_PREDICT=1024`, `NRVNA_MAX_CTX=4096`, and
-`NRVNA_THINKING=0`. Existing environment values override these defaults.

@@ -1,7 +1,7 @@
 name: build
 
-# Builds portable nrvna and imgsrch archives on every platform and bckbrnr app
-# archives on macOS. All bundle the same nrvna engine binaries (nrvnad/wrk/flw).
+# Builds and tests nrvna on every platform. Repository applications remain
+# test consumers, but release archives contain only nrvna's three commands.
 #
 # llama.cpp is vendored at the committed submodule revision. The Metal
 # discrete-GPU patch in patches/ is NOT applied here: it only helps Intel Macs
@@ -79,72 +79,10 @@ jobs:
           go vet ./...
           go test -race ./...
 
-      - name: Build imgsrch
-        working-directory: apps/imgsrch
-        run: |
-          mkdir -p ../../dist/stage
-          go build -trimpath -ldflags="-s -w" -o ../../dist/stage/imgsrch .
-
-      - name: Build and inspect bckbrnr bundle
+      - name: Test bckbrnr
         if: runner.os == 'macOS'
         working-directory: apps/bckbrnr
-        run: |
-          make test
-          make bundle \
-            ENGINE_DIR=../../build \
-            MACOSX_DEPLOYMENT_TARGET="${{ matrix.deployment_target }}"
-          app=.build/bckbrnr.app
-          test -x "$app/Contents/MacOS/bckbrnr"
-          test -x "$app/Contents/Resources/bin/nrvnad"
-          test -x "$app/Contents/Resources/bin/wrk"
-          test -x "$app/Contents/Resources/bin/flw"
-          test -f "$app/Contents/Resources/LICENSE"
-          test -f "$app/Contents/Resources/NRVNA.md"
-          grep -q "The workspace remembers" "$app/Contents/Resources/NRVNA.md"
-          plutil -lint "$app/Contents/Info.plist"
-          if otool -L .build/bckbrnr.app/Contents/Resources/bin/{nrvnad,wrk,flw} | grep -q '@rpath/lib'; then
-            echo 'bckbrnr contains dynamically linked engine libraries' >&2
-            exit 1
-          fi
-
-      - name: Package and smoke-test bckbrnr
-        if: runner.os == 'macOS'
-        working-directory: apps/bckbrnr
-        run: |
-          kit="bckbrnr-${{ matrix.target }}"
-          app=.build/bckbrnr.app
-          ditto -c -k --sequesterRsrc --keepParent "$app" "../../dist/$kit.zip"
-          shasum -a 256 "../../dist/$kit.zip" | tee "../../dist/$kit.zip.sha256"
-
-          mkdir -p "../../dist/smoke-$kit"
-          ditto -x -k "../../dist/$kit.zip" "../../dist/smoke-$kit"
-          unpacked="../../dist/smoke-$kit/bckbrnr.app"
-          plutil -lint "$unpacked/Contents/Info.plist"
-          test -f "$unpacked/Contents/Resources/LICENSE"
-          test -f "$unpacked/Contents/Resources/NRVNA.md"
-          grep -q "The workspace remembers" "$unpacked/Contents/Resources/NRVNA.md"
-          codesign --verify --strict "$unpacked"
-          test "$(plutil -extract LSMinimumSystemVersion raw "$unpacked/Contents/Info.plist")" = "${{ matrix.deployment_target }}"
-          vtool -show-build "$unpacked/Contents/MacOS/bckbrnr" | grep -q "minos ${{ matrix.deployment_target }}"
-          expected_arch="${{ matrix.target }}"
-          expected_arch="${expected_arch#darwin-}"
-          test "$(lipo -archs "$unpacked/Contents/MacOS/bckbrnr")" = "$expected_arch"
-          for bin in nrvnad wrk flw; do
-            "$unpacked/Contents/Resources/bin/$bin" --version
-            vtool -show-build "$unpacked/Contents/Resources/bin/$bin" | grep -q "minos ${{ matrix.deployment_target }}"
-            test "$(lipo -archs "$unpacked/Contents/Resources/bin/$bin")" = "$expected_arch"
-          done
-
-      - name: Test packaged bckbrnr controller journey
-        if: runner.os == 'macOS'
-        working-directory: apps/bckbrnr
-        run: |
-          kit="bckbrnr-${{ matrix.target }}"
-          engine_dir="../../dist/smoke-$kit/bckbrnr.app/Contents/Resources/bin"
-          model=../../dist/SmolLM2-135M-Instruct-Q8_0.gguf
-          curl -fL --retry 3 -o "$model" \
-            https://huggingface.co/lmstudio-community/SmolLM2-135M-Instruct-GGUF/resolve/91e94c6d3178482531fc34c5532744446f584317/SmolLM2-135M-Instruct-Q8_0.gguf
-          make integration-test ENGINE_DIR="$engine_dir" MODEL="$model"
+        run: make test
 
       - name: Package nrvna
         run: |
@@ -170,45 +108,9 @@ jobs:
           "dist/smoke/$kit/bin/nrvnad" --version
           "dist/smoke/$kit/bin/wrk" --version
           "dist/smoke/$kit/bin/flw" --version
-
-      - name: Package imgsrch
-        run: |
-          kit="imgsrch-${{ matrix.target }}"
-          mkdir -p "dist/$kit/bin" "dist/$kit/docs"
-          mv dist/stage/imgsrch "dist/$kit/"
-          cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
-          cp apps/imgsrch/README.md "dist/$kit/README.md"
-          cp apps/imgsrch/INSTALL.md "dist/$kit/INSTALL.md"
-          cp AGENTS.md "dist/$kit/docs/NRVNA.md"
-          cp LICENSE "dist/$kit/"
-          tar -C dist -czf "dist/$kit.tar.gz" "$kit"
-          shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
-
-      - name: Smoke-test packaged binaries
-        run: |
-          kit="imgsrch-${{ matrix.target }}"
-          mkdir -p dist/smoke
-          tar -C dist/smoke -xzf "dist/$kit.tar.gz"
-          test -f "dist/smoke/$kit/README.md"
-          test -f "dist/smoke/$kit/INSTALL.md"
-          test -f "dist/smoke/$kit/docs/NRVNA.md"
-          grep -q "The workspace remembers" "dist/smoke/$kit/docs/NRVNA.md"
-          export NRVNA_BUILD_DIR="$PWD/dist/smoke/$kit/bin"
-          export CAPTION_MODEL="$PWD/dist/smoke/$kit/LICENSE"
-          export CAPTION_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"
-          export OCR_MODEL="$PWD/dist/smoke/$kit/LICENSE"
-          export OCR_MMPROJ="$PWD/dist/smoke/$kit/LICENSE"
-          export EMBED_MODEL="$PWD/dist/smoke/$kit/LICENSE"
-          "dist/smoke/$kit/imgsrch" doctor
-          "dist/smoke/$kit/bin/nrvnad" --version
-          "dist/smoke/$kit/bin/wrk" --version
-          "dist/smoke/$kit/bin/flw" --version
-
-      - name: Check macOS compatibility floor
-        if: runner.os == 'macOS'
-        run: |
-          kit="imgsrch-${{ matrix.target }}"
-          vtool -show-build "dist/smoke/$kit/bin/nrvnad" | grep -q 'minos 13.3'
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            vtool -show-build "dist/smoke/$kit/bin/nrvnad" | grep -q "minos ${{ matrix.deployment_target }}"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -217,20 +119,6 @@ jobs:
             dist/nrvna-*.tar.gz
             dist/nrvna-*.tar.gz.sha256
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: imgsrch-${{ matrix.target }}
-          path: |
-            dist/imgsrch-*.tar.gz
-            dist/imgsrch-*.tar.gz.sha256
-
-      - uses: actions/upload-artifact@v4
-        if: runner.os == 'macOS'
-        with:
-          name: bckbrnr-${{ matrix.target }}
-          path: |
-            dist/bckbrnr-*.zip
-            dist/bckbrnr-*.zip.sha256
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -249,4 +137,3 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.sha256
-            dist/*.zip

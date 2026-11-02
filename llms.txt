@@ -21,12 +21,6 @@ continue between jobs. `--parent` records lineage only.
 - [Configuration](https://raw.githubusercontent.com/sanmathigb/nrvna/main/CONFIGURATION.md)
 - [Architecture](https://raw.githubusercontent.com/sanmathigb/nrvna/main/ARCHITECTURE.md)
 
-## Applications
-
-- [imgsrch](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/README.md)
-- [imgsrch agent install](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/imgsrch/INSTALL.md)
-- [bckbrnr](https://raw.githubusercontent.com/sanmathigb/nrvna/main/apps/bckbrnr/README.md)
-
 Use the installed `--help` output for command syntax. The authoritative
 filesystem and lifecycle contracts are `include/nrvna/contract.hpp` and
 `include/nrvna/lifecycle.hpp`.

@@ -6,13 +6,13 @@
 
 Durable local AI work, built from three commands.
 
-nrvna gives agents and apps a durable way to run local inference. Jobs,
+nrvna gives agents and other callers a durable way to run local inference. Jobs,
 inputs, results, and failures live as files in a workspace. Run a bounded batch
 with `--drain`, or keep a daemon ready for repeated work. Agents can use the
 commands directly or follow the [nrvna skill](skills/nrvna/SKILL.md). Apps can
 compose the same primitives into complete workflows.
 
-[Try nrvna](#start-with-the-commands) · [How it works](docs/how-it-works.md) · [Build an app](#build-on-it)
+[Try nrvna](#start-with-the-commands) · [How it works](docs/how-it-works.md) · [Build on nrvna](#build-on-nrvna)
 
 `wrk` creates jobs. `nrvnad` runs them with a local model. `flw` reads their
 status and results. Each job has fresh context; the caller chooses what to
@@ -30,20 +30,38 @@ curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Use a compatible instruction-tuned GGUF model. [INSTALL.md](INSTALL.md) has a
-verified example, manual archive steps, and source build instructions.
+Use an existing compatible GGUF model, or follow [INSTALL.md](INSTALL.md) to
+download and verify a small example from Hugging Face.
 
-Run two independent jobs in one bounded batch:
+Run one job:
 
 ```bash
-wrk ./workspace "Summarize this report in five bullets: Sales rose 8%, costs rose 3%. Name one risk." --tag report
-wrk ./workspace "List two decisions from this note: Ship on Friday. Mira owns the final test." --tag report
+wrk ./workspace "Summarize this report in five bullets: Sales rose 8%, costs rose 3%. Name one risk."
 nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
-flw ./workspace --tag report --json
+flw ./workspace JOB_ID
 ```
 
-`wrk` creates the workspace when needed. `--drain` loads the model, processes
-the queued jobs, then exits. Results remain in the workspace.
+Replace `JOB_ID` with the ID printed by `wrk`. `--drain` loads the model,
+processes queued work, then exits. Results remain in the workspace.
+
+## Give this to your agent
+
+Paste this into an agent with shell access. Replace the model and workspace
+paths, then describe the work.
+
+```text
+Read nrvna's agent guide:
+https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md
+
+Use my local GGUF model: /path/to/model.gguf
+Use a new workspace: /path/to/workspace
+
+Run the task as one independent job. Include all required instructions and
+evidence. Do not download a model or reuse an existing workspace. Use the
+documented commands. Report the job ID, result, and any error.
+
+Task: [describe the work]
+```
 
 ## Choose how the model runs
 
@@ -104,25 +122,11 @@ the work should not be tied to the runtime of a model. More on the thinking:
 [Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
 and [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
 
-## Build on it
+## Build on nrvna
 
-Use `wrk`, `nrvnad`, and `flw` from a shell, or install the skill so a supported
-coding agent can call them from a conversation. Build a focused app when a
-workflow needs more than the primitives.
-
-- [File organizer](examples/file-organizer/README.md) validates a model's move
-  plan before it moves files.
-- [imgsrch](apps/imgsrch/README.md) searches images by visible words and
-  meaning. It uses caption, OCR, and embedding jobs.
-- [bckbrnr](apps/bckbrnr/README.md) submits local work from the macOS menu bar
-  and saves answers as files.
-- [ask](apps/ask/README.md) retrieves text or image evidence, then saves a
-  generated answer as a durable job.
-- [codesrch](apps/codesrch/README.md) indexes and searches a Git repository by
-  meaning and keywords.
-
-`ask` and `codesrch` are experimental. These applications add product behavior
-on top of the same three commands.
+Use `wrk`, `nrvnad`, and `flw` from a shell or an agent. A caller can combine
+them with files, processes, and other Unix tools. Applications in this source
+repository are examples; they are not part of this release.
 
 ## What nrvna does not do
 

@@ -16,10 +16,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 The installer does not download a model.
 
-## Get an example model
+## Get a GGUF model
 
-nrvna runs GGUF models supported by its llama.cpp build. Use a compatible
-model that you already have, or use this verified example.
+nrvna runs local GGUF models supported by its llama.cpp build. Use a compatible
+GGUF that you already have, or download this verified example. nrvna does not
+download models by name or use Hugging Face model IDs directly.
 
 The example is SmolLM2 1.7B Q4_K_M. The download is about 1 GB. The model uses
 the Apache-2.0 license. It is an example, not a limit.
@@ -29,23 +30,40 @@ mkdir -p models
 curl -fL --continue-at - -o models/smollm2-1.7b.gguf \
   https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
 
-MODEL_SHA256=decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
-if command -v sha256sum >/dev/null; then
-  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | sha256sum -c -
-else
-  echo "$MODEL_SHA256  models/smollm2-1.7b.gguf" | shasum -a 256 -c -
-fi
+echo "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33  models/smollm2-1.7b.gguf" | shasum -a 256 -c -
 ```
+
+On Linux, replace `shasum -a 256 -c -` with `sha256sum -c -`.
+
+## Use model-specific settings
+
+Before you use another model, read its Hugging Face model card and the files
+`tokenizer_config.json` and `generation_config.json` when the repository has
+them. Choose a GGUF that matches the model and quantization you want.
+
+llama.cpp reads the chat template stored in GGUF metadata. nrvna uses that
+template by default. Use `NRVNA_CHAT_TEMPLATE_FILE` only when the model needs a
+separate Jinja template file.
+
+nrvna uses sampling values from GGUF metadata when they exist. It does not
+automatically read Hugging Face JSON files or model-card prose. Set supported
+`NRVNA_*` values from the model's recommendations when they differ. See
+[CONFIGURATION.md](CONFIGURATION.md) for supported settings and precedence.
+
+Keep the input and output budgets close to the task. Each job gets a context
+sized for its prompt and output. `NRVNA_MAX_CTX` is a ceiling; it does not
+reserve the full context for every job.
 
 ## Run one job
 
 ```bash
-job=$(wrk ./workspace "Reply with exactly: first")
+wrk ./workspace "Reply with exactly: first"
 nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
-flw ./workspace "$job"
+flw ./workspace JOB_ID
 ```
 
-The result is `first`. `wrk` creates the workspace when needed.
+Replace `JOB_ID` with the ID printed by `wrk`. The result is `first`.
+`wrk` creates the workspace when needed.
 
 ## Choose a run mode
 
@@ -64,11 +82,22 @@ nrvnad status ./workspace
 nrvnad ./workspace ./models/smollm2-1.7b.gguf
 ```
 
-Keep the daemon terminal open. Submit and read work from another terminal:
+Keep the daemon terminal open. In another terminal, submit work and copy the
+job ID it prints:
 
 ```bash
-job=$(wrk ./workspace "Summarize this report")
-flw ./workspace -w "$job"
+wrk ./workspace "Summarize this report"
+```
+
+Wait for that job and read its result:
+
+```bash
+flw ./workspace JOB_ID -w
+```
+
+Stop the daemon from another terminal when you finish:
+
+```bash
 nrvnad stop ./workspace
 ```
 
@@ -87,10 +116,12 @@ cmake --build build -j4
 Source builds put the commands under `./build`:
 
 ```bash
-job=$(./build/wrk ./workspace "Reply with exactly: first")
+./build/wrk ./workspace "Reply with exactly: first"
 ./build/nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
-./build/flw ./workspace "$job"
+./build/flw ./workspace JOB_ID
 ```
+
+Replace `JOB_ID` with the ID printed by `wrk`.
 
 ## Inspect an archive before installation
 

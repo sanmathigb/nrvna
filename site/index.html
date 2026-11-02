@@ -171,13 +171,6 @@
   .nots b { font-weight: 600; }
   .nots span { color: var(--muted); }
 
-  /* apps */
-  .apps { list-style: none; margin-top: 6px; }
-  .apps li { padding: 14px 0; border-bottom: 1px solid var(--line); max-width: 38em; }
-  .apps li:first-child { border-top: 1px solid var(--line); }
-  .apps .name { font-family: var(--mono); font-weight: 600; }
-  .apps p { color: var(--muted); font-size: 16px; margin-top: 2px; }
-
   /* footer */
   footer { padding: 64px 0 48px; }
   footer .wrap {
@@ -218,7 +211,7 @@
       <h1>Submit now.<br>Run the model later.</h1>
       <p>Three commands. Independent jobs. Results saved as files.</p>
       <p class="caption">Install: <code>curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh</code><br>Then add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
-      <p class="caption"><a href="https://github.com/sanmathigb/nrvna#start-with-the-commands">First run</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/how-it-works.md">How it works</a> · <a href="https://github.com/sanmathigb/nrvna#build-on-it">Build an app</a></p>
+      <p class="caption"><a href="https://github.com/sanmathigb/nrvna#start-with-the-commands">First run</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/how-it-works.md">How it works</a> · <a href="https://github.com/sanmathigb/nrvna#build-on-nrvna">Build on nrvna</a></p>
       <p class="caption">Give <code>nrvnad</code> a GGUF model and a directory.
       That directory becomes the workspace. Each job is a folder inside it.
       Moving that folder changes the job state. Results stay there as files.</p>
@@ -301,58 +294,6 @@
         <li><b>Not an agent framework</b> <span>Primitives that applications use</span></li>
         <li><b>Not a model runtime</b> <span>llama.cpp runs the model. nrvna provides jobs and workspaces for application-side composition.</span></li>
       </ul>
-    </div>
-  </section>
-
-  <section id="file-organizer">
-    <div class="wrap">
-      <div class="eyebrow">~/verified-example</div>
-      <h2>The model proposes. The caller decides.</h2>
-      <p>A fixed request asks LFM2.5-2.6B for a JSON file-move plan. nrvna
-      preserves the inference job, schema, and result. It validates JSON
-      format, but it does not move a file.</p>
-      <img class="demo-frame" src="assets/file-organizer.gif"
-        alt="Terminal recording of a model planning file moves, a validator dry run, and the validated apply operation."
-        loading="lazy">
-      <p>A small C++ caller checks the plan against the real inbox. It accepts
-      direct file names and two allowed categories. It rejects traversal,
-      unknown or omitted files, duplicates, symlinks, and destination
-      collisions. It validates every operation before the first move.</p>
-      <div class="terminal">
-<pre><span class="p">$</span> file-organizer-validator ./inbox plan.json Release Encoders
-<span class="o">WOULD MOVE v0.1.1-release-notes.md -&gt; Release/v0.1.1-release-notes.md
-…
-REVIEW scratchpad.md</span>
-
-<span class="p">$</span> file-organizer-validator --apply ./inbox plan.json Release Encoders</pre>
-      </div>
-      <p>The recorded Q4_K_M model came from
-      <a href="https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/blob/b22e29ebf6249a8c9fcdda36914743e9980595c4/LFM2.5-2.6B-Q4_K_M.gguf">LiquidAI/LFM2.5-2.6B-GGUF at revision <code>b22e29e</code></a>.
-      Its SHA-256 was <code>79fdf003…bfee14</code>. The check ran with CPU
-      inference on a 2017 Intel MacBook Pro with 16 GB RAM.</p>
-      <p class="quiet">The model produced the expected four moves and two
-      review files. Dry run changed nothing. Apply moved the four selected
-      files. This is a compatibility check, not a benchmark.
-      <a href="https://github.com/sanmathigb/nrvna/tree/main/examples/file-organizer">Read the full example.</a></p>
-    </div>
-  </section>
-
-  <section id="apps">
-    <div class="wrap">
-      <div class="eyebrow">~/built-with-nrvna</div>
-      <h2>A family of small, sharp apps</h2>
-      <ul class="apps">
-        <li>
-          <a class="name" href="imgsrch/">imgsrch</a>
-          <p>Search your screenshots and images by what's in them. Fully local.</p>
-        </li>
-        <li>
-          <a class="name" href="bckbrnr/">bckbrnr</a>
-          <p>Local prompt work from the macOS menu bar. The answer is a file.</p>
-        </li>
-      </ul>
-      <p class="quiet">Each app bundles the primitives and adds no alternate inference
-      path. The list is meant to grow.</p>
     </div>
   </section>
 
