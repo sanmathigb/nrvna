@@ -264,16 +264,16 @@
     <div class="stage" data-phase="1">
       <div class="cmds-col">
         <div class="cline" data-step="1">
-          <code><b>$</b>wrk ./workspace "Write a primer on KV caches" --tag primer</code>
-          <p>Submit work to a workspace. No daemon needs to run.</p>
+          <code><b>$</b>wrk ./workspace "Write a primer on KV caches"</code>
+          <p>Submit work. wrk prints the job ID. No daemon needs to run.</p>
         </div>
         <div class="cline" data-step="2">
           <code><b>$</b>nrvnad ./workspace ./model.gguf --drain</code>
           <p>Run the queued work, then exit. No daemon stays open.</p>
         </div>
         <div class="cline" data-step="3">
-          <code><b>$</b>flw ./workspace --tag primer --json</code>
-          <p>Read the tagged result when you are ready.</p>
+          <code><b>$</b>flw ./workspace &lt;job-id&gt;</code>
+          <p>Use the ID printed by wrk to read the result.</p>
         </div>
       </div>
 
