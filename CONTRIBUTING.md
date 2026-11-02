@@ -13,8 +13,6 @@ cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
 
-For `imgsrch`, run `go test ./...` from `apps/imgsrch`.
-
 Keep command output machine-readable. Send diagnostics to stderr. Update the
 README or reference docs when a change affects user behavior.
 

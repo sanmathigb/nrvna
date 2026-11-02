@@ -6,8 +6,8 @@ work.
 
 ## Submit work
 
-`wrk` writes a job and returns its ID. You can submit jobs before starting a
-model.
+`wrk` writes a job and returns its ID. It does not wait for inference. Keep
+submitting as new work arrives. You can submit jobs before starting a model.
 
 ```sh
 wrk ./writing "Write a short essay about neighborhood repair shops."
@@ -63,7 +63,7 @@ power loss or storage failure.
 ## What callers build
 
 nrvna does not parse documents, search files, pass context between jobs, or
-choose which model runs next. A shell script or app can submit work, inspect
-results, and decide what to do next. Each app owns that workflow.
+choose which model runs next. A caller can submit work, inspect results, and
+decide what to do next. The caller owns that workflow.
 
 See [Advanced patterns](../ADVANCED.md) for batch and pipeline examples.

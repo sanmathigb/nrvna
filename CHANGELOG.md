@@ -14,5 +14,5 @@
   penalty 1.1. Pass `--mmproj` when the projector filename does not match the
   model filename. One full-resolution screenshot task completed, but this does
   not establish accuracy for all images or prompts. It took many minutes on
-  CPU. Video and mixed audio/video jobs are not supported by nrvna's job
-  interface.
+  CPU. nrvna's job interface does not support video or mixed audio and video
+  jobs.

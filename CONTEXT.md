@@ -42,8 +42,8 @@ Structured text jobs can also contain `schema.json` and `grammar.gbnf`.
 `grammar.gbnf` is the effective generation constraint. These files remain with
 the job through every state transition.
 
-`include/nrvna/contract.hpp` defines the public job contract. Applications can
-use `flw` or read terminal artifacts from `output/` and `failed/`. They must not
+`include/nrvna/contract.hpp` defines the public job contract. Callers can use
+`flw` or read terminal artifacts from `output/` and `failed/`. They must not
 edit or move published job directories.
 
 The state directories and artifact names are compatibility commitments. Change
@@ -51,16 +51,10 @@ them only with a documented contract migration.
 
 ## Language Boundary
 
-The engine uses C++17. Applications use their native language:
-
-- Go for portable command-line applications.
-- Swift for macOS applications.
-- Bash for small composition scripts.
-
-Applications submit work through `wrk`. They start models through `nrvnad`.
-They use `flw` or published artifacts to read results. Do not add an FFI,
-language binding, or second engine language. Tracked programs do not use
-Python as a runtime dependency.
+The engine uses C++17. Callers can use any language that can run commands and
+read files. Shell is enough for small workflows. Do not add an FFI, language
+binding, or second engine language. Tracked programs do not use Python as a
+runtime dependency.
 
 ## Daemon Lifecycle
 

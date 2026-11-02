@@ -1,7 +1,6 @@
 name: build
 
-# Builds and tests nrvna on every platform. Repository applications remain
-# test consumers, but release archives contain only nrvna's three commands.
+# Builds and tests the nrvna primitives on every platform.
 #
 # llama.cpp is vendored at the committed submodule revision. The Metal
 # discrete-GPU patch in patches/ is NOT applied here: it only helps Intel Macs
@@ -55,34 +54,6 @@ jobs:
 
       - name: Test contracts
         run: ctest --test-dir build --output-on-failure
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Test ask
-        run: python -m unittest discover -s apps/ask -v
-
-      - name: Build and test codesrch
-        run: |
-          cmake -S apps/codesrch -B build/codesrch -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/codesrch -j4
-          ctest --test-dir build/codesrch --output-on-failure
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-
-      - name: Vet and test imgsrch
-        working-directory: apps/imgsrch
-        run: |
-          go vet ./...
-          go test -race ./...
-
-      - name: Test bckbrnr
-        if: runner.os == 'macOS'
-        working-directory: apps/bckbrnr
-        run: make test
 
       - name: Package nrvna
         run: |

@@ -37,7 +37,7 @@ On Linux, replace `shasum -a 256 -c -` with `sha256sum -c -`.
 
 ## Use model-specific settings
 
-Before you use another model, read its Hugging Face model card and the files
+Before you use another model, read its Hugging Face model card. Also read
 `tokenizer_config.json` and `generation_config.json` when the repository has
 them. Choose a GGUF that matches the model and quantization you want.
 
@@ -51,7 +51,7 @@ automatically read Hugging Face JSON files or model-card prose. Set supported
 [CONFIGURATION.md](CONFIGURATION.md) for supported settings and precedence.
 
 Keep the input and output budgets close to the task. Each job gets a context
-sized for its prompt and output. `NRVNA_MAX_CTX` is a ceiling; it does not
+sized for its prompt and output. `NRVNA_MAX_CTX` is a limit; it does not
 reserve the full context for every job.
 
 ## Run one job

@@ -1,7 +1,6 @@
 # Build directories
 build/
 cmake-build-*/
-apps/bckbrnr/.build/
 
 # Compiled objects
 *.o
@@ -33,7 +32,6 @@ __pycache__/
 .codex/
 .entire/
 .pi/
-apps/imgsrch/shots/
 brag-output/
 
 # AI assistant configuration (local only)
@@ -46,7 +44,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
-!apps/bckbrnr/Makefile
 *.cmake
 
 # Testing outputs
@@ -128,14 +125,10 @@ scripts/transcribe
 docs/
 !docs/
 docs/*
-!docs/internal/
-docs/internal/*
-!docs/internal/cold-agent-test.md
 !docs/README.md
 !docs/how-it-works.md
 !docs/why.md
 testing/
 scripts/*
-!scripts/imgsrch
 !scripts/nrvna-lib.sh
 include/nrvna/README.md

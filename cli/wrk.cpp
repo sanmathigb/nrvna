@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (useEmbed && !mode.empty()) {
-        std::cerr << "Error: --embed and --tts/--stt are mutually exclusive\n";
+        std::cerr << "Error: --embed cannot be combined with --tts or --stt\n";
         return 1;
     }
 

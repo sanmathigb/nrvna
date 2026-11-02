@@ -200,7 +200,7 @@
     <span class="wordmark"><span class="orb" aria-hidden="true"></span>nrvna</span>
     <nav>
       <a href="https://github.com/sanmathigb/nrvna">github</a>
-      <a href="https://github.com/sanmathigb/nrvna#readme">docs</a>
+      <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/README.md">docs</a>
     </nav>
   </div>
 </header>
@@ -211,7 +211,7 @@
       <h1>Submit now.<br>Run the model later.</h1>
       <p>Three commands. Independent jobs. Results saved as files.</p>
       <p class="caption">Install: <code>curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh</code><br>Then add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
-      <p class="caption"><a href="https://github.com/sanmathigb/nrvna#start-with-the-commands">First run</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/how-it-works.md">How it works</a> · <a href="https://github.com/sanmathigb/nrvna#build-on-nrvna">Build on nrvna</a></p>
+      <p class="caption"><a href="https://github.com/sanmathigb/nrvna#start-with-the-commands">First run</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/docs/how-it-works.md">How it works</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/ADVANCED.md">Pro use</a> · <a href="https://github.com/sanmathigb/nrvna/blob/main/AGENTS.md">Agents</a></p>
       <p class="caption">Give <code>nrvnad</code> a GGUF model and a directory.
       That directory becomes the workspace. Each job is a folder inside it.
       Moving that folder changes the job state. Results stay there as files.</p>
@@ -260,9 +260,8 @@
         <li><span class="name">wrk</span><span class="desc">Submits one job and returns its ID</span></li>
         <li><span class="name">flw</span><span class="desc">Reads workspace status and job results</span></li>
       </ul>
-      <p class="quiet">That is the complete API. Applications compose text,
-      vision, embedding, transcription, and speech jobs with files and exit
-      codes.</p>
+      <p class="quiet">That is the complete API. Callers combine text, vision,
+      embedding, transcription, and speech jobs with files and exit codes.</p>
     </div>
   </section>
 
@@ -275,7 +274,7 @@
 ├── <span class="k">processing/</span>    <span class="m">claimed</span>
 ├── <span class="k">output/</span>        <span class="m">results</span>
 └── <span class="k">failed/</span>        <span class="m">errors</span></pre></div>
-      <p class="caption">The workspace remembers. The model does not.</p>
+      <p class="caption">Models get <code>wrk</code>. You get <code>flw</code>.</p>
       <p>Transitions are atomic renames. No database. No message broker. No runtime
       dependency beyond the binaries and the models. Every job runs in a fresh
       context: bounded input, no session drift, inspectable output.</p>
@@ -291,8 +290,8 @@
       <h2>Bigger than one prompt, smaller than a framework</h2>
       <ul class="nots">
         <li><b>Not a chat app</b> <span>Independent jobs, not conversations</span></li>
-        <li><b>Not an agent framework</b> <span>Primitives that applications use</span></li>
-        <li><b>Not a model runtime</b> <span>llama.cpp runs the model. nrvna provides jobs and workspaces for application-side composition.</span></li>
+        <li><b>Not an agent framework</b> <span>The caller chooses the next step</span></li>
+        <li><b>Not a model runtime</b> <span>llama.cpp runs the model. nrvna manages durable jobs in a workspace.</span></li>
       </ul>
     </div>
   </section>

@@ -57,8 +57,8 @@ rules. Do not claim compliance without validated vocabulary and grammar checks.
 
 ## Cold Run
 
-Source builds put binaries under `./build`. Packaged applications put them
-under `./bin`. Set `BIN` for the applicable directory. Provide a compatible
+Source builds put binaries under `./build`. Packaged binaries go under `./bin`.
+Set `BIN` for the applicable directory. Provide a compatible
 GGUF.
 
 ```bash
@@ -176,5 +176,4 @@ enough. Read the implementation documents below only when changing the code.
 ```bash
 cmake --build build -j4
 ctest --test-dir build --output-on-failure
-(cd apps/imgsrch && go test ./...)
 ```

@@ -314,7 +314,7 @@ void printHelp() {
     std::cout << "  nrvnad stop <workspace> [--timeout <1-3600>]\n";
     std::cout << "    Stop gracefully. Default timeout: 20 seconds.\n\n";
     std::cout << "Model names resolve under ./models or NRVNA_MODELS_DIR.\n";
-    std::cout << "Matching mmproj and vocoder files beside the model are detected.\n\n";
+    std::cout << "nrvnad detects matching mmproj and vocoder files beside the model.\n\n";
     std::cout << "Settings: NRVNA_GPU_LAYERS, NRVNA_WORKERS, NRVNA_MODELS_DIR,\n";
     std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
     std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
