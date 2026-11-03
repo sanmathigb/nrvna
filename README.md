@@ -6,16 +6,17 @@
 
 Durable local AI work, built from three commands.
 
-nrvna lets you submit work without waiting for inference. Keep submitting as
-new work arrives. Run a persistent daemon or drain a batch. Read results when
-ready. Jobs and results stay as files in a workspace. Agents can use the
-commands directly or follow the [nrvna skill](skills/nrvna/SKILL.md).
+nrvna is task-agnostic and mode-agnostic. Submit independent text, image,
+audio, or embedding jobs without waiting. Each job starts with fresh context.
+The workspace is the source of truth for job state and results. Use a separate
+workspace for each model. Include saved results in later jobs when needed.
+Agents can use the commands directly or follow the
+[nrvna skill](skills/nrvna/SKILL.md).
 
 [First run](#start-with-the-commands) · [How it works](docs/how-it-works.md) · [Pro use](ADVANCED.md) · [Agents](AGENTS.md)
 
 `wrk` creates jobs. `nrvnad` runs them with a local model. `flw` reads their
-status and results. Each job has fresh context. The caller chooses what to
-include.
+status and results.
 
 Models get `wrk`. You get `flw`.
 
@@ -128,27 +129,25 @@ It does not prove recovery from power loss or hardware failure.
 | Work | Submit with | Result |
 | --- | --- | --- |
 | Text generation | prompt or stdin | `result.txt` |
-| Embedding | `--embed` | `embedding.json` |
-| Vision | `--image` | `result.txt` |
-| Speech to text | `--audio` (or `-a`) | `transcript.txt` |
-| Text to speech | `--tts` | `audio.wav` |
+| Text embedding | prompt with `--embed` | `embedding.json` |
+| Image analysis | prompt with `--image` | `result.txt` |
+| Image embedding | `--embed` with `--image` | `embedding.json` |
+| Transcription | `--audio` | `transcript.txt` |
+| Speech generation | prompt with `--tts` | `audio.wav` |
 
-`wrk --image` attaches image files to a job. Repeat it to attach more images.
-nrvna does not import or index folders. Submit each image as a separate job
-when you need a separate result for each image.
+`--audio` transcribes by default. Add `--stt` to name that mode explicitly.
+Repeat `--image` to attach multiple images. nrvna does not import or index
+folders. Submit each image as a separate job when you need separate results.
 
-Some work types need matching projector or vocoder files. Use a separate
-workspace for each model role. See [CONFIGURATION.md](CONFIGURATION.md).
+Vision and transcription need a matching `--mmproj` file. LFM3 speech
+generation also uses `--mmproj`. Older TTS models use a `--vocoder` file.
+`nrvnad` detects matching files beside the model. See
+[CONFIGURATION.md](CONFIGURATION.md).
 
-LFM3 text, vision, and audio models use llama.cpp support added upstream in
-October 2026. Vision and audio jobs need the matching `--mmproj` file. LFM3
-audio models use that projector for speech output. Older TTS models use a
-vocoder. nrvna does not yet accept video or mixed image-and-audio jobs.
-Liquid d1 decision models are also outside the current text-generation job
-interface.
+nrvna does not accept video or mixed image-and-audio jobs.
 
-Each job gets fresh context. Put required instructions and evidence in its
-input. `--parent` records lineage only. It does not pass context or set order.
+Put required instructions and evidence in each job's input. `--parent` records
+lineage only. It does not pass context or set order.
 
 ## Why
 
@@ -159,8 +158,13 @@ and [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
 
 ## Compose with the shell
 
-Combine `wrk`, `nrvnad`, and `flw` with files, processes, and other Unix tools.
-Use the shell to choose the model, pass results between jobs, and handle errors.
+To reuse a text result, read it with `flw` and include it in a later `wrk`
+prompt.
+
+```sh
+{ printf '%s\n' 'Earlier result:'; flw ./workspace JOB_ID; \
+  printf '%s\n' 'List any gaps.'; } | wrk ./workspace - --parent JOB_ID
+```
 
 ## What nrvna does not do
 

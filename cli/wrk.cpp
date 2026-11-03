@@ -69,9 +69,9 @@ void printUsage() {
     std::cout << "  wrk <workspace> [prompt...] [options]\n";
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "  -i, --image <path>        Attach an image (repeatable)\n";
+    std::cout << "  -i, --image <path>        Attach an image for vision or embedding (repeatable)\n";
     std::cout << "  -a, --audio <path>        Attach audio; transcribes by default (repeatable)\n";
-    std::cout << "      --embed               Create an embedding\n";
+    std::cout << "      --embed               Embed prompt text or attached images\n";
     std::cout << "      --tts                 Generate speech\n";
     std::cout << "      --stt                 Transcribe audio (default with --audio)\n";
     std::cout << "      --parent <job-id>     Record lineage; does not add context\n";

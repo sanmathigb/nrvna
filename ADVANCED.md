@@ -65,45 +65,6 @@ results.
 
 ---
 
-## Persistent Daemon
-
-Use the source-tree helper when a shell application needs a ready daemon. The
-helper starts one daemon or adopts one that is already starting. It waits for
-readiness and reports startup failures.
-
-```bash
-source ./scripts/nrvna-lib.sh
-
-persistent_job() (
-  set -e
-  model=/path/to/model.gguf
-  workspace=./workspace
-  owns_daemon=false
-  status_code=0
-  nrvna_status "$workspace" || status_code=$?
-  [ "$status_code" -eq 1 ] && owns_daemon=true
-
-  cleanup() {
-    [ "$owns_daemon" = true ] || return 0
-    nrvna_stop "$workspace" || {
-      echo "persistent_job: failed to stop the daemon" >&2
-      return 1
-    }
-  }
-  trap cleanup EXIT
-
-  nrvna_start "$workspace" "$model"
-  job=$(wrk "$workspace" "Reply with exactly: ready")
-  flw "$workspace" -w "$job"
-)
-
-persistent_job
-```
-
-This helper is optional. It does not add another nrvna primitive.
-
----
-
 ## Explicit Context
 
 Save results and include them in a later prompt:

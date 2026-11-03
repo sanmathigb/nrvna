@@ -1,8 +1,10 @@
 # How nrvna works
 
-nrvna stores independent inference jobs in a workspace. A job keeps its input,
-state, and result as files. The model process can stop without deleting that
-work.
+nrvna is task-agnostic and mode-agnostic. It stores independent text, image,
+audio, and embedding jobs in a workspace. Each job starts with fresh context.
+The workspace is the source of truth for job inputs, state, and results. Use a
+separate workspace for each model. Include saved results in later jobs when
+needed. A model process can stop without deleting workspace data.
 
 ## Submit work
 

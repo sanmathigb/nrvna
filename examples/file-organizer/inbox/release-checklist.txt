@@ -1,3 +1,0 @@
-Build archives.
-Run contract tests.
-Publish checksums.

@@ -111,7 +111,6 @@ scripts/image-search-metadata
 scripts/media-search
 scripts/media-search-eval
 scripts/narrate
-scripts/nrvna-lib.sh
 scripts/transcribe
 
 # Local experiment artifacts
@@ -130,5 +129,4 @@ docs/*
 !docs/why.md
 testing/
 scripts/*
-!scripts/nrvna-lib.sh
 include/nrvna/README.md

@@ -44,6 +44,9 @@ them. Choose a GGUF that matches the model and quantization you want.
 llama.cpp reads the chat template stored in GGUF metadata. nrvna uses that
 template by default. Use `NRVNA_CHAT_TEMPLATE_FILE` only when the model needs a
 separate Jinja template file.
+The repository includes `models/templates/translategemma.jinja` for
+TranslateGemma. Set `NRVNA_CHAT_TEMPLATE_FILE` to this path when you use its
+`source to target: text` prompt format.
 
 nrvna uses sampling values from GGUF metadata when they exist. It does not
 automatically read Hugging Face JSON files or model-card prose. Set supported
