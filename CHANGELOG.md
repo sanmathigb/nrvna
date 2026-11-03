@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- `wrk -a <file>` and `wrk --audio <file>` now submit transcription jobs by
-  default. Use `--stt` when you want to state the mode explicitly.
+- Breaking CLI change: remove the redundant `--stt` flag. Use `--audio` to
+  submit a transcription job.
 - Installed macOS executables search `../lib` for shared backend libraries.
 - Breaking CLI change: start a daemon with `nrvnad <workspace> <model>`.
   Lifecycle commands remain unchanged.

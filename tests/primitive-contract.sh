@@ -65,12 +65,12 @@ if "$bin_dir/flw" "$tmp" "$done_id" "$missing_id" >/dev/null 2>&1; then
     echo "flw accepted multiple job IDs" >&2; exit 1
 fi
 
-if "$bin_dir/wrk" "$tmp" "audio" --tts --stt >/dev/null 2>&1; then
-    echo "wrk accepted contradictory TTS and STT modes" >&2; exit 1
+if "$bin_dir/wrk" "$tmp" "audio" --stt >/dev/null 2>&1; then
+    echo "wrk accepted the removed --stt option" >&2; exit 1
 fi
 
-# Attaching audio transcribes by default: --audio alone (via the -a alias) is a
-# complete STT job, no separate --stt needed. Submit only validates path+ext.
+# Attaching audio submits a complete transcription job. Submission validates
+# the path and extension without starting inference.
 audio_ws="$tmp/audio"
 dummy_wav="$tmp/memo.wav"
 printf 'RIFFdummyWAVE' > "$dummy_wav"
@@ -79,8 +79,6 @@ audio_id="$("$bin_dir/wrk" "$audio_ws" -a "$dummy_wav")"
 audio_dir="$audio_ws/input/ready/$audio_id"
 [ -d "$audio_dir" ] || { echo "audio-only job was not published" >&2; exit 1; }
 [ "$(cat "$audio_dir/type.txt")" = "stt" ] || { echo "audio-only job did not default to STT" >&2; exit 1; }
-# The explicit long form still works.
-"$bin_dir/wrk" "$audio_ws" --audio "$dummy_wav" --stt >/dev/null || { echo "explicit --audio --stt was rejected" >&2; exit 1; }
 # Audio paired with a conflicting output mode is still rejected.
 if "$bin_dir/wrk" "$audio_ws" "speak" --audio "$dummy_wav" --tts >/dev/null 2>&1; then
     echo "wrk accepted --audio combined with --tts" >&2; exit 1

@@ -70,10 +70,9 @@ void printUsage() {
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  -i, --image <path>        Attach an image for vision or embedding (repeatable)\n";
-    std::cout << "  -a, --audio <path>        Attach audio; transcribes by default (repeatable)\n";
+    std::cout << "  -a, --audio <path>        Attach audio for transcription (repeatable)\n";
     std::cout << "      --embed               Embed prompt text or attached images\n";
     std::cout << "      --tts                 Generate speech\n";
-    std::cout << "      --stt                 Transcribe audio (default with --audio)\n";
     std::cout << "      --parent <job-id>     Record lineage; does not add context\n";
     std::cout << "      --tag <name>          Add a tag (repeatable)\n";
     std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
@@ -88,6 +87,7 @@ void printUsage() {
     std::cout << "  cat report.txt | wrk ./ws -\n";
     std::cout << "  wrk ./ws -a memo.wav\n";
     std::cout << "Prompt words form one prompt. Use '-' to read prompt text from stdin.\n";
+    std::cout << "The first argument is the workspace. Other words form the prompt.\n";
     std::cout << "wrk prints the job ID. A file path alone does not read that file.\n";
 }
 
@@ -121,7 +121,6 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> promptParts;
     bool useEmbed = false;
     std::string mode;
-    bool sawTts = false, sawStt = false;
     SubmitOptions submitOptions;
     std::filesystem::path schemaPath;
     std::filesystem::path grammarPath;
@@ -187,11 +186,7 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--embed") {
             useEmbed = true;
         } else if (arg == "--tts") {
-            sawTts = true;
             mode = "tts";
-        } else if (arg == "--stt") {
-            sawStt = true;
-            mode = "stt";
         } else if (arg.size() > 1 && arg[0] == '-') {
             std::cerr << "Error: unknown option: " << arg << "\n";
             return 1;
@@ -214,23 +209,14 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (sawTts && sawStt) {
-        std::cerr << "Error: --tts and --stt are mutually exclusive\n";
+    if (!audioPaths.empty() && useEmbed) {
+        std::cerr << "Error: --audio cannot be combined with --embed\n";
         return 1;
     }
 
-    // --audio alone transcribes (STT). Passing --stt explicitly still works.
-    if (!audioPaths.empty() && mode.empty() && !useEmbed) {
+    // Audio input selects transcription.
+    if (!audioPaths.empty() && mode.empty()) {
         mode = "stt";
-    }
-    if (!audioPaths.empty() && mode != "stt") {
-        std::cerr << "Error: --audio can only be combined with --stt\n";
-        return 1;
-    }
-
-    if (mode == "stt" && audioPaths.empty()) {
-        std::cerr << "Error: --stt requires --audio <path>\n";
-        return 1;
     }
 
     if (prompt.empty() && !(useEmbed && !imagePaths.empty()) && !(mode == "stt" && !audioPaths.empty())) {
@@ -239,7 +225,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (useEmbed && !mode.empty()) {
-        std::cerr << "Error: --embed cannot be combined with --tts or --stt\n";
+        std::cerr << "Error: --embed cannot be combined with --tts\n";
         return 1;
     }
 
@@ -249,7 +235,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (mode == "stt" && !imagePaths.empty()) {
-        std::cerr << "Error: --stt and --image are mutually exclusive\n";
+        std::cerr << "Error: --audio and --image are mutually exclusive\n";
         return 1;
     }
 

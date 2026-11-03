@@ -135,7 +135,7 @@ It does not prove recovery from power loss or hardware failure.
 | Transcription | `--audio` | `transcript.txt` |
 | Speech generation | prompt with `--tts` | `audio.wav` |
 
-`--audio` transcribes by default. Add `--stt` to name that mode explicitly.
+Use `--audio` to submit a transcription job.
 Repeat `--image` to attach multiple images. nrvna does not import or index
 folders. Submit each image as a separate job when you need separate results.
 
