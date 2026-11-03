@@ -7,7 +7,7 @@ agent framework. Compose it with processes, exit codes, JSON, and files.
 Every `wrk` submission creates an independent durable job. Context does not
 continue between jobs. `--parent` records lineage only. It does not copy
 context, wait for the parent, or control execution order.
-The workspace remembers. The model does not.
+
 ## Rules for You
 
 - Use lowercase `nrvna`.
