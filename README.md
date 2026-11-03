@@ -158,6 +158,19 @@ and [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
 
 ## Compose with the shell
 
+`wrk` does not open a file path in the prompt. Pipe the file contents to stdin.
+Include the instruction in the pipe because stdin becomes the full prompt.
+
+```sh
+{ printf '%s\n' 'Explain this report:'; cat report.txt; } | wrk ./workspace -
+```
+
+For a PDF, extract its text first. This example needs `pdftotext`:
+
+```sh
+{ printf '%s\n' 'Explain this report:'; pdftotext -layout report.pdf -; } | wrk ./workspace -
+```
+
 To reuse a text result, read it with `flw` and include it in a later `wrk`
 prompt.
 
