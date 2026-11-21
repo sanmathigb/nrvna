@@ -16,6 +16,25 @@ export PATH="$HOME/.local/bin:$PATH"
 
 The installer does not download a model.
 
+## Choose a model for your hardware
+
+Add your hardware to your Hugging Face profile. Model pages can then estimate
+which GGUF quantizations fit that hardware. The profile is public by default;
+you can make it private in the hardware settings.
+
+- [Add hardware](https://huggingface.co/settings/hardware)
+- [Browse GGUF models for llama.cpp](https://huggingface.co/models?library=gguf&apps=llama.cpp,llama-app&sort=trending)
+
+Treat the compatibility panel as a memory estimate, not a speed guarantee.
+Read the model card and license before you download a model. For vision models,
+also find the matching projector file in the same model repository.
+
+nrvna does not choose or download models. Download the GGUF files, then pass
+their local paths to `nrvnad`. llama.cpp estimates GPU placement from available
+memory when the build supports a GPU backend. The estimate is not a speed test.
+Set `NRVNA_GPU_LAYERS=0` to force CPU placement. This release runs TTS models
+and vocoders on the CPU.
+
 ## Get a GGUF model
 
 nrvna runs local GGUF models supported by its llama.cpp build. Use a compatible

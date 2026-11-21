@@ -6,6 +6,7 @@
 
 #include "nrvna/meta.hpp"
 #include "nrvna/contract.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <ctime>
@@ -63,6 +64,11 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
         document["submitted_at"] = meta.submitted_at;
         document["mode"] = meta.mode;
 
+        if (meta.reference_inputs) {
+            document["input_mode"] = "reference";
+            document["input_paths"] = meta.input_paths;
+        }
+
         if (!meta.parent.empty()) {
             document["parent"] = meta.parent;
         }
@@ -73,6 +79,10 @@ bool writeMetaJson(const std::filesystem::path& dir, const JobMeta& meta) {
 
         if (!meta.output_format.empty()) {
             document["output_format"] = meta.output_format;
+        }
+
+        if (meta.keep_files.has_value()) {
+            document["keep_files"] = *meta.keep_files;
         }
 
         if (meta.recovery_attempts > 0) {
@@ -125,6 +135,15 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
         meta.mode = document["mode"].get<std::string>();
         if (meta.submitted_at.empty() || meta.mode.empty()) return std::nullopt;
 
+        if (document.contains("input_mode")) {
+            if (!document["input_mode"].is_string() || document["input_mode"] != "reference" ||
+                !document.contains("input_paths") || !document["input_paths"].is_array() ||
+                document["input_paths"].empty()) return std::nullopt;
+            meta.reference_inputs = true;
+        } else if (document.contains("input_paths")) {
+            return std::nullopt;
+        }
+
         auto readString = [&document](const char* key, std::string& value) {
             if (!document.contains(key)) return true;
             if (!document[key].is_string()) return false;
@@ -144,12 +163,23 @@ std::optional<JobMeta> readMetaJson(const std::filesystem::path& dir) {
 
         if (!readString("parent", meta.parent) ||
             !readStrings("tags", meta.tags) ||
+            !readStrings("input_paths", meta.input_paths) ||
             !readString("output_format", meta.output_format) ||
             !readString("completed_at", meta.completed_at) ||
             !readStrings("artifacts", meta.artifacts) ||
             !readString("status", meta.status)) {
             return std::nullopt;
         }
+        if (meta.reference_inputs && std::any_of(meta.input_paths.begin(), meta.input_paths.end(),
+                                                  [](const auto& path) { return path.empty(); })) {
+            return std::nullopt;
+        }
+
+        if (document.contains("keep_files")) {
+            if (!document["keep_files"].is_boolean()) return std::nullopt;
+            meta.keep_files = document["keep_files"].get<bool>();
+        }
+        if (meta.reference_inputs && meta.keep_files.value_or(false)) return std::nullopt;
 
         if (document.contains("recovery_attempts")) {
             const auto& value = document["recovery_attempts"];

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Update the llama.cpp submodule to v1.0.0. Use its memory-fit API for automatic
+  GPU placement in text, vision, and transcription runs when supported. TTS
+  models and vocoders remain CPU-only.
+- Add `wrk --id` for caller-addressable, idempotent submissions. Repeated IDs
+  return the existing job; callers use a new ID for retries.
+- Reference image and audio inputs by path by default. Use `wrk --keep-files`
+  to copy and retain them in the job. Add `nrvnad clean` to preview or remove
+  copied attachments from terminal jobs.
 - Breaking CLI change: remove the redundant `--stt` flag. Use `--audio` to
   submit a transcription job.
 - Installed macOS executables search `../lib` for shared backend libraries.

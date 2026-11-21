@@ -4,9 +4,10 @@ nrvna provides durable local inference through three commands. `wrk` submits
 jobs. `nrvnad` executes them. `flw` reads results. nrvna is not a chat API or
 agent framework. Compose it with processes, exit codes, JSON, and files.
 
-Every `wrk` submission creates an independent durable job. Context does not
-continue between jobs. `--parent` records lineage only. It does not copy
-context, wait for the parent, or control execution order.
+Every new `wrk` submission creates an independent durable job. A repeated
+`--id` returns the existing job. Context does not continue between jobs.
+`--parent` records lineage only. It does not copy context, wait for the parent,
+or control execution order.
 
 ## Rules for You
 
@@ -74,6 +75,8 @@ JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 ```
 
 `wrk` creates the workspace when needed. It prints only the job ID on stdout.
+`wrk --id <id>` reuses a caller-chosen safe ID. A repeat returns the existing
+job, including failures. Use a new ID for a retry.
 Before the daemon starts, status shows two queued jobs. `--drain` loads the
 model and starts the two configured workers. It exits when it observes an idle
 queue. A nonzero exit means that the drain failed. Inspect the workspace with
@@ -114,8 +117,16 @@ their models cannot fit in memory together.
   lifecycle files.
 - A `.nrvnad.lock` file may remain after exit. Its existence is not liveness;
   do not inspect lifecycle files instead of using `nrvnad status`.
-- Job inputs become immutable under `input/ready/`. The daemon moves the job
+- Jobs become immutable under `input/ready/`. The daemon moves the job
   directory and adds artifacts. Callers must not edit published jobs.
+- Image and audio jobs record absolute source paths in `meta.json` by default.
+  Keep those files available until the job finishes, including for recovery.
+  Use `wrk --keep-files` to copy and retain inputs inside the job.
+- Reference jobs read the file contents present when the worker opens the path.
+  nrvna does not detect source changes or preserve the original contents.
+- Successful jobs keep prompts, metadata, and results. Failed reference jobs
+  keep the source paths; copied inputs stay with the job. `nrvnad clean` removes
+  copied attachments only.
 - Failures are terminal and preserved under `failed/`, with `error.txt` and
   `response.txt` when the model produced output, even if that file is empty.
   Retry policy belongs to the calling app or agent, not the primitive.
@@ -123,6 +134,8 @@ their models cannot fit in memory together.
   `audio.wav`; failures use `error.txt`. Completed embedding JSON includes the
   full vector, so use workspace status rather than job retrieval when only
   counts are needed.
+- `nrvnad clean <ws>` previews copied attachments in terminal jobs. Add `--apply`
+  to remove eligible files. `--include-kept` and `--include-failed` widen scope.
 - Use `wrk --json-schema <file>` for schema-constrained text or vision output.
   Use `wrk --grammar <file>` for existing GBNF. Do not combine these options.
 - Structured jobs preserve `schema.json` when provided and always preserve the
@@ -150,8 +163,10 @@ in `failed/`. Only one terminal job directory becomes visible. Treat execution
 as at least once.
 
 Model names resolve under `./models` or `NRVNA_MODELS_DIR`. `nrvnad` detects
-matching mmproj and vocoder files beside the model. Use `nrvnad --help` for job
-types and model requirements.
+matching mmproj and vocoder files beside the model. llama.cpp estimates GPU
+placement when the build supports it. Set `NRVNA_GPU_LAYERS=0` to force CPU.
+TTS models and vocoders use CPU placement. Use `nrvnad --help` for job types
+and model requirements.
 
 nrvna does not assemble parent context or execute dependency graphs. It does
 not route models, parse documents, retry failures, or search artifacts. Callers

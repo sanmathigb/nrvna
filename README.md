@@ -2,211 +2,146 @@
 
 [![CI](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml/badge.svg)](https://github.com/sanmathigb/nrvna/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Built on llama.cpp](https://img.shields.io/badge/built%20on-llama.cpp-orange.svg)](https://github.com/ggml-org/llama.cpp/tree/8642541b255bfb5dc39cd351a178be09013a55d6)
+[![Built on llama.cpp](https://img.shields.io/badge/built%20on-llama.cpp-orange.svg)](https://github.com/ggml-org/llama.cpp/tree/b1b770d90)
 
 Durable local AI work, built from three commands.
 
-nrvna is task-agnostic and mode-agnostic. Submit independent text, image,
-audio, or embedding jobs without waiting. Each job starts with fresh context.
-The workspace is the source of truth for job state and results. Use a separate
-workspace for each model. Include saved results in later jobs when needed.
-Agents can use the commands directly or follow the
-[nrvna skill](skills/nrvna/SKILL.md).
+| Command | Purpose |
+| --- | --- |
+| `wrk` | Submit a job and return its ID without waiting for inference. |
+| `nrvnad` | Run queued jobs with a local model. |
+| `flw` | Read job status and results. |
 
-[First run](#start-with-the-commands) · [How it works](docs/how-it-works.md) · [Pro use](ADVANCED.md) · [Agents](AGENTS.md)
+Submit work before loading a model, or while a daemon runs. Jobs and results
+stay in a workspace directory after the commands exit. Each job starts with
+fresh context.
 
-`wrk` creates jobs. `nrvnad` runs them with a local model. `flw` reads their
-status and results.
+**Experimental developer preview.** nrvna runs on macOS and Linux. It does
+not claim production readiness.
 
-Models get `wrk`. You get `flw`.
+## Install
 
-![A terminal demo that submits a job while no daemon is running and shows one
-queued job](assets/submit-without-daemon.gif)
+Install the prebuilt commands for macOS Apple Silicon, macOS Intel, or Linux
+x86-64:
 
-## Start with the commands
-
-Install the prebuilt commands:
-
-```bash
+```sh
 curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-This changes `PATH` only in this terminal. Run it in each new terminal, or add
-it to your shell startup file.
+The installer downloads the latest published release. Documentation on `main`
+may describe changes that are not released yet. Check the installed commands'
+`--help` output.
 
-Use an existing compatible GGUF model, or follow [INSTALL.md](INSTALL.md) to
-download and verify the example model. The commands below use
-`./models/smollm2-1.7b.gguf`.
+The installer does not download a model. Follow [Install](INSTALL.md) for a
+verified example-model download, archive checksums, and source builds.
+That guide creates `./models/smollm2-1.7b.gguf`, used below.
 
-Run one job:
+The `PATH` change applies to this terminal. Add it to your shell startup file
+for future terminals.
 
-```bash
-wrk ./workspace "Summarize this report in five bullets: Sales rose 8%, costs rose 3%. Name one risk."
-nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+## Submit now, run later
+
+Use a new workspace for this example. Submit two independent jobs:
+
+```sh
+wrk ./workspace "Summarize in one sentence: Sales rose 8%. Costs rose 3%." --tag first-run
+wrk ./workspace "Name one risk: Our only supplier has delayed two deliveries." --tag first-run
+flw ./workspace --json
+```
+
+Both jobs are queued. No model needed to run during submission. Each `wrk`
+command prints a job ID.
+
+Process the queue with your downloaded model:
+
+```sh
+nrvnad ./workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
+```
+
+`--drain` waits until the queue is idle, then exits. Read the batch results:
+
+```sh
+flw ./workspace --tag first-run --json
+```
+
+The output contains one JSON object per line. To read one result as text,
+replace `JOB_ID` with an ID from submission:
+
+```sh
 flw ./workspace JOB_ID
 ```
 
-Replace `JOB_ID` with the ID printed by `wrk`. `--drain` loads the model,
-processes queued work, then exits. Results remain in the workspace.
+A nonzero drain exit means the drain failed. Inspect the workspace with `flw`
+before continuing. Model output needs review before you rely on it.
 
-## Give this to your agent
+## Give it to your agent
 
-Paste this into an agent with shell access. Replace the model and workspace
-paths, then describe the work.
+Give an agent with shell access the [agent guide](AGENTS.md), your local model
+path, your workspace path, and the task:
 
 ```text
-Read nrvna's agent guide:
-https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md
-
-Use my local GGUF model: /path/to/model.gguf
+Read nrvna's AGENTS.md from the release I installed.
+Use my model: /path/to/model.gguf
 Use a new workspace: /path/to/workspace
-
-Run the task as one independent job. Include all required instructions and
-evidence. Do not download a model or reuse an existing workspace. Use the
-documented commands. Report the job ID, result, and any error.
-
 Task: [describe the work]
+
+Use wrk, nrvnad, and flw. Include all instructions and evidence in each job.
+Check daemon status before starting it. Do not download a model.
+Report the job IDs, results, and failures. Validate results against the task.
 ```
 
-## Choose how the model runs
+The release archive includes `AGENTS.md`. The current installer copies only
+the commands. If needed, get the guide from the matching
+[release](https://github.com/sanmathigb/nrvna/releases).
 
-Use `--drain` for bounded batches, first runs, or model swaps. It loads the
-model, processes queued work, and exits when the workspace is idle.
+Agents can also use the optional [nrvna skill](skills/nrvna/SKILL.md).
+Applications can call the same commands and read the same durable files.
 
-For repeated work, keep one daemon running for the workspace. Check its status:
+## Examples
 
-```bash
-nrvnad status ./workspace
-```
+[Three examples](ADVANCED.md) show how to:
 
-Status exits `0` when ready, `2` while starting, and `1` when stopped. Start a
-daemon only when status exits `1`:
+- Submit a batch before loading the model.
+- Submit to a running daemon and collect results later.
+- Pass a completed result into a new job.
 
-```bash
-nrvnad ./workspace ./models/smollm2-1.7b.gguf
-```
+Text, images, embeddings, transcription, and speech generation use the same
+job lifecycle. Each needs a compatible model. See [work types](docs/how-it-works.md#work-types)
+and [model settings](INSTALL.md#use-model-specific-settings).
 
-The daemon stays in the foreground. In another terminal, submit work and copy
-the job ID printed by `wrk`:
-
-```bash
-wrk ./workspace "Summarize this report"
-flw ./workspace JOB_ID -w
-```
-
-Replace `JOB_ID` with the ID from `wrk`. Stop the daemon when you finish:
-
-```bash
-nrvnad stop ./workspace
-```
-
-Both modes use the same workspace and durable job files. See
-[INSTALL.md](INSTALL.md) for setup.
-
-## Work in. Results out.
+## The contract
 
 ```text
 input/ready/ → processing/ → output/
                          └→ failed/
 ```
 
-The workspace stores each job and its result as files.
+The workspace holds job state and results. After a process crash, a new daemon
+can recover abandoned work. A recovered job starts again; token generation
+does not resume. Execution is at least once, with a recovery ceiling.
 
-Atomic renames publish and claim jobs. After a crash, the next daemon can
-recover an abandoned job from its saved input. It starts again with fresh
-context. Token generation does not resume. Execution is at least once, so a
-job may run more than once after a crash. Recovery stops at a fixed limit.
+Use a separate workspace for each model role. Put prior results in the next
+prompt when needed. `--parent` records lineage; it does not pass context or
+control execution order.
 
-![A terminal demo that kills nrvnad, shows the claimed job on disk, and
-recovers that job](assets/crash-recovery.gif)
-
-The process-crash check used the `v0.1.1` release on a 2017 Intel MacBook Pro.
-It does not prove recovery from power loss or hardware failure.
-
-## Work types
-
-| Work | Submit with | Result |
-| --- | --- | --- |
-| Text generation | prompt or stdin | `result.txt` |
-| Text embedding | prompt with `--embed` | `embedding.json` |
-| Image analysis | prompt with `--image` | `result.txt` |
-| Image embedding | `--embed` with `--image` | `embedding.json` |
-| Transcription | `--audio` | `transcript.txt` |
-| Speech generation | prompt with `--tts` | `audio.wav` |
-
-Use `--audio` to submit a transcription job.
-Repeat `--image` to attach multiple images. nrvna does not import or index
-folders. Submit each image as a separate job when you need separate results.
-
-Vision and transcription need a matching `--mmproj` file. LFM3 speech
-generation also uses `--mmproj`. Older TTS models use a `--vocoder` file.
-`nrvnad` detects matching files beside the model. See
-[CONFIGURATION.md](CONFIGURATION.md).
-
-nrvna does not accept video or mixed image-and-audio jobs.
-
-Put required instructions and evidence in each job's input. `--parent` records
-lineage only. It does not pass context or set order.
+The caller owns model selection, document extraction, workflow order, retries,
+and result validation. nrvna provides independent durable inference jobs.
 
 ## Why
 
 I wanted to submit work, leave, and read the results later. The lifetime of
-the work should not be tied to the runtime of a model. More on the thinking:
-[Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
-and [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
+the work should not be tied to the runtime of a model.
 
-## Compose with the shell
-
-`wrk` does not open a file path in the prompt. Pipe the file contents to stdin.
-Include the instruction in the pipe because stdin becomes the full prompt.
-
-```sh
-{ printf '%s\n' 'Explain this report:'; cat report.txt; } | wrk ./workspace -
-```
-
-For a PDF, extract its text first. This example needs `pdftotext`:
-
-```sh
-{ printf '%s\n' 'Explain this report:'; pdftotext -layout report.pdf -; } | wrk ./workspace -
-```
-
-To reuse a text result, read it with `flw` and include it in a later `wrk`
-prompt.
-
-```sh
-{ printf '%s\n' 'Earlier result:'; flw ./workspace JOB_ID; \
-  printf '%s\n' 'List any gaps.'; } | wrk ./workspace - --parent JOB_ID
-```
-
-## What nrvna does not do
-
-nrvna is not a chat interface, agent framework, model router, search index, or
-distributed queue. It does not parse documents or retry failed jobs.
-
-The caller chooses models, selects context, composes jobs, and handles failed
-work. nrvna saves and runs independent inference jobs.
-
-## Status
-
-**Experimental developer preview.** Tests cover the filesystem and lifecycle
-contracts. nrvna does not claim production readiness.
+- [Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
+- [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
 
 ## Reference
 
-- [Install](INSTALL.md): binaries, example model, and run modes
-- [Changelog](CHANGELOG.md): user-visible changes and breaking CLI updates
-- [Documentation](docs/README.md): guides and reference pages
-- [Why nrvna](docs/why.md): the problem shape behind independent durable jobs
-- [Contributing](CONTRIBUTING.md): build and review expectations
-- [Security](SECURITY.md): private vulnerability reports
-- [Agent guide](AGENTS.md): operational and machine contract
-- [Domain language](CONTEXT.md): canonical terms
-- [Advanced patterns](ADVANCED.md): composition examples
-- [Configuration](CONFIGURATION.md): runtime settings
-- [Architecture](ARCHITECTURE.md): ownership and state transitions
+[Documentation](docs/README.md) · [Agent guide](AGENTS.md) ·
+[Configuration](CONFIGURATION.md) · [Architecture](ARCHITECTURE.md) ·
+[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) ·
+[Security](SECURITY.md)
 
-nrvna builds on macOS and Linux with CMake 3.16+ and C++17. CPU inference is
-the default. Model licenses remain model-specific.
-
-MIT licensed.
+Built with C++17 and llama.cpp. MIT licensed. Model licenses remain
+model-specific.

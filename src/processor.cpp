@@ -25,6 +25,32 @@
 namespace {
 std::mutex g_output_mutex;
 
+void discardJobFiles(const std::filesystem::path& jobPath) noexcept {
+    auto meta = nrvna::readMetaJson(jobPath);
+    if (!meta || !meta->keep_files.has_value() || *meta->keep_files) return;
+
+    for (const char* name : {nrvna::contract::kImagesDir, nrvna::contract::kAudioInputDir}) {
+        std::error_code ec;
+        std::filesystem::remove_all(jobPath / name, ec);
+        if (ec) {
+            LOG_WARN("Failed to discard job input " + (jobPath / name).string() + ": " + ec.message());
+        }
+    }
+}
+
+std::string missingReference(const nrvna::JobMeta& meta) {
+    if (!meta.reference_inputs) return {};
+    for (const auto& value : meta.input_paths) {
+        const std::filesystem::path path(value);
+        std::error_code ec;
+        const auto status = std::filesystem::symlink_status(path, ec);
+        if (ec || std::filesystem::is_symlink(status) || !std::filesystem::is_regular_file(status)) {
+            return "Referenced input is unavailable or unsafe: " + value;
+        }
+    }
+    return {};
+}
+
 std::string timestamp() {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
@@ -146,6 +172,17 @@ ProcessResult Processor::process(const JobId& jobId, int workerId) noexcept {
         }
 
         const JobType jobType = *jobTypeRead;
+
+        if (jobMeta) {
+            const auto inputError = missingReference(*jobMeta);
+            if (!inputError.empty()) {
+                const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
+                completeJob(getJobPath(contract::kProcessingDir, jobId), elapsed, {contract::kErrorFile}, contract::toString(Status::Failed));
+                printJobStatus(jobId, contract::toString(Status::Failed), elapsed, "referenced input unavailable");
+                (void)finalizeFailure(jobId, inputError);
+                return ProcessResult::Failed;
+            }
+        }
 
         const std::string& prompt = promptRead.content;
         const bool allowEmptyPrompt = prompt.empty() &&
@@ -371,6 +408,7 @@ bool Processor::finalizeSuccess(const JobId& jobId, const std::string& result) n
         
         // Atomic move entire job to output
         std::filesystem::rename(processingPath, outputPath);
+        discardJobFiles(outputPath);
         
         LOG_DEBUG("Job finalized successfully: " + jobId);
         return true;
@@ -418,6 +456,7 @@ bool Processor::finalizeEmbedding(const JobId& jobId, const std::vector<float>& 
 
         // Atomic move to output
         std::filesystem::rename(processingPath, outputPath);
+        discardJobFiles(outputPath);
 
         LOG_DEBUG("Embedding job finalized: " + jobId);
         return true;
@@ -450,6 +489,7 @@ bool Processor::finalizeTranscript(const JobId& jobId, const std::string& transc
         auto finalPath = processingPath / contract::kTranscriptFile;
         std::filesystem::rename(tempPath, finalPath);
         std::filesystem::rename(processingPath, outputPath);
+        discardJobFiles(outputPath);
 
         LOG_DEBUG("Transcript job finalized: " + jobId);
         return true;
@@ -516,13 +556,19 @@ bool Processor::finalizeFailure(const JobId& jobId, const std::string& error,
 std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) const noexcept {
     std::vector<std::filesystem::path> imagePaths;
     try {
-        auto imagesDir = getJobPath(contract::kProcessingDir, jobId) / contract::kImagesDir;
+        const auto jobPath = getJobPath(contract::kProcessingDir, jobId);
+        const auto meta = readMetaJson(jobPath);
+        if (meta && meta->reference_inputs && meta->mode != "stt" && meta->mode != "tts") {
+            for (const auto& path : meta->input_paths) imagePaths.emplace_back(path);
+            return imagePaths;
+        }
+        auto imagesDir = jobPath / contract::kImagesDir;
         if (!std::filesystem::exists(imagesDir) || !std::filesystem::is_directory(imagesDir)) {
             return imagePaths;
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(imagesDir)) {
-            // wrk copies media into the job. Reject symlinks instead of reading through them.
+            // Copied job inputs must be regular files, never symlinks.
             if (!entry.is_symlink() && entry.is_regular_file()) {
                 imagePaths.push_back(entry.path());
             }
@@ -538,7 +584,13 @@ std::vector<std::filesystem::path> Processor::readImages(const JobId& jobId) con
 std::vector<std::filesystem::path> Processor::readAudio(const JobId& jobId) const noexcept {
     std::vector<std::filesystem::path> audioPaths;
     try {
-        auto audioDir = getJobPath(contract::kProcessingDir, jobId) / contract::kAudioInputDir;
+        const auto jobPath = getJobPath(contract::kProcessingDir, jobId);
+        const auto meta = readMetaJson(jobPath);
+        if (meta && meta->reference_inputs && meta->mode == "stt") {
+            for (const auto& path : meta->input_paths) audioPaths.emplace_back(path);
+            return audioPaths;
+        }
+        auto audioDir = jobPath / contract::kAudioInputDir;
         if (!std::filesystem::exists(audioDir) || !std::filesystem::is_directory(audioDir)) {
             return audioPaths;
         }
@@ -785,6 +837,7 @@ bool Processor::finalizeAudio(const JobId& jobId, const std::vector<float>& audi
 
         // Atomic move to output
         std::filesystem::rename(processingPath, outputPath);
+        discardJobFiles(outputPath);
 
         LOG_DEBUG("TTS job finalized: " + jobId);
         return true;

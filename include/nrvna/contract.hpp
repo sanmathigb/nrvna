@@ -20,6 +20,7 @@ namespace nrvna::contract {
 
 // ── State directories, relative to the workspace root ──────────────────
 inline constexpr const char* kWritingDir    = "input/writing";  // staging, invisible
+inline constexpr const char* kIdSubmitLock = "input/.id-submit.lock"; // caller-ID publication lock
 inline constexpr const char* kReadyDir      = "input/ready";    // Status::Queued
 inline constexpr const char* kProcessingDir = "processing";     // Status::Running
 inline constexpr const char* kOutputDir     = "output";         // Status::Done
@@ -104,22 +105,24 @@ inline std::optional<JobType> tryParseJobType(const std::string& s) {
 }
 
 // ── Job ID grammar ──────────────────────────────────────────────────────
-// Digits and single underscores; no leading/trailing/doubled underscore;
-// max 128 chars. (Timestamp_pid_counter, see Work::generateId.)
+// Lowercase letters, digits, underscores, and hyphens; max 128 chars.
+// Caller IDs must include a letter, so they cannot collide with generated IDs.
 inline bool isValidJobId(const JobId& id) {
     if (id.empty() || id.size() > 128) return false;
-    if (id.front() == '_' || id.back() == '_') return false;
-    bool prev_underscore = false;
+    const auto isLowerOrDigit = [](unsigned char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    };
+    if (!isLowerOrDigit(static_cast<unsigned char>(id.front())) ||
+        !isLowerOrDigit(static_cast<unsigned char>(id.back()))) return false;
     for (char c : id) {
-        if (!std::isdigit(static_cast<unsigned char>(c)) && c != '_') return false;
-        if (c == '_') {
-            if (prev_underscore) return false;
-            prev_underscore = true;
-        } else {
-            prev_underscore = false;
-        }
+        if (!((c >= 'a' && c <= 'z') || std::isdigit(static_cast<unsigned char>(c)) ||
+              c == '_' || c == '-')) return false;
     }
     return true;
+}
+
+inline bool isValidCallerJobId(const JobId& id) {
+    return isValidJobId(id) && id.find_first_of("abcdefghijklmnopqrstuvwxyz") != std::string::npos;
 }
 
 // ── The output artifact rule ────────────────────────────────────────────

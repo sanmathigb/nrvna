@@ -64,21 +64,23 @@ bool readStructuredFile(const std::filesystem::path& path, std::string& content,
 } // namespace
 
 void printUsage() {
-    std::cout << "Submit one independent job to a workspace.\n\n";
+    std::cout << "Submit an independent job to a workspace.\n\n";
     std::cout << "Usage:\n";
     std::cout << "  wrk <workspace> [prompt...] [options]\n";
     std::cout << "  wrk <workspace> - [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "  -i, --image <path>        Attach an image for vision or embedding (repeatable)\n";
-    std::cout << "  -a, --audio <path>        Attach audio for transcription (repeatable)\n";
-    std::cout << "      --embed               Embed prompt text or attached images\n";
-    std::cout << "      --tts                 Generate speech\n";
-    std::cout << "      --parent <job-id>     Record lineage; does not add context\n";
+    std::cout << "  -i, --image <path>        Use an image for vision or embedding (repeatable)\n";
+    std::cout << "  -a, --audio <path>        Use audio for transcription (repeatable)\n";
+    std::cout << "      --embed               Create embeddings from prompt text or images\n";
+    std::cout << "      --tts                 Generate speech from the prompt\n";
+    std::cout << "      --parent <job-id>     Record a parent job; its result is not added to the prompt\n";
+    std::cout << "      --id <job-id>         Use a stable ID; repeats return the existing job\n";
     std::cout << "      --tag <name>          Add a tag (repeatable)\n";
+    std::cout << "      --keep-files          Copy attached files and keep them after success\n";
     std::cout << "      --json-schema <path>  Constrain text or vision output with JSON Schema\n";
-    std::cout << "      --grammar <path>      Constrain text or vision output with GBNF\n";
-    std::cout << "  -h, --help           Show help\n";
-    std::cout << "  -v, --version        Show version\n";
+    std::cout << "      --grammar <path>      Constrain output with a GBNF grammar file\n";
+    std::cout << "  -h, --help                Show help\n";
+    std::cout << "  -v, --version             Show version\n";
     std::cout << "\n";
     std::cout << "Examples:\n";
     std::cout << "  wrk ./ws \"Explain why local inference benefits from durable jobs.\"\n";
@@ -89,6 +91,7 @@ void printUsage() {
     std::cout << "Prompt words form one prompt. Use '-' to read prompt text from stdin.\n";
     std::cout << "The first argument is the workspace. Other words form the prompt.\n";
     std::cout << "wrk prints the job ID. A file path alone does not read that file.\n";
+    std::cout << "By default, image and audio paths are referenced. Keep source files available until jobs finish, including recovery.\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -160,6 +163,16 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: invalid parent job ID\n";
                 return 1;
             }
+        } else if (arg == "--id") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --id requires a job ID\n";
+                return 1;
+            }
+            submitOptions.id = argv[++i];
+            if (!contract::isValidCallerJobId(submitOptions.id)) {
+                std::cerr << "Error: --id must be a safe lowercase ID containing a letter (max 128 characters)\n";
+                return 1;
+            }
         } else if (arg == "--tag") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --tag requires a value\n";
@@ -171,6 +184,8 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             submitOptions.tags.push_back(tag);
+        } else if (arg == "--keep-files") {
+            submitOptions.keep_files = true;
         } else if (arg == "--json-schema") {
             if (i + 1 >= argc) {
                 std::cerr << "Error: --json-schema requires a path\n";

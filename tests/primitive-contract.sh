@@ -31,11 +31,11 @@ case "$wrk_help" in
     *) echo "wrk help does not explain prompt input and job ID output" >&2; exit 1 ;;
 esac
 case "$flw_help" in
-    *'One job: 0 done, 1 failed/missing/error, 2 queued or running'*) ;;
+    *'One job: 0 done; 1 failed, missing, or error; 2 queued or running'*) ;;
     *) echo "flw help does not scope job-result exit codes" >&2; exit 1 ;;
 esac
 case "$flw_help" in
-    *'-w needs a job ID.'*) ;;
+    *'With -w, provide a job ID as an argument or through stdin.'*) ;;
     *) echo "flw help does not require an explicit wait job ID" >&2; exit 1 ;;
 esac
 
@@ -233,5 +233,40 @@ barrier_output="$("$bin_dir/flw" "$tmp" -W --tag night --json)" || {
 [ -z "$barrier_output" ] || {
     echo "tag barrier should not print selected results: $barrier_output" >&2; exit 1;
 }
+
+# Caller IDs reuse the original input, including after terminal failure.
+stable_ws="$tmp/stable"
+[ "$("$bin_dir/wrk" "$stable_ws" "original" --id extract-one)" = extract-one ]
+[ "$("$bin_dir/wrk" "$stable_ws" "replacement" --id extract-one)" = extract-one ]
+[ "$(cat "$stable_ws/input/ready/extract-one/prompt.txt")" = original ]
+mv "$stable_ws/input/ready/extract-one" "$stable_ws/failed/"
+printf 'test failure\n' > "$stable_ws/failed/extract-one/error.txt"
+[ "$("$bin_dir/wrk" "$stable_ws" "retry" --id extract-one)" = extract-one ]
+[ ! -e "$stable_ws/input/ready/extract-one" ]
+[ "$(cat "$stable_ws/failed/extract-one/prompt.txt")" = original ]
+if "$bin_dir/wrk" "$stable_ws" "invalid" --id ../escape >/dev/null 2>&1; then
+    echo "wrk accepted a path as a caller ID" >&2; exit 1
+fi
+
+# Reference submissions do not copy audio; kept inputs survive ordinary cleanup.
+[ ! -d "$audio_dir/audio" ]
+case "$(cat "$audio_dir/meta.json")" in
+    *'"input_paths"'*'memo.wav'*) ;;
+    *) echo "reference input path missing" >&2; exit 1 ;;
+esac
+kept_id="$("$bin_dir/wrk" "$audio_ws" -a "$dummy_wav" --keep-files)"
+kept_dir="$audio_ws/output/$kept_id"
+mv "$audio_ws/input/ready/$kept_id" "$kept_dir"
+printf 'transcribed\n' > "$kept_dir/transcript.txt"
+[ -f "$kept_dir/audio/audio_000000.wav" ]
+"$bin_dir/nrvnad" clean "$audio_ws" --include-kept --json >/dev/null
+[ -f "$kept_dir/audio/audio_000000.wav" ]
+"$bin_dir/nrvnad" clean "$audio_ws" --apply --json >/dev/null
+[ -f "$kept_dir/audio/audio_000000.wav" ]
+"$bin_dir/nrvnad" clean "$audio_ws" --apply --include-kept --json >/dev/null
+[ ! -e "$kept_dir/audio" ]
+[ -f "$kept_dir/meta.json" ]
+[ "$(cat "$kept_dir/transcript.txt")" = transcribed ]
+[ -f "$dummy_wav" ]
 
 echo "primitive-contract: all checks passed"

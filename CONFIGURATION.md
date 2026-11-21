@@ -10,15 +10,22 @@ Most users need only these:
 | --- | --- | --- |
 | `NRVNA_MODELS_DIR` | discovered `models/` | Model search directory |
 | `NRVNA_WORKERS` | `4` | Concurrent jobs |
-| `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to a supported GPU backend |
+| `NRVNA_GPU_LAYERS` | automatic fit | Set `0` for CPU or a positive layer count to override GPU placement |
 | `NRVNA_REPACK` | `1` | Set `0` to disable CPU weight repacking and reduce extra memory use |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
 | `NRVNA_PREDICT` | `2048` | Maximum generated tokens |
 | `NRVNA_MAX_RECOVERY_ATTEMPTS` | `3` | Orphaned `processing/` recoveries before terminal failure |
 
-CPU inference is the default. `nrvnad` resolves model names under `./models` or
-`NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching
-projector and vocoder files beside the model.
+When the build has a supported GPU backend, llama.cpp estimates GPU placement
+from available device memory. It includes the model, worker contexts, and the
+projector size when one is set. It leaves llama.cpp's default memory margin.
+The estimate does not predict speed. It assumes host memory is available. If
+the fit fails, nrvna loads the model on the CPU. Set `NRVNA_GPU_LAYERS=0` to
+force CPU placement, or set a positive value to choose a fixed layer count.
+
+`nrvnad` resolves model names under `./models` or `NRVNA_MODELS_DIR`. It also
+accepts a full model path. It detects matching projector and vocoder files
+beside the model. TTS models and vocoders use CPU placement in this release.
 
 There is no worker count that is fastest on every machine. More workers can run
 more jobs at once, but each active job needs its own context and compute
