@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(nrvna VERSION 0.1.1 LANGUAGES CXX C)
+project(nrvna VERSION 0.2.0 LANGUAGES CXX C)
 
 include(CTest)
 
@@ -124,6 +124,7 @@ if(BUILD_TESTING)
     add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
     add_test(NAME contract_literals COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/contract-literals.sh)
+    add_test(NAME install_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/install-contract.sh $<TARGET_FILE_DIR:wrk>)
 endif()
 
 # Install targets

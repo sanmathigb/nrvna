@@ -5,6 +5,7 @@ set -eu
 repo=${NRVNA_REPO:-sanmathigb/nrvna}
 base_url=${NRVNA_RELEASE_BASE_URL:-https://github.com/$repo/releases/latest/download}
 install_dir=${NRVNA_INSTALL_DIR:-"$HOME/.local/bin"}
+doc_dir="$install_dir/../share/nrvna"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/nrvna-install.XXXXXX")
 
 cleanup() {
@@ -46,6 +47,18 @@ for bin in nrvnad wrk flw; do
   install -m 755 "$tmpdir/$kit/bin/$bin" "$install_dir/$bin"
 done
 
+mkdir -p "$doc_dir"
+for doc in README.md INSTALL.md AGENTS.md CONTEXT.md ADVANCED.md CONFIGURATION.md ARCHITECTURE.md CHANGELOG.md SECURITY.md CONTRIBUTING.md LICENSE LICENSE-llama.cpp; do
+  if [ -f "$tmpdir/$kit/$doc" ]; then
+    install -m 644 "$tmpdir/$kit/$doc" "$doc_dir/$doc"
+  fi
+done
+for directory in docs skills; do
+  if [ -d "$tmpdir/$kit/$directory" ]; then
+    cp -R "$tmpdir/$kit/$directory" "$doc_dir/"
+  fi
+done
+
 case ":$PATH:" in
   *":$install_dir:"*) ;;
   *)
@@ -57,15 +70,11 @@ esac
 
 cat <<EOF
 nrvna: installed nrvnad, wrk, and flw to $install_dir
+Guides: $doc_dir
 
 Next:
-  export PATH="$install_dir:\$PATH"
-  mkdir -p models
-  curl -fL --continue-at - -o models/smollm2-1.7b.gguf \\
-    https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
-
-Run one job. Copy the ID printed by wrk into the last command:
-  wrk ./workspace "Reply with exactly: first"
-  nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
-  flw ./workspace JOB_ID
+  Read $doc_dir/INSTALL.md for your first run.
+  Give $doc_dir/AGENTS.md to your agent.
+  Use an existing compatible model, or follow the model download guide.
+  Check $install_dir/nrvnad --help for this release's syntax.
 EOF

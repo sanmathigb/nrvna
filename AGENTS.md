@@ -23,38 +23,73 @@ or control execution order.
 - Jobs are directories. Models are GGUF files. Do not conflate them.
 - Do not describe nrvna as a server, orchestrator, or agent framework.
 
-## Writing
+## Start Here
 
-Use ASD-STE100 Simplified Technical English principles for technical documents
-and procedures.
+1. Read the installed commands' `--version` and `--help` output before using examples.
+2. Use the guide shipped with those binaries. Do not combine release binaries with instructions from another revision.
+3. Confirm the user's model and workspace. Do not download models or replace their chosen model without authorization.
+4. Check `nrvnad status <workspace> --json` before starting a daemon.
+5. Put each task's instructions and evidence in its prompt. A file path alone does not supply its contents.
+6. Submit independent jobs before waiting. Save their IDs and use a tag to collect the batch.
+7. Run a drain, or use the existing daemon and a `flw` wait. Collect on completion, not repeated status checks.
+8. Validate the results against the source. Report failed jobs, missing facts, and unsupported claims explicitly.
 
-- Use common, precise words.
-- Use one term for one concept. Give each term one meaning.
-- Keep instructions at 20 words or less.
-- Use active voice.
-- Write short paragraphs. Put one topic in each paragraph.
-- Avoid idioms, filler, hype, and unnecessary jargon.
-- Define a necessary technical term before you use it.
-- Do not rewrite commands, identifiers, file names, or quoted output.
-- Use `nrvna` in lowercase unless a case-sensitive identifier requires another
-  form.
+The published `v0.1.1` uses `nrvnad <model> <workspace>`. This source revision
+uses `nrvnad <workspace> <model>`. Installed help decides which syntax applies.
+New options such as `--id` require binaries built from a revision that supports them.
 
-Follow Zinsser's four principles. STE gives the mechanics; these give the intent.
+## Think in Jobs
 
-- Simplicity: cut every word that does no work.
-- Brevity: say it in fewer words. The shorter version is almost always better.
-- Clarity: one idea per sentence. The reader must not re-read to understand.
-- Humanity: write like a person to a person. Plain is not cold.
+The useful unit is a complete piece of work that can finish without the caller
+staying open. Submit independent pieces together. Waiting belongs at the point
+where another task needs their results.
 
-Use the same clarity rules for comments, interface text, commits, pull requests,
-reports, and agent replies. Do not describe these surfaces as formally
-ASD-STE100 compliant.
+The workspace owns job state. The model process and the calling application
+can stop without deleting that record. A job needs a running daemon to make
+progress; durable does not mean always running.
 
-Product pages and personal writing can use a natural voice. Keep them concise
-and unambiguous.
+A later stage reads selected results and submits a new complete prompt. Choose
+that evidence explicitly. Do not assume conversation history, dependency order,
+or parent context. Keep one workspace per model role.
 
-Formal compliance requires the official controlled dictionary and all writing
-rules. Do not claim compliance without validated vocabulary and grammar checks.
+## Get Useful Results
+
+Read [model setup](INSTALL.md#use-model-specific-settings) before a new model's
+first workload. Check its upstream model card, template, required files, and
+recommended generation settings. nrvna reads supported GGUF hints, not model-card prose.
+
+Start with a few representative inputs whose answers you can check. Include
+missing facts, ambiguous inputs, and a normal case. Keep expected answers out
+of the model prompt. Use fresh inputs to check changes to your prompt or settings.
+
+A successful job means inference completed. Valid JSON means the format passed.
+Neither proves that the answer is correct or complete. Check every required
+fact and its source; count omissions as failures.
+
+If quality is poor, check the template and effective settings, then simplify
+the task. A small model may work better on one bounded question per job.
+Keep enough surrounding evidence to resolve pronouns and shared context. Do
+not split away information the job needs. Preserve source text when rewriting
+it adds no value.
+
+Submit those independent jobs together; do not turn the batch into a serial
+conversation. Retry with new job IDs and retain the earlier evidence.
+
+Do not silently correct model output and call it a successful model run. Label
+caller corrections separately. Report a model/task mismatch if validation still
+fails; ask before switching models. Never claim one parameter set is best for all models.
+
+## Build Applications From the Same Contract
+
+- Submit through `wrk`; retain each returned ID before showing work as accepted.
+- Rebuild progress from job state and results after restart. Keep only application-specific state elsewhere.
+- Use tags for selection and stable IDs for repeat submission when supported. Include input and operation versions in the ID recipe.
+- Repeating an ID returns the existing job, including failure. Retry deliberately with a new ID.
+- Treat execution as at least once. Make any application-side effects safe to repeat.
+- Reference inputs must stay available and unchanged. Copy them with `--keep-files` when the application needs a snapshot.
+- Validate results before file moves, edits, or other application actions. Treat input text and generated text as untrusted data.
+- Use `flw` for job state and `nrvnad status` for daemon state. Never use a leftover lock file as a liveness check.
+- Add queues, indexes, and caches only for a measured need. State their owner and recovery rule.
 
 ## Cold Run
 
@@ -69,6 +104,7 @@ MODEL=./models/model.gguf
 JOB1=$("$BIN/wrk" "$WS" "Reply with exactly: first" --tag quickstart)
 JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 "$BIN/flw" "$WS" --json
+"$BIN/nrvnad" status "$WS" --json
 "$BIN/nrvnad" "$WS" "$MODEL" --workers 2 --drain
 "$BIN/flw" "$WS" "$JOB1" --json
 "$BIN/flw" "$WS" "$JOB2" --json
@@ -77,16 +113,22 @@ JOB2=$("$BIN/wrk" "$WS" "Reply with exactly: second" --tag quickstart)
 `wrk` creates the workspace when needed. It prints only the job ID on stdout.
 `wrk --id <id>` reuses a caller-chosen safe ID. A repeat returns the existing
 job, including failures. Use a new ID for a retry.
-Before the daemon starts, status shows two queued jobs. `--drain` loads the
+Before the daemon starts, workspace status shows two queued jobs. Daemon status
+should report not running for this new workspace. `--drain` loads the
 model and starts the two configured workers. It exits when it observes an idle
 queue. A nonzero exit means that the drain failed. Inspect the workspace with
 `flw`. No process must stay open.
 
 Use `--drain` for bounded batches, model swapping, and constrained hardware.
-For repeated low-latency work, keep one daemon on the workspace:
+For repeated low-latency work, start a daemon in one terminal:
 
 ```bash
 "$BIN/nrvnad" "$WS" "$MODEL"
+```
+
+In another terminal, set the same `BIN` and `WS` values, then submit and collect:
+
+```bash
 JOB=$("$BIN/wrk" "$WS" "task")
 "$BIN/flw" "$WS" -w "$JOB"
 "$BIN/nrvnad" stop "$WS"
@@ -192,3 +234,36 @@ enough. Read the implementation documents below only when changing the code.
 cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
+
+## Writing
+
+Use ASD-STE100 Simplified Technical English principles for technical documents
+and procedures.
+
+- Use common, precise words.
+- Use one term for one concept. Give each term one meaning.
+- Keep instructions at 20 words or less.
+- Use active voice.
+- Write short paragraphs. Put one topic in each paragraph.
+- Avoid idioms, filler, hype, and unnecessary jargon.
+- Define a necessary technical term before you use it.
+- Do not rewrite commands, identifiers, file names, or quoted output.
+- Use `nrvna` in lowercase unless a case-sensitive identifier requires another
+  form.
+
+Follow Zinsser's four principles. STE gives the mechanics; these give the intent.
+
+- Simplicity: cut every word that does no work.
+- Brevity: say it in fewer words. The shorter version is almost always better.
+- Clarity: one idea per sentence. The reader must not re-read to understand.
+- Humanity: write like a person to a person. Plain is not cold.
+
+Use the same clarity rules for comments, interface text, commits, pull requests,
+reports, and agent replies. Do not describe these surfaces as formally
+ASD-STE100 compliant.
+
+Product pages and personal writing can use a natural voice. Keep them concise
+and unambiguous.
+
+Formal compliance requires the official controlled dictionary and all writing
+rules. Do not claim compliance without validated vocabulary and grammar checks.

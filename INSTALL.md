@@ -14,7 +14,22 @@ Add the directory to `PATH` when the installer asks:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-The installer does not download a model.
+The installer does not download a model. It installs matching guides under
+`$HOME/.local/share/nrvna` and prints their location.
+
+For an isolated installation, download the script and choose a directory:
+
+```sh
+curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh -o install.sh
+NRVNA_INSTALL_DIR="$PWD/bin" sh install.sh
+```
+
+Guides then go under `./share/nrvna`. Read the installed `AGENTS.md` before
+handing work to an agent. Keep all three commands from the same release.
+
+Check `nrvnad --version` and `nrvnad --help`. The published `v0.1.1` starts with
+`nrvnad <model> <workspace>`; this source revision uses workspace first.
+Use the installed help and matching guides, not examples from a different revision.
 
 ## Choose a model for your hardware
 
@@ -72,6 +87,33 @@ automatically read Hugging Face JSON files or model-card prose. Set supported
 `NRVNA_*` values from the model's recommendations when they differ. See
 [CONFIGURATION.md](CONFIGURATION.md) for supported settings and precedence.
 
+Before a larger run:
+
+1. Record the model revision, quantization, projector, template, and explicit settings.
+2. Start from the model author's recommendations. Use only settings listed in [CONFIGURATION.md](CONFIGURATION.md).
+3. Try a small representative batch and compare every required fact with its source.
+4. Check output truncation, missing facts, and invented claims separately from job status and JSON validity.
+5. Change one setting or prompt choice at a time. Check the change on fresh inputs.
+
+For example, the [SmolLM2 model card](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct)
+shows temperature `0.2` and top-p `0.9` for sampled generation. These are a
+starting point, not a guarantee of extraction quality. Set supported overrides
+on the daemon command, not on `wrk`:
+
+```sh
+NRVNA_TEMP=0.2 NRVNA_TOP_P=0.9 nrvnad ./workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
+```
+
+Check daemon status first. Settings take effect when that daemon starts; they
+do not change an already running daemon. Use installed help for argument order.
+Greedy decoding (`NRVNA_TEMP=0`) can make comparisons repeatable, but some models
+recommend sampling. Keep their documented constraints.
+
+For small models, split a difficult extraction into bounded questions when
+that preserves the needed context. Keep pronoun referents and shared evidence
+in each affected prompt. Submit all independent pieces before waiting. Validate the combined coverage. Do not silently replace the model's
+answer with your own and count that as a successful run.
+
 Keep the input and output budgets close to the task. Each job gets a context
 sized for its prompt and output. `NRVNA_MAX_CTX` is a limit; it does not
 reserve the full context for every job.
@@ -84,7 +126,8 @@ nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
 flw ./workspace JOB_ID
 ```
 
-Replace `JOB_ID` with the ID printed by `wrk`. The result is `first`.
+Replace `JOB_ID` with the ID printed by `wrk`. Check that the model replies
+`first`; output can vary.
 `wrk` creates the workspace when needed.
 
 ## Choose a run mode
@@ -135,7 +178,13 @@ cmake -S . -B build
 cmake --build build -j4
 ```
 
-Source builds put the commands under `./build`:
+For an existing checkout without its backend, initialize the submodule first:
+
+```sh
+git submodule update --init --recursive
+```
+
+Then repeat the CMake commands. Source builds put the commands under `./build`:
 
 ```bash
 ./build/wrk ./workspace "Reply with exactly: first"

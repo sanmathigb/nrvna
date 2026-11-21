@@ -81,7 +81,7 @@ Give an agent with shell access the [agent guide](AGENTS.md), your local model
 path, your workspace path, and the task:
 
 ```text
-Read nrvna's AGENTS.md from the release I installed.
+Read the installed nrvna guide at ~/.local/share/nrvna/AGENTS.md.
 Use my model: /path/to/model.gguf
 Use a new workspace: /path/to/workspace
 Task: [describe the work]
@@ -91,9 +91,8 @@ Check daemon status before starting it. Do not download a model.
 Report the job IDs, results, and failures. Validate results against the task.
 ```
 
-The release archive includes `AGENTS.md`. The current installer copies only
-the commands. If needed, get the guide from the matching
-[release](https://github.com/sanmathigb/nrvna/releases).
+The installer prints the matching guide's location. For a custom installation,
+replace the guide path above. Release archives also include `AGENTS.md`.
 
 Agents can also use the optional [nrvna skill](skills/nrvna/SKILL.md).
 Applications can call the same commands and read the same durable files.
