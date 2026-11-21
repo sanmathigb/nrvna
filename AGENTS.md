@@ -9,6 +9,41 @@ Every new `wrk` submission creates an independent durable job. A repeated
 `--parent` records lineage only. It does not copy context, wait for the parent,
 or control execution order.
 
+## What nrvna Gives You
+
+nrvna gives you six properties. Use each one on purpose. Do not rebuild what nrvna already provides.
+
+### Work and results are files
+A job is a directory. The prompt, state, result, and metadata are files. The state machine is a set of directory moves: ready, then processing, then output or failed. There is no server, database, or network API.
+- Use it: compose nrvna with any language or tool that reads and writes files. Read state with `ls`, `cat`, and `jq`. Give a job a stable caller ID that you derive from your input, so you can find the job again after a restart.
+- Avoid: a second database or index that holds the same state. The files are the state.
+
+### Work survives a crash
+nrvna accepts a job as a durable record. A process crash does not lose accepted work. The next daemon re-runs an interrupted job from the start, up to a recovery ceiling.
+- Use it: submit large or long batches, then leave. Submit work before any model loads.
+- Avoid: your own retry or checkpoint logic. nrvna recovers abandoned jobs.
+- Limit: nrvna tests process-crash recovery, not power loss. Execution is at least once, not exactly once.
+
+### Work and model run at different times
+`wrk` submits with no daemon running. `nrvnad` processes the work later. `flw` reads results at any time. The model loads and frees around the work.
+- Use it: submit now, run later. Drain a batch so the model loads one time. Run models in sequence when memory is tight.
+- Avoid: one hot model that handles one job at a time while a person watches. That use removes the batch advantage.
+
+### Many models, one pipeline
+One daemon runs one model against one workspace. Chain stages through files: one stage writes a result, the next stage reads it.
+- Use it: build a pipeline such as caption, then OCR, then embed. Swap a model by pointing a daemon at a different GGUF file. Pass evidence between stages in the next prompt.
+- Avoid: hidden context between stages. Each prompt must carry the evidence that the job needs.
+
+### Small and swappable
+nrvna runs models. Storage, search, user interface, and orchestration are not part of nrvna. They connect through the file contract.
+- Use it: keep the models in nrvna. Send vectors to a store such as sqlite-vec. Replace the store, the model, or the caller without a change to nrvna.
+- Avoid: a vector database or a workflow engine inside nrvna. The file contract is the boundary.
+
+### Independent, non-real-time jobs
+Jobs do not depend on each other. No one watches a job live. Each job runs in a fresh context.
+- Use it: reorder, group, and batch jobs freely. Size memory for each job.
+- Avoid: ordering, sessions, or streaming that the work does not need.
+
 ## Rules for You
 
 - Use lowercase `nrvna`.
@@ -37,6 +72,28 @@ or control execution order.
 The published `v0.1.1` uses `nrvnad <model> <workspace>`. This source revision
 uses `nrvnad <workspace> <model>`. Installed help decides which syntax applies.
 New options such as `--id` require binaries built from a revision that supports them.
+
+## Choose a Model
+
+nrvna runs any GGUF model that llama.cpp supports. You choose and download the model. nrvna does not install or manage models.
+
+To find a model:
+
+1. Open the Hugging Face model list.
+2. Filter by GGUF format.
+3. Filter by llama.cpp compatibility.
+4. Enter your hardware. Choose a quantization that fits your memory.
+
+To match a job type:
+
+- A text job needs one model file.
+- A vision job needs a model file and its mmproj projector file.
+- A speech-to-text job needs a model file and its projector file.
+- A text-to-speech job needs a model file and a vocoder file.
+
+Put the files where `nrvnad` resolves them: `./models` or `NRVNA_MODELS_DIR`. `nrvnad` finds a matching projector or vocoder beside the model.
+
+Read a model's card before its first real job. Apply its template and recommended generation settings. nrvna reads supported GGUF sampling hints, not model-card prose, so set the values that you need. Use a low temperature for extraction and other exact tasks. Set `NRVNA_GPU_LAYERS=0` to force CPU.
 
 ## Think in Jobs
 
@@ -213,6 +270,14 @@ and model requirements.
 nrvna does not assemble parent context or execute dependency graphs. It does
 not route models, parse documents, retry failures, or search artifacts. Callers
 own orchestration, context selection, validation, and search.
+
+## Built on nrvna
+
+nrvna is a substrate. This release ships the primitives only: `wrk`, `nrvnad`, and `flw`.
+
+People build applications on top of the same three commands and the same file contract. nrvna is open to new work built on the contract. The project announces applications with its releases, not in this guide, so this guide stays stable as applications appear.
+
+To build an application, follow "Build Applications From the Same Contract" and its test: use what nrvna already provides, and add only the logic that your product needs.
 
 ## Working On This Repository
 
