@@ -93,12 +93,16 @@ RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
     RecoveryReport report;
     try {
         auto processingDir = workspace / contract::kProcessingDir;
-        if (!std::filesystem::exists(processingDir)) {
+        std::error_code rootError;
+        const auto rootStatus = std::filesystem::symlink_status(processingDir, rootError);
+        if (rootError || std::filesystem::is_symlink(rootStatus) || !std::filesystem::is_directory(rootStatus)) {
             return report;
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(processingDir)) {
-            if (!entry.is_directory()) {
+            std::error_code entryError;
+            const auto entryStatus = entry.symlink_status(entryError);
+            if (entryError || std::filesystem::is_symlink(entryStatus) || !std::filesystem::is_directory(entryStatus)) {
                 continue;
             }
 
