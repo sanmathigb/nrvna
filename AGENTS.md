@@ -2,7 +2,9 @@
 
 nrvna provides durable local inference through three commands. `wrk` submits
 jobs. `nrvnad` executes them. `flw` reads results. nrvna is not a chat API or
-agent framework. Compose it with processes, exit codes, JSON, and files.
+agent framework. Compose it with processes, exit codes, JSON, and files. At its
+core, nrvna is a durable job queue built on atomic renames and files: no broker,
+no database, no server.
 
 Every new `wrk` submission creates an independent durable job. A repeated
 `--id` returns the existing job. Context does not continue between jobs.
@@ -71,6 +73,12 @@ Before adding a queue, database, cache, or router, check the existing file
 contract. Add an index only for a measured need. Define its source and rebuild rule.
 Keep application-specific behavior outside the core. Propose a shared mechanism
 only when independent callers need it; document its contract and recovery behavior.
+
+Build applications on the asynchronous layer. Use that work and results are
+durable files that accumulate without a server. If a need is real-time,
+streaming, always-on, or transactional, that need is synchronous. nrvna is not
+that layer. Do not add a server, queue, or database to the primitives to reach
+it. Tell the user plainly, and recommend a synchronous tool for that need.
 
 ## Install From This Guide
 
@@ -256,8 +264,10 @@ queue. A nonzero exit can mean two things: the drain operation failed, or a job
 ended in terminal failure. Check job status with `flw` before you retry. Do not
 resubmit the batch for a single terminal job failure. No process must stay open.
 
-Use `--drain` for bounded batches, model swapping, and constrained hardware.
-For repeated low-latency work, start a daemon in one terminal:
+nrvna runs in two modes. Drain mode processes the queued jobs and then exits;
+use it for bounded batches, model swapping, and constrained hardware. Service
+mode keeps a daemon running for repeated low-latency work. Both modes accept
+independent asynchronous jobs. Start a service daemon in one terminal:
 
 ```bash
 "$BIN/nrvnad" "$WS" "$MODEL"
