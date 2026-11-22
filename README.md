@@ -42,6 +42,10 @@ for future terminals.
 
 ## Submit now, run later
 
+These examples target the 0.2.0 candidate. Until it is published, the installer
+returns an older release. Use that release's help and tagged documentation, or
+build this revision from source.
+
 Use a new workspace for this example. Submit two independent jobs:
 
 ```sh
@@ -77,25 +81,27 @@ before continuing. Model output needs review before you rely on it.
 
 ## Give it to your agent
 
-Give an agent with shell access the [agent guide](AGENTS.md), your local model
-path, your workspace path, and the task:
+Give your Codex, Claude, or other shell-capable agent [AGENTS.md](AGENTS.md)
+and this task. The guide covers installation, model setup, first jobs, and
+application design.
 
 ```text
-Read the installed nrvna guide at ~/.local/share/nrvna/AGENTS.md.
-Use my model: /path/to/model.gguf
-Use a new workspace: /path/to/workspace
-Task: [describe the work]
+Read the attached nrvna AGENTS.md. Install nrvna if needed.
+Continue with the guide shipped with the installed release.
+Use my local model: [path, or help me choose a compatible model].
+Task: [describe the work or application].
 
-Use wrk, nrvnad, and flw. Include all instructions and evidence in each job.
-Check daemon status before starting it. Do not download a model.
-Report the job IDs, results, and failures. Validate results against the task.
+Use independent durable jobs. Submit independent work before waiting.
+Validate results and report job IDs, artifact paths, and failures.
 ```
 
-The installer prints the matching guide's location. For a custom installation,
-replace the guide path above. Release archives also include `AGENTS.md`.
+You can attach the file, paste its contents, or share its link. Shell access
+and normal download permissions are needed. The guide does not grant extra permissions.
+After installation, the default guide is `~/.local/share/nrvna/AGENTS.md`.
+The installer prints its location for custom installations.
 
 Agents can also use the optional [nrvna skill](skills/nrvna/SKILL.md).
-Applications can call the same commands and read the same durable files.
+Applications use the same commands and durable file contract.
 
 ## Examples
 

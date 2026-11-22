@@ -9,40 +9,100 @@ Every new `wrk` submission creates an independent durable job. A repeated
 `--parent` records lineage only. It does not copy context, wait for the parent,
 or control execution order.
 
-## What nrvna Gives You
+## Why nrvna Exists
 
-nrvna gives you six properties. Use each one on purpose. Do not rebuild what nrvna already provides.
+Submit work, leave, and read results later. Work must outlive the caller and
+the model process. Asynchronous means submission returns before inference
+finishes. Waiting is a separate operation.
 
-### Work and results are files
-A job is a directory. The prompt, state, result, and metadata are files. The state machine is a set of directory moves: ready, then processing, then output or failed. There is no server, database, or network API.
-- Use it: compose nrvna with any language or tool that reads and writes files. Read state with `ls`, `cat`, and `jq`. Give a job a stable caller ID that you derive from your input, so you can find the job again after a restart.
-- Avoid: a second database or index that holds the same state. The files are the state.
+Use nrvna for independent local work: extraction, image analysis, embeddings,
+transcription, and speech generation. Agents and applications use the same
+commands. Each job needs a compatible model and complete input evidence.
 
-### Work survives a crash
-nrvna accepts a job as a durable record. A process crash does not lose accepted work. The next daemon re-runs an interrupted job from the start, up to a recovery ceiling.
-- Use it: submit large or long batches, then leave. Submit work before any model loads.
-- Avoid: your own retry or checkpoint logic. nrvna recovers abandoned jobs.
-- Limit: nrvna tests process-crash recovery, not power loss. Execution is at least once, not exactly once.
+## The Design
 
-### Work and model run at different times
-`wrk` submits with no daemon running. `nrvnad` processes the work later. `flw` reads results at any time. The model loads and frees around the work.
-- Use it: submit now, run later. Drain a batch so the model loads one time. Run models in sequence when memory is tight.
-- Avoid: one hot model that handles one job at a time while a person watches. That use removes the batch advantage.
+- **Files hold work.** A job directory holds its prompt, metadata, and artifacts.
+  Its location records its state. The workspace is the source of job state.
+- **Submission and execution are separate.** Queue jobs before loading a model.
+  Submit independent jobs together. Wait only when their results are needed.
+- **Work survives process exits.** The next daemon recovers interrupted jobs.
+  Recovery restarts inference; it does not resume tokens. Execution is at least once.
+- **Each job has fresh context.** Put instructions and evidence in every prompt.
+  Pass selected results explicitly into later jobs. Parents record lineage only.
+- **Models have separate roles.** Use one workspace per role. Drain roles in
+  sequence when their models cannot fit in memory together.
+- **Callers compose the work.** Use files, pipes, JSON, and exit codes.
+  Keep product policy outside the primitives.
 
-### Many models, one pipeline
-One daemon runs one model against one workspace. Chain stages through files: one stage writes a result, the next stage reads it.
-- Use it: build a pipeline such as caption, then OCR, then embed. Swap a model by pointing a daemon at a different GGUF file. Pass evidence between stages in the next prompt.
-- Avoid: hidden context between stages. Each prompt must carry the evidence that the job needs.
+A persistent daemon reduces repeated model loads. It still accepts independent
+asynchronous jobs. A UI can show progress without holding submission open.
+Do not make a request, chat session, or frontend process own job durability.
 
-### Small and swappable
-nrvna runs models. Storage, search, user interface, and orchestration are not part of nrvna. They connect through the file contract.
-- Use it: keep the models in nrvna. Send vectors to a store such as sqlite-vec. Replace the store, the model, or the caller without a change to nrvna.
-- Avoid: a vector database or a workflow engine inside nrvna. The file contract is the boundary.
+## Use the Files
 
-### Independent, non-real-time jobs
-Jobs do not depend on each other. No one watches a job live. Each job runs in a fresh context.
-- Use it: reorder, group, and batch jobs freely. Size memory for each job.
-- Avoid: ordering, sessions, or streaming that the work does not need.
+```text
+input/ready/<id>/ → processing/<id>/ → output/<id>/
+                                   └→ failed/<id>/
+```
+
+Read completed artifacts with ordinary file tools. For example, an app can
+index embeddings, display saved images' descriptions, or play generated audio.
+Use `flw --json` to find state and artifact paths. Use `nrvnad status` for liveness.
+
+Keep prompts and results available for inspection and later stages. Rebuild
+app progress from job records after restart. Read selected artifacts as needed;
+do not load an entire collection into application memory.
+
+Submit through `wrk`. Do not write into state folders or edit published jobs.
+Reference inputs remain external files unless copied with `--keep-files`.
+A workspace backup must account for those sources. Files do not imply a
+power-loss guarantee, encryption, or safe deletion of referenced inputs.
+
+## Keep the Boundary
+
+The primitives own submission, job identity, state transitions, inference,
+process-crash recovery, and result retrieval.
+
+Callers own input discovery, document parsing, prompts, model choice, dependency
+order, search, review, and external actions. Terminal-failure retries are caller
+policy. Interrupted-job recovery is a primitive mechanism.
+
+Before adding a queue, database, cache, or router, check the existing file
+contract. Add an index only for a measured need. Define its source and rebuild rule.
+Keep application-specific behavior outside the core. Propose a shared mechanism
+only when independent callers need it; document its contract and recovery behavior.
+
+## Install From This Guide
+
+This file is an entry point for an agent with shell access. A repository clone
+and an agent plugin are not required. Follow the user's task and existing permissions.
+Ask only for missing choices or permissions that block the next step.
+
+1. Check whether `wrk`, `nrvnad`, and `flw` are installed.
+2. Read each installed command's `--version` and `--help` output.
+3. If commands are missing, install a complete release with the installer below.
+4. Read the installed guide before running its examples.
+
+```sh
+curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Prebuilt releases support macOS Apple Silicon, macOS Intel, and Linux x86-64.
+They include the llama.cpp backend. No separate llama.cpp installation is needed.
+For other platforms, consult the release's source-build instructions before proceeding.
+
+The installer verifies archive checksums and prints the guide location.
+The default is `~/.local/share/nrvna/AGENTS.md`. Resolve relative document links
+from that directory, not from the caller's project. Keep all three commands
+from one release. Do not replace an existing installation without user authorization.
+For partial or mixed installations, set `NRVNA_INSTALL_DIR` to a new directory
+when running the installer. Use all three binaries from that directory.
+
+If the installed release lacks this guide, use its tagged repository documentation
+and installed help. Do not apply newer examples to older binaries.
+The [release page](https://github.com/sanmathigb/nrvna/releases) provides archives
+and versioned source. Models are separate downloads; reuse a compatible local model.
 
 ## Rules for You
 
@@ -75,25 +135,38 @@ New options such as `--id` require binaries built from a revision that supports 
 
 ## Choose a Model
 
-nrvna runs any GGUF model that llama.cpp supports. You choose and download the model. nrvna does not install or manage models.
+nrvna uses local GGUF models supported by its bundled llama.cpp revision and
+job type. A GGUF file alone does not establish compatibility.
 
-To find a model:
+1. Reuse the user's compatible model when available.
+2. Otherwise, inspect local hardware and the requested work type.
+3. Browse [GGUF models for llama.cpp](https://huggingface.co/models?library=gguf&apps=llama.cpp,llama-app&sort=trending).
+4. Optionally add hardware in [Hugging Face settings](https://huggingface.co/settings/hardware) to see memory estimates.
+5. Read the model card, license, required files, and recommended settings.
+6. Confirm the download size and model choice when not already authorized.
 
-1. Open the Hugging Face model list.
-2. Filter by GGUF format.
-3. Filter by llama.cpp compatibility.
-4. Enter your hardware. Choose a quantization that fits your memory.
+Hardware estimates do not guarantee speed or compatibility with this release.
+A model card describes the model's intended use, requirements, and limitations.
+Use the installed `CONFIGURATION.md` for supported settings. Begin with the
+model author's recommendations; validate changes on representative inputs.
 
-To match a job type:
+| Work | Submit option | Required model files | Primary result |
+| --- | --- | --- | --- |
+| Text | prompt or stdin | Compatible text GGUF | `result.txt` |
+| Text embedding | `--embed` | Compatible embedding GGUF | `embedding.json` |
+| Image analysis | `--image` | Vision GGUF and matching projector | `result.txt` |
+| Image embedding | `--embed --image` | Supported vision embedding model and projector | `embedding.json` |
+| Transcription | `--audio` | Supported audio model and projector | `transcript.txt` |
+| Speech generation | `--tts` | Supported OuteTTS model and vocoder | `audio.wav` |
 
-- A text job needs one model file.
-- A vision job needs a model file and its mmproj projector file.
-- A speech-to-text job needs a model file and its projector file.
-- A text-to-speech job needs a model file and a vocoder file.
+These are separate work types, not capabilities of every model. Video and
+mixed image-and-audio jobs are not supported. Check `wrk --help` for submission
+syntax. Check `nrvnad --help` for projector and vocoder options.
 
-Put the files where `nrvnad` resolves them: `./models` or `NRVNA_MODELS_DIR`. `nrvnad` finds a matching projector or vocoder beside the model.
-
-Read a model's card before its first real job. Apply its template and recommended generation settings. nrvna reads supported GGUF sampling hints, not model-card prose, so set the values that you need. Use a low temperature for extraction and other exact tasks. Set `NRVNA_GPU_LAYERS=0` to force CPU.
+Pass local model paths to `nrvnad`. It detects matching projector and vocoder
+files beside the model. nrvna reads supported GGUF settings and templates,
+not model-card prose. Set explicit overrides only when needed.
+Use `NRVNA_GPU_LAYERS=0` for CPU inference.
 
 ## Think in Jobs
 
@@ -153,12 +226,12 @@ fails; ask before switching models. Never claim one parameter set is best for al
 
 ## Cold Run
 
-Source builds put binaries under `./build`. Packaged binaries go under `./bin`.
-Set `BIN` for the applicable directory. Provide a compatible
-GGUF.
+Use a text model for this first check. Replace `MODEL` with its local path.
+The default installer uses `~/.local/bin`; source builds use `./build`.
+Extracted archives use `./bin`. Set `BIN` to your binary directory.
 
 ```bash
-BIN=./build
+BIN="$HOME/.local/bin"
 WS=/tmp/nrvna-agent
 MODEL=./models/model.gguf
 JOB1=$("$BIN/wrk" "$WS" "Reply with exactly: first" --tag quickstart)
@@ -247,13 +320,19 @@ their models cannot fit in memory together.
 Put required prior evidence in the next prompt. Keep lineage separate.
 
 ```bash
-PARENT=$("$BIN/wrk" "$WS" "Extract the important facts")
+PARENT=$("$BIN/wrk" "$WS" "Extract the facts: Sales rose 8%. Costs rose 3%.")
 "$BIN/nrvnad" "$WS" "$MODEL" --drain
-CHILD=$({ echo "Previous result:"; "$BIN/flw" "$WS" "$PARENT"; \
-  echo "Convert those facts to JSON."; } \
-  | "$BIN/wrk" "$WS" - --parent "$PARENT")
+"$BIN/flw" "$WS" "$PARENT" > facts.txt
+```
+
+Continue only if submission, execution, and retrieval succeeded. Check `facts.txt`
+against the source before submitting the next stage.
+
+```bash
+{ echo "Name one unanswered question about these facts:"; cat facts.txt; } \
+  | "$BIN/wrk" "$WS" - --parent "$PARENT" --tag followup
 "$BIN/nrvnad" "$WS" "$MODEL" --drain
-"$BIN/flw" "$WS" "$CHILD"
+"$BIN/flw" "$WS" --tag followup --json
 ```
 
 `wrk` stages each submission and publishes it with an atomic rename. Workers
@@ -274,23 +353,16 @@ nrvna does not assemble parent context or execute dependency graphs. It does
 not route models, parse documents, retry failures, or search artifacts. Callers
 own orchestration, context selection, validation, and search.
 
-## Built on nrvna
-
-nrvna is a substrate. This release ships the primitives only: `wrk`, `nrvnad`, and `flw`.
-
-People build applications on top of the same three commands and the same file contract. nrvna is open to new work built on the contract. The project announces applications with its releases, not in this guide, so this guide stays stable as applications appear.
-
-To build an application, follow "Build Applications From the Same Contract" and its test: use what nrvna already provides, and add only the logic that your product needs.
-
 ## Working On This Repository
 
-For ordinary operation, this guide and the three commands' `--help` output are
-enough. Read the implementation documents below only when changing the code.
+For ordinary operation, start with this guide and the commands' `--help` output.
+Use `INSTALL.md` for model setup, `CONFIGURATION.md` for settings, and
+`ADVANCED.md` for composition examples.
+
+When changing code, also follow these rules:
 
 - Read `README.md` for the product contract.
 - Read `ARCHITECTURE.md` for ownership and state transitions.
-- Read `ADVANCED.md` for composition patterns.
-- Read `CONFIGURATION.md` for runtime settings.
 - Treat `include/nrvna/contract.hpp` and `include/nrvna/lifecycle.hpp` as the
   authoritative filesystem and daemon contracts.
 - Do not edit `third_party/llama.cpp` casually. Backend updates are isolated,
