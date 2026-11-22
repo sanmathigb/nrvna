@@ -121,7 +121,10 @@ of the model prompt. Use fresh inputs to check changes to your prompt or setting
 
 A successful job means inference completed. Valid JSON means the format passed.
 Neither proves that the answer is correct or complete. Check every required
-fact and its source; count omissions as failures.
+fact and its source; count omissions as failures. Keep original evidence in
+the prompt and caller records. Do not ask the model to reconstruct evidence
+already available as input. If the task needs selected quotes, verify them as
+exact source substrings before accepting them.
 
 If quality is poor, check the template and effective settings, then simplify
 the task. A small model may work better on one bounded question per job.

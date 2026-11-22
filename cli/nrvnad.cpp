@@ -440,7 +440,8 @@ void printHelp() {
     std::cout << "llama.cpp fits model layers to available GPU memory when supported.\n";
     std::cout << "NRVNA_GPU_LAYERS overrides automatic placement.\n";
     std::cout << "Settings: NRVNA_GPU_LAYERS, NRVNA_WORKERS, NRVNA_MODELS_DIR,\n";
-    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
+    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. See the installed CONFIGURATION.md.\n";
+    std::cout << "Development reference (may differ from this release):\n";
     std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
     std::cout << "Example:\n";
     std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
@@ -840,9 +841,9 @@ int main(int argc, char * argv[]) {
         }
 
         if (g_shutdown_requested) {
-            std::cerr << "\nShutdown requested, stopping server..." << std::endl;
+            std::cerr << "\nShutdown requested, stopping daemon..." << std::endl;
         }
-        LOG_DEBUG("Shutdown requested, stopping server...");
+        LOG_DEBUG("Shutdown requested, stopping daemon...");
         {
             std::error_code ec;
             std::filesystem::remove(pidPath, ec);
@@ -858,11 +859,11 @@ int main(int argc, char * argv[]) {
 
     } catch (const std::exception & e) {
         releaseWorkspaceLock();
-        LOG_ERROR("Server error: " + std::string(e.what()));
+        LOG_ERROR("Daemon error: " + std::string(e.what()));
         return 1;
     } catch (...) {
         releaseWorkspaceLock();
-        LOG_ERROR("Unknown server error");
+        LOG_ERROR("Unknown daemon error");
         return 1;
     }
 

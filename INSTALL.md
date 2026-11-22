@@ -31,6 +31,15 @@ Check `nrvnad --version` and `nrvnad --help`. The published `v0.1.1` starts with
 `nrvnad <model> <workspace>`; this source revision uses workspace first.
 Use the installed help and matching guides, not examples from a different revision.
 
+For a downloaded release archive and checksum in `./releases`, install locally:
+
+```sh
+NRVNA_RELEASE_BASE_URL="file://$PWD/releases" NRVNA_INSTALL_DIR="$PWD/bin" sh install.sh
+```
+
+Use the installer and guides from that release. This path also supports testing
+an unpublished candidate without installing an older public release.
+
 ## Choose a model for your hardware
 
 Add your hardware to your Hugging Face profile. Model pages can then estimate

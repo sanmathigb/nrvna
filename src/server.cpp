@@ -192,7 +192,7 @@ void finishInputCleanup(const std::filesystem::path& workspace) noexcept {
 Server::Server(const std::string& modelPath, const std::filesystem::path& workspace, int workers,
                const std::string& mmprojPath, const std::string& vocoderPath)
     : modelPath_(modelPath), mmprojPath_(mmprojPath), vocoderPath_(vocoderPath), workspace_(workspace), workers_(workers) {
-    LOG_DEBUG("Server created - model: " + modelPath + ", workspace: " + workspace_.string() +
+    LOG_DEBUG("Daemon created - model: " + modelPath + ", workspace: " + workspace_.string() +
               ", workers: " + std::to_string(workers));
 }
 
@@ -202,11 +202,11 @@ Server::~Server() {
 
 bool Server::start() {
     if (running_.load()) {
-        LOG_WARN("Server already running");
+        LOG_WARN("Daemon already running");
         return false;
     }
 
-    LOG_INFO("Starting nrvna server...");
+    LOG_INFO("Starting nrvna daemon...");
 
     // Reset shutdown flag so server is restartable after shutdown()
     shutdown_.store(false);
@@ -228,7 +228,7 @@ bool Server::start() {
 
     // Log startup banner
     LOG_DEBUG("========================================");
-    LOG_DEBUG("nrvna Server Starting");
+    LOG_DEBUG("nrvna daemon starting");
     LOG_DEBUG("========================================");
     LOG_DEBUG("Model: " + modelPath_);
     if (!mmprojPath_.empty()) {
@@ -276,11 +276,11 @@ bool Server::start() {
         // Start scanner loop in background
         scannerThread_ = std::thread(&Server::scanLoop, this);
 
-        LOG_DEBUG("Server started successfully");
+        LOG_DEBUG("Daemon started successfully");
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR("Failed to start server: " + std::string(e.what()));
+        LOG_ERROR("Failed to start daemon: " + std::string(e.what()));
         // Clean up anything that was partially started
         shutdown_.store(true);
         running_.store(false);
@@ -297,7 +297,7 @@ void Server::shutdown() noexcept {
         return;
     }
 
-    LOG_INFO("Shutting down server...");
+    LOG_INFO("Shutting down daemon...");
 
     shutdown_.store(true);
     running_.store(false);
@@ -317,7 +317,7 @@ void Server::shutdown() noexcept {
     pool_.reset();
     scanner_.reset();
 
-    LOG_INFO("Server shutdown complete");
+    LOG_INFO("Daemon shutdown complete");
 }
 
 bool Server::createWorkspace() noexcept {
