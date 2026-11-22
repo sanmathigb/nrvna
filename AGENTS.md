@@ -173,11 +173,31 @@ syntax. Check `nrvnad --help` for projector and vocoder options.
 
 Pass local model paths to `nrvnad`. It detects matching projector and vocoder
 files beside the model. nrvna reads supported GGUF settings and templates,
-not model-card prose. Set explicit overrides with environment variables:
-`NRVNA_TEMP`, `NRVNA_TOP_P`, `NRVNA_TOP_K`, and `NRVNA_MIN_P`. Use a low
-temperature such as `NRVNA_TEMP=0.3` for extraction and other exact tasks.
-Use `NRVNA_GPU_LAYERS=0` for CPU inference. See the installed `CONFIGURATION.md`
-for all settings.
+not model-card prose. Read the model card for recommended settings. Keep the
+runtime defaults unless model-specific guidance or measured results support an
+override. Use `NRVNA_GPU_LAYERS=0` to force CPU inference. See the installed
+`CONFIGURATION.md` for supported settings.
+
+## Set Runtime Concurrency
+
+`nrvnad` defaults to one concurrent job. Set `--workers` or `NRVNA_WORKERS`
+to change the worker-pool size. Workers share the loaded model, but each active
+job needs its own context and compute memory. The default does not adapt to
+hardware.
+
+Increase the count only after measuring the workload on that machine. The pool
+accepts every job type, but this does
+not mean every type runs inference in parallel. Vision, image-embedding, and
+STT media evaluation is serialized. LFM3 TTS generation is serialized. More
+workers can still add memory use without improving those stages. Measure each
+work type before increasing the count.
+
+The main controls cover concurrency (`NRVNA_WORKERS`), context and output
+limits (`NRVNA_MAX_CTX`, `NRVNA_PREDICT`), prompt processing and memory
+(`NRVNA_BATCH`, `NRVNA_UBATCH`), sampling (`NRVNA_TEMP`, `NRVNA_TOP_K`,
+`NRVNA_TOP_P`, `NRVNA_MIN_P`), and device placement (`NRVNA_GPU_LAYERS`).
+Use `CONFIGURATION.md` for exact defaults, precedence, and modality-specific
+controls. Do not change every setting as a tuning ritual.
 
 ## Think in Jobs
 

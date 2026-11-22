@@ -27,7 +27,7 @@ class Server final {
 public:
     Server(const std::string& modelPath,
            const std::filesystem::path& workspace,
-           int workers = 4,
+           int workers = 1,
            const std::string& mmprojPath = "",
            const std::string& vocoderPath = "");
     ~Server();

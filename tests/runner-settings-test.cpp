@@ -1,5 +1,6 @@
 #include "../src/think_filter.hpp"
 #include "../src/vision_sampling.hpp"
+#include "../src/worker_threads.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -14,6 +15,7 @@ int main() {
     using nrvna::detail::promptEndsWithOpenThinkBlock;
     using nrvna::detail::resolveVisionTemperature;
     using nrvna::detail::stripThinkBlocks;
+    using nrvna::detail::threadsPerWorker;
 
     if (!promptEndsWithOpenThinkBlock("<|im_start|>assistant\n<think>")) return fail("open think prompt");
     if (promptEndsWithOpenThinkBlock("<think>old</think> answer")) return fail("closed think prompt");
@@ -26,5 +28,8 @@ int main() {
     if (resolveVisionTemperature(0.6f, true, true, false, 0.9f) != 0.6f) return fail("general override");
     if (resolveVisionTemperature(0.1f, true, true, true, 0.2f) != 0.2f) return fail("vision override");
     if (resolveVisionTemperature(0.8f, false, false, false, 0.9f) != 0.3f) return fail("vision fallback");
+    if (threadsPerWorker(8, 4) != 2) return fail("divide threads across workers");
+    if (threadsPerWorker(2, 8) != 1) return fail("keep one thread per worker minimum");
+    if (threadsPerWorker(0, 1) != 1) return fail("unknown hardware thread count");
     return 0;
 }

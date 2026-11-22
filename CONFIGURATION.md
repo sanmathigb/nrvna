@@ -9,7 +9,7 @@ Most users need only these:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NRVNA_MODELS_DIR` | discovered `models/` | Model search directory |
-| `NRVNA_WORKERS` | `4` | Concurrent jobs |
+| `NRVNA_WORKERS` | `1` | Concurrent jobs |
 | `NRVNA_GPU_LAYERS` | automatic fit | Set `0` for CPU or a positive layer count to override GPU placement |
 | `NRVNA_REPACK` | `1` | Set `0` to disable CPU weight repacking and reduce extra memory use |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
@@ -27,10 +27,14 @@ force CPU placement, or set a positive value to choose a fixed layer count.
 accepts a full model path. It detects matching projector and vocoder files
 beside the model. TTS models and vocoders use CPU placement in this release.
 
-There is no worker count that is fastest on every machine. More workers can run
+There is no worker count that is fastest on every machine. The default is one
+to avoid CPU oversubscription and excess context memory. More workers can run
 more jobs at once, but each active job needs its own context and compute
-memory. On a memory-limited machine, start with `--workers 1`. Increase the
-count only when your workload finishes sooner without causing memory pressure.
+memory. Text and text-embedding contexts divide CPU threads across workers.
+Some modality work is serialized: image and audio media evaluation, and LFM3
+speech generation. More workers may add memory use without speeding up those
+stages. Increase the count only when your workload finishes sooner without
+causing memory pressure.
 
 `NRVNA_REPACK=0` disables llama.cpp's extra CPU buffer types for CPU model
 loads. It can reduce memory use. It can also change speed. Measure both modes

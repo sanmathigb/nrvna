@@ -423,7 +423,7 @@ void printHelp() {
     std::cout << "Options:\n";
     std::cout << "      --mmproj <path>    Extra projector file for some vision and audio models\n";
     std::cout << "      --vocoder <path>   Audio decoder file for some speech models\n";
-    std::cout << "  -w, --workers <n>      Concurrent jobs (default 4; range 1-64)\n";
+    std::cout << "  -w, --workers <n>      Concurrent jobs (default 1; range 1-64)\n";
     std::cout << "      --drain            Process queued jobs, then exit when idle\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
@@ -583,7 +583,7 @@ int main(int argc, char * argv[]) {
     std::string mmprojPath;
     std::string vocoderPath;
     bool drainMode = false;
-    int workers = 4;
+    int workers = 1;
     if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
         if (!parseIntStrict(envWorkers, 1, 64, workers)) {
             std::cerr << "Error: Invalid NRVNA_WORKERS value\n";

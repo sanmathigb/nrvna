@@ -15,6 +15,7 @@
 #include "mtmd-helper.h"
 #include "think_filter.hpp"
 #include "vision_sampling.hpp"
+#include "worker_threads.hpp"
 #include <chrono>
 #include <thread>
 #include <algorithm>
@@ -188,7 +189,7 @@ ModelInfo Runner::probeModelInfo(const std::string& modelPath) {
 }
 
 Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int numWorkers)
-    : mmproj_path_(mmprojPath) {
+    : mmproj_path_(mmprojPath), num_workers_(std::max(1, numWorkers)) {
     llama_log_set(filtered_llama_log, nullptr);
     ggml_backend_load_all();
 
@@ -206,7 +207,7 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
                 model_params.n_gpu_layers = std::max(0, env_int("NRVNA_GPU_LAYERS", 0));
             } else if (llama_supports_gpu_offload()) {
                 fit_params.model.path = modelPath;
-                const int workers = std::max(1, numWorkers);
+                const int workers = num_workers_;
                 const int batch = env_positive_int("NRVNA_BATCH", 2048);
                 const int ubatch = std::min(batch, env_positive_int("NRVNA_UBATCH", batch));
                 const auto scaleForWorkers = [workers](int value) {
@@ -338,9 +339,9 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 
         // Divide threads among workers to prevent parallel vision corruption
         int total_threads = std::thread::hardware_concurrency();
-        mparams.n_threads = std::max(1, total_threads / std::max(1, numWorkers));
+        mparams.n_threads = detail::threadsPerWorker(total_threads, num_workers_);
         LOG_INFO("Vision threads per worker: " + std::to_string(mparams.n_threads) +
-                 " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(numWorkers) + ")");
+                 " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(num_workers_) + ")");
         mparams.print_timings = false;
         mparams.warmup = env_int("NRVNA_WARMUP", 0) != 0;
 
@@ -414,6 +415,9 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
 
 void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llama_context_params& params) const {
     params = llama_context_default_params();
+    const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+    params.n_threads = threads;
+    params.n_threads_batch = threads;
     params.n_ctx = std::min(n_prompt + config.n_predict + 64, config.max_ctx);
     const int n_batch = std::max(1, std::min(n_prompt, env_positive_int("NRVNA_BATCH", 2048)));
     params.n_batch = n_batch;
@@ -497,6 +501,9 @@ EmbedResult Runner::embed(const std::string& text) {
         ctx_params.n_ctx = n_tokens + 1;
         ctx_params.n_batch = n_tokens;
         ctx_params.n_ubatch = n_tokens;  // encoder requires n_ubatch >= n_tokens
+        const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+        ctx_params.n_threads = threads;
+        ctx_params.n_threads_batch = threads;
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_UNSPECIFIED;  // Honor the model's declared pooling strategy.
         if (effective_gpu_layers() == 0) {
@@ -599,6 +606,9 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
         llama_context_params ctx_params = llama_context_default_params();
         ctx_params.n_ctx = std::max(n_prompt + 8, 128);
         ctx_params.n_batch = std::max(1, std::min(n_prompt, env_int("NRVNA_BATCH", 2048)));
+        const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+        ctx_params.n_threads = threads;
+        ctx_params.n_threads_batch = threads;
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;
         ctx_params.no_perf = false;
