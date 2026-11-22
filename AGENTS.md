@@ -165,8 +165,11 @@ syntax. Check `nrvnad --help` for projector and vocoder options.
 
 Pass local model paths to `nrvnad`. It detects matching projector and vocoder
 files beside the model. nrvna reads supported GGUF settings and templates,
-not model-card prose. Set explicit overrides only when needed.
-Use `NRVNA_GPU_LAYERS=0` for CPU inference.
+not model-card prose. Set explicit overrides with environment variables:
+`NRVNA_TEMP`, `NRVNA_TOP_P`, `NRVNA_TOP_K`, and `NRVNA_MIN_P`. Use a low
+temperature such as `NRVNA_TEMP=0.3` for extraction and other exact tasks.
+Use `NRVNA_GPU_LAYERS=0` for CPU inference. See the installed `CONFIGURATION.md`
+for all settings.
 
 ## Think in Jobs
 
@@ -249,8 +252,9 @@ job, including failures. Use a new ID for a retry.
 Before the daemon starts, workspace status shows two queued jobs. Daemon status
 should report not running for this new workspace. `--drain` loads the
 model and starts the two configured workers. It exits when it observes an idle
-queue. A nonzero exit means that the drain failed. Inspect the workspace with
-`flw`. No process must stay open.
+queue. A nonzero exit can mean two things: the drain operation failed, or a job
+ended in terminal failure. Check job status with `flw` before you retry. Do not
+resubmit the batch for a single terminal job failure. No process must stay open.
 
 Use `--drain` for bounded batches, model swapping, and constrained hardware.
 For repeated low-latency work, start a daemon in one terminal:
