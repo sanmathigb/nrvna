@@ -1,10 +1,14 @@
 # Agent Guide
 
-nrvna provides durable local inference through three commands. `wrk` submits
-jobs. `nrvnad` executes them. `flw` reads results. nrvna is not a chat API or
-agent framework. Compose it with processes, exit codes, JSON, and files. At its
-core, nrvna is a durable job queue built on atomic renames and files: no broker,
-no database, no server.
+nrvna separates prompt submission from local inference through three independent
+commands. `wrk` saves jobs and returns their IDs without waiting for inference.
+`nrvnad` processes jobs from a workspace. `flw` reads job status and saved results.
+Run each command on its own, like a Unix utility. Compose them with files,
+pipes, JSON, and exit codes.
+
+Keep a daemon running for incoming jobs, or use `--drain` to process the queue
+and exit. Neither mode changes how `wrk` submits work. The workspace holds
+jobs and results after the commands exit.
 
 Every new `wrk` submission creates an independent durable job. A repeated
 `--id` returns the existing job. Context does not continue between jobs.
@@ -13,9 +17,9 @@ or control execution order.
 
 ## Why nrvna Exists
 
-Submit work, leave, and read results later. Work must outlive the caller and
-the model process. Asynchronous means submission returns before inference
-finishes. Waiting is a separate operation.
+Prompt submission must not depend on inference. Work must outlive the caller
+and the model process. Asynchronous means submission does not wait for inference.
+Waiting for results is a separate operation.
 
 Use nrvna for independent local work: extraction, image analysis, embeddings,
 transcription, and speech generation. Agents and applications use the same
@@ -74,11 +78,11 @@ contract. Add an index only for a measured need. Define its source and rebuild r
 Keep application-specific behavior outside the core. Propose a shared mechanism
 only when independent callers need it; document its contract and recovery behavior.
 
-Build applications on the asynchronous layer. Use that work and results are
-durable files that accumulate without a server. If a need is real-time,
-streaming, always-on, or transactional, that need is synchronous. nrvna is not
-that layer. Do not add a server, queue, or database to the primitives to reach
-it. Tell the user plainly, and recommend a synchronous tool for that need.
+Build applications around independent jobs and saved results. A persistent
+daemon is still asynchronous: submission does not wait for inference.
+nrvna does not stream generated tokens or guarantee response times. Use another
+interface when the task requires those features. Keep application transactions
+and external actions in the caller.
 
 ## Install From This Guide
 

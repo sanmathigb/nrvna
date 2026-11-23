@@ -4,80 +4,27 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built on llama.cpp](https://img.shields.io/badge/built%20on-llama.cpp-orange.svg)](https://github.com/ggml-org/llama.cpp/tree/b1b770d90)
 
-Durable local AI work, built from three commands.
+Local inference through three independent commands.
+
+nrvna separates prompt submission from inference. `wrk` saves work without
+waiting for a model. `nrvnad` processes that work. `flw` reads status and results.
+This separation makes the work asynchronous.
 
 | Command | Purpose |
 | --- | --- |
-| `wrk` | Submit a job and return its ID without waiting for inference. |
-| `nrvnad` | Run queued jobs with a local model. |
-| `flw` | Read job status and results. |
+| `wrk` | Save a job in a workspace and return its ID. |
+| `nrvnad` | Load a local model and process jobs from that workspace. |
+| `flw` | Read job status and saved results. |
 
-Submit work before loading a model, or while a daemon runs. Jobs and results
-stay in a workspace directory after the commands exit. Each job starts with
-fresh context.
+Run each command on its own, like a Unix utility. They share files in a
+workspace directory. Jobs and results remain after the commands exit.
+Each job starts with fresh context.
+
+Keep a daemon running to process incoming jobs, or use `--drain` to process
+the queue and exit. Submission works in either mode, or without a daemon.
 
 **Experimental developer preview.** nrvna runs on macOS and Linux. It does
 not claim production readiness.
-
-## Install
-
-Install the prebuilt commands for macOS Apple Silicon, macOS Intel, or Linux
-x86-64:
-
-```sh
-curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-The installer downloads the latest published release. Use the guides installed
-with those commands. Docs on `main` can describe newer commands. Check `--help`
-before using a command.
-
-The installer does not download a model. Follow [Install](INSTALL.md) to choose
-a model, get an optional checksummed text example, or build from source.
-
-The `PATH` change applies to this terminal. Add it to your shell startup file
-for future terminals.
-
-## Submit now, run later
-
-Put source text in `report.txt`. Use a new workspace for this example. Submit
-the file contents as one job:
-
-```sh
-JOB=$(
-  {
-    printf '%s\n' 'Summarize this report in one sentence:'
-    cat report.txt
-  } | wrk ./workspace -
-)
-```
-
-`wrk` prints a job ID. No model needs to run during submission. The job stays
-in the workspace until a daemon processes it.
-
-Set `MODEL` to a local GGUF that supports your task. Then process the job:
-
-```sh
-MODEL=/path/to/model.gguf
-nrvnad ./workspace "$MODEL" --drain
-```
-
-`--drain` waits until the queue is idle, then exits. Save the result as text:
-
-```sh
-flw ./workspace "$JOB" > summary.txt
-```
-
-`summary.txt` is the model output. The workspace keeps the job and its result.
-To inspect job status and metadata, use:
-
-```sh
-flw ./workspace "$JOB" --json
-```
-
-A nonzero drain exit means the drain failed. Inspect the workspace with `flw`
-before continuing. Model output needs review before you rely on it.
 
 ## Give it to your agent
 
@@ -102,6 +49,72 @@ The installer prints its location for custom installations.
 
 Agents can also use the optional [nrvna skill](skills/nrvna/SKILL.md).
 Applications use the same commands and durable file contract.
+
+## Install
+
+Install the prebuilt commands for macOS Apple Silicon, macOS Intel, or Linux
+x86-64:
+
+```sh
+curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The installer downloads the latest published release. Use the guides installed
+with those commands. Docs on `main` can describe newer commands. Check `--help`
+before using a command.
+
+The installer does not download a model. Follow [Install](INSTALL.md) to choose
+a model, get an optional checksummed text example, or build from source.
+
+The `PATH` change applies to this terminal. Add it to your shell startup file
+for future terminals.
+
+## Use the three commands
+
+Use a new workspace. Submit two independent jobs:
+
+```sh
+wrk ./workspace "Summarize: Sales rose 8%. Costs rose 3%." --tag first-run
+wrk ./workspace "Extract the deadline: Send the draft by Friday." --tag first-run
+flw ./workspace --json
+```
+
+Each submission prints a job ID. Both jobs are queued. No model is loaded.
+The prompts include the source text, so no input file is needed.
+
+Check daemon status before starting inference:
+
+```sh
+nrvnad status ./workspace --json
+```
+
+For a new workspace, status reports not running and exits with code `1`.
+Replace `/path/to/model.gguf` below with a compatible local text model.
+Process the queue and exit:
+
+```sh
+nrvnad ./workspace /path/to/model.gguf --drain
+```
+
+Read both results as one JSON object per line:
+
+```sh
+flw ./workspace --tag first-run --json
+```
+
+To save one result as text, replace `JOB_ID` with its submission ID:
+
+```sh
+flw ./workspace JOB_ID > result.txt
+```
+
+For ongoing work, omit `--drain`. Keep that daemon running in one terminal.
+Use `wrk` and `flw` from another terminal. Submission still returns without
+waiting for inference. See [the persistent-daemon example](ADVANCED.md#submit-to-a-running-daemon-and-collect-later).
+
+Stop if submission or inference fails. Inspect the workspace with `flw`.
+Check model output against its source before using it.
 
 ## Examples
 
@@ -136,8 +149,8 @@ and result validation. nrvna provides independent durable inference jobs.
 
 ## Why
 
-I wanted to submit work, leave, and read the results later. The lifetime of
-the work should not be tied to the runtime of a model.
+Prompt submission should not depend on inference. Work should remain available
+when the caller exits or the model stops. Files provide that shared record.
 
 - [Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
 - [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
