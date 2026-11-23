@@ -4,6 +4,9 @@
 flag overrides the related variable. These flags include `--workers`,
 `--mmproj`, and `--vocoder`.
 
+Set runtime overrides before starting `nrvnad`. The daemon reads them when it
+loads the model.
+
 Most users need only these:
 
 | Variable | Default | Purpose |
@@ -84,6 +87,8 @@ Increasing `NRVNA_MAX_CTX` does not carry state between `wrk` submissions.
 | `NRVNA_FLASH_ATTN` | `-1` | Multimodal flash-attention type; `-1` is automatic |
 | `NRVNA_TTS_REPEAT_PENALTY` | `0` | TTS repetition penalty; `0` disables it |
 | `NRVNA_TTS_REPEAT_LAST_N` | `128` | TTS repeat window when its penalty is enabled |
+| `NRVNA_TTS_TEMP` | `1.0` | LFM3 speech-generation temperature |
+| `NRVNA_TTS_PREDICT` | `4096` | Maximum LFM3 speech-generation frames |
 | `NRVNA_TTS_MUTE_MS` | `250` | Silence applied at audio start; `0` disables it |
 | `NRVNA_MAX_IMAGE_SIZE` | `52428800` | Maximum submitted image size in bytes (50 MiB) |
 | `NRVNA_MAX_AUDIO_SIZE` | `209715200` | Maximum submitted audio size in bytes (200 MiB) |

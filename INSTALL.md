@@ -61,8 +61,9 @@ and vocoders on the CPU.
 ## Get a GGUF model
 
 nrvna runs local GGUF models supported by its llama.cpp build. Use a compatible
-GGUF that you already have, or download this verified example. nrvna does not
-download models by name or use Hugging Face model IDs directly.
+GGUF that you already have, or download this checksummed text-model example.
+It is for a first run, not a recommendation for every machine or work type.
+nrvna does not download models by name or use Hugging Face model IDs directly.
 
 The example is SmolLM2 1.7B Q4_K_M. The download is about 1 GB. The model uses
 the Apache-2.0 license. It is an example, not a limit.
@@ -104,9 +105,9 @@ Before a larger run:
 5. Change one setting or prompt choice at a time. Check the change on fresh inputs.
 
 For example, the [SmolLM2 model card](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct)
-shows temperature `0.2` and top-p `0.9` for sampled generation. These are a
-starting point, not a guarantee of extraction quality. Set supported overrides
-on the daemon command, not on `wrk`:
+shows temperature `0.2` and top-p `0.9` for sampled generation. These settings
+are specific to that model. They do not guarantee extraction quality. Set
+supported overrides on the daemon command, not on `wrk`:
 
 ```sh
 NRVNA_TEMP=0.2 NRVNA_TOP_P=0.9 nrvnad ./workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
