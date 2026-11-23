@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(nrvna VERSION 0.1.1 LANGUAGES CXX C)
+project(nrvna VERSION 0.2.0 LANGUAGES CXX C)
 
 include(CTest)
 
@@ -18,7 +18,7 @@ set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_NUMBER 0 CACHE STRING "" FORCE)
-set(LLAMA_INSTALL_VERSION "0.0.0")
+set(LLAMA_BUILD_IS_DEV OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/llama.cpp)
 
@@ -88,6 +88,7 @@ if(BUILD_TESTING)
         meta_test
         recovery_test
         crash_recovery_test
+        filesystem-job-test
         runner-settings-test
     )
 
@@ -112,6 +113,10 @@ if(BUILD_TESTING)
     target_link_libraries(crash_recovery_test nrvna_core)
     target_include_directories(crash_recovery_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+    add_executable(filesystem-job-test tests/filesystem-job-test.cpp)
+    target_link_libraries(filesystem-job-test nrvna_core)
+    target_include_directories(filesystem-job-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
     add_executable(runner-settings-test tests/runner-settings-test.cpp)
 
     add_custom_target(nrvna_test_binaries DEPENDS ${NRVNA_TEST_BINS})
@@ -120,10 +125,12 @@ if(BUILD_TESTING)
     add_test(NAME metadata COMMAND meta_test)
     add_test(NAME recovery COMMAND recovery_test)
     add_test(NAME crash_recovery COMMAND crash_recovery_test)
+    add_test(NAME filesystem_job COMMAND filesystem-job-test)
     add_test(NAME runner_settings COMMAND runner-settings-test)
     add_test(NAME primitive_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/primitive-contract.sh $<TARGET_FILE_DIR:flw>)
     add_test(NAME lifecycle_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/lifecycle-contract.sh $<TARGET_FILE_DIR:nrvnad>)
     add_test(NAME contract_literals COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/contract-literals.sh)
+    add_test(NAME install_cli COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/install-contract.sh $<TARGET_FILE_DIR:wrk>)
 endif()
 
 # Install targets

@@ -10,9 +10,8 @@ Use the path that matches your task.
 
 ## Experienced users
 
-- [Advanced patterns](../ADVANCED.md): batch jobs and compose shell workflows.
 - [Configuration](../CONFIGURATION.md): set model and runtime options.
-- [Runnable examples](../README.md#start-with-the-commands): copy commands for common tasks.
+- [Runnable examples](../ADVANCED.md): submit batches, collect later, and pass results to new jobs.
 
 ## Agents
 

@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             target: darwin-arm64
             deployment_target: '13.3'
           - os: macos-15-intel
@@ -62,9 +62,13 @@ jobs:
           cp build/nrvnad build/wrk build/flw "dist/$kit/bin/"
           cp README.md INSTALL.md AGENTS.md CONTEXT.md ADVANCED.md \
             CONFIGURATION.md ARCHITECTURE.md \
-            LICENSE install.sh "dist/$kit/"
+            CHANGELOG.md SECURITY.md CONTRIBUTING.md LICENSE install.sh "dist/$kit/"
+          mkdir -p "dist/$kit/docs" "dist/$kit/skills"
+          cp docs/README.md docs/how-it-works.md docs/why.md "dist/$kit/docs/"
+          cp -R skills/nrvna "dist/$kit/skills/"
+          cp third_party/llama.cpp/LICENSE "dist/$kit/LICENSE-llama.cpp"
           tar -C dist -czf "dist/$kit.tar.gz" "$kit"
-          shasum -a 256 "dist/$kit.tar.gz" | tee "dist/$kit.tar.gz.sha256"
+          (cd dist && shasum -a 256 "$kit.tar.gz") > "dist/$kit.tar.gz.sha256"
 
       - name: Smoke-test packaged nrvna binaries
         run: |
@@ -75,6 +79,11 @@ jobs:
           test -f "dist/smoke/$kit/INSTALL.md"
           test -f "dist/smoke/$kit/AGENTS.md"
           test -f "dist/smoke/$kit/CONFIGURATION.md"
+          test -f "dist/smoke/$kit/docs/README.md"
+          test -f "dist/smoke/$kit/docs/how-it-works.md"
+          test -f "dist/smoke/$kit/skills/nrvna/SKILL.md"
+          test -f "dist/smoke/$kit/LICENSE-llama.cpp"
+          (cd dist && shasum -a 256 -c "$kit.tar.gz.sha256")
           test -x "dist/smoke/$kit/install.sh"
           "dist/smoke/$kit/bin/nrvnad" --version
           "dist/smoke/$kit/bin/wrk" --version

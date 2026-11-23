@@ -7,6 +7,7 @@
 #include "nrvna/scanner.hpp"
 #include "nrvna/contract.hpp"
 #include "nrvna/logger.hpp"
+#include "nrvna/meta.hpp"
 #include "llama_util.hpp"
 #include <algorithm>
 #include <fstream>
@@ -21,19 +22,23 @@ std::vector<JobId> Scanner::scan() const noexcept {
     std::vector<JobId> jobs;
     
     try {
-        if (!std::filesystem::exists(readyPath_)) {
+        std::error_code ec;
+        const auto readyStatus = std::filesystem::symlink_status(readyPath_, ec);
+        if (ec || std::filesystem::is_symlink(readyStatus) || !std::filesystem::is_directory(readyStatus)) {
             LOG_DEBUG("Ready directory does not exist: " + readyPath_.string());
             return jobs;
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(readyPath_)) {
-            if (entry.is_directory()) {
+            const auto entryStatus = entry.symlink_status(ec);
+            if (!ec && !std::filesystem::is_symlink(entryStatus) && std::filesystem::is_directory(entryStatus)) {
                 JobId jobId = extractJobId(entry.path());
                 if (contract::isValidJobId(jobId) && isValidJobDirectory(entry.path())) {
                     jobs.push_back(jobId);
                     LOG_TRACE("Found job: " + jobId);
                 }
             }
+            ec.clear();
         }
 
         // Sort by job ID for consistent ordering (timestamp is in the ID)
@@ -56,16 +61,20 @@ std::size_t Scanner::readyJobCount() const noexcept {
     std::size_t count = 0;
     
     try {
-        if (!std::filesystem::exists(readyPath_)) {
+        std::error_code ec;
+        const auto readyStatus = std::filesystem::symlink_status(readyPath_, ec);
+        if (ec || std::filesystem::is_symlink(readyStatus) || !std::filesystem::is_directory(readyStatus)) {
             return 0;
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(readyPath_)) {
-            if (entry.is_directory() &&
+            const auto entryStatus = entry.symlink_status(ec);
+            if (!ec && !std::filesystem::is_symlink(entryStatus) && std::filesystem::is_directory(entryStatus) &&
                 contract::isValidJobId(extractJobId(entry.path())) &&
                 isValidJobDirectory(entry.path())) {
                 ++count;
             }
+            ec.clear();
         }
     } catch (...) {
         // Return what we counted so far
@@ -76,15 +85,16 @@ std::size_t Scanner::readyJobCount() const noexcept {
 
 bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexcept {
     try {
-        // Must be a directory
-        if (!std::filesystem::is_directory(dir)) {
+        // Never follow a job-directory symlink outside the workspace.
+        std::error_code ec;
+        const auto dirStatus = std::filesystem::symlink_status(dir, ec);
+        if (ec || std::filesystem::is_symlink(dirStatus) || !std::filesystem::is_directory(dirStatus)) {
             return false;
         }
 
         // Must contain a bounded regular prompt.txt. The queue is disk-backed,
         // so reject symlinks/FIFOs/huge files before a worker opens them.
         auto promptFile = dir / contract::kPromptFile;
-        std::error_code ec;
         auto st = std::filesystem::symlink_status(promptFile, ec);
         if (ec || !std::filesystem::exists(st) || std::filesystem::is_symlink(st) || !std::filesystem::is_regular_file(st)) {
             LOG_DEBUG("Invalid job directory (bad prompt.txt): " + dir.string());
@@ -114,9 +124,14 @@ bool Scanner::isValidJobDirectory(const std::filesystem::path& dir) const noexce
                 std::getline(in, type);
             }
             const JobType jobType = contract::parseJobType(type);
+            const auto meta = readMetaJson(dir);
+            const bool hasReferencedMedia = meta && meta->reference_inputs &&
+                !meta->input_paths.empty() && meta->mode == contract::toString(jobType);
             const bool allowEmptyPrompt =
-                (jobType == JobType::Embed && std::filesystem::exists(imagesDir) && std::filesystem::is_directory(imagesDir)) ||
-                (jobType == JobType::Stt && std::filesystem::exists(audioDir) && std::filesystem::is_directory(audioDir) && !std::filesystem::is_empty(audioDir));
+                (jobType == JobType::Embed &&
+                    ((std::filesystem::exists(imagesDir) && std::filesystem::is_directory(imagesDir)) || hasReferencedMedia)) ||
+                (jobType == JobType::Stt &&
+                    ((std::filesystem::exists(audioDir) && std::filesystem::is_directory(audioDir) && !std::filesystem::is_empty(audioDir)) || hasReferencedMedia));
             if (!allowEmptyPrompt) {
                 LOG_DEBUG("Invalid job directory (empty prompt.txt): " + dir.string());
                 return false;

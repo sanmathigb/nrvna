@@ -14,6 +14,10 @@ directly for precise control; use this skill to invoke it from the conversation.
 
 Use the model and workspace the user names. Do not choose, download, or install a model.
 
+Read the matching `AGENTS.md` for model calibration, validation, and application
+rules. Check installed `--version` and `--help` before using command examples.
+A completed job is not evidence of a correct answer.
+
 ## Invoke
 
 Use the invocation form supported by the agent host:
@@ -54,8 +58,8 @@ These are skill arguments, not `wrk` options.
    Stop if any command is missing. Tell the user how to install nrvna; do not install it.
 2. Check `"$BIN/nrvnad" status "$WORKSPACE" --json` before submission.
    Read the exit code: `0` ready, `2` starting, `1` not running.
-3. A starting daemon does not report its model. Return without submitting
-   or waiting. Ask the user to invoke the skill again when it is ready.
+3. A starting daemon does not report its model. Do not submit to an unverified
+   model role. Keep the request pending and explain the missing model confirmation.
 4. If ready, confirm the daemon uses the requested model. Do not submit on mismatch; never stop a user-started daemon.
 5. Submit the prompt and save the job ID:
 

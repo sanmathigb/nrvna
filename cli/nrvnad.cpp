@@ -5,6 +5,7 @@
  */
 
 #include "nrvna/lifecycle.hpp"
+#include "nrvna/contract.hpp"
 #include "nrvna/flow.hpp"
 #include "nrvna/logger.hpp"
 #include "nrvna/meta.hpp"
@@ -12,6 +13,7 @@
 #include "nrvna/server.hpp"
 #include "nrvna/terminal.hpp"
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <csignal>
@@ -36,6 +38,148 @@ constexpr const char * VERSION = NRVNA_VERSION;
 static volatile sig_atomic_t g_shutdown_requested = 0;
 static std::filesystem::path g_models_dir;
 static int g_workspace_lock_fd = -1;
+
+namespace {
+class MaintenanceLock {
+public:
+    explicit MaintenanceLock(const std::filesystem::path& workspace) {
+        auto path = workspace / lifecycle::kLockFile;
+        fd_ = ::open(path.c_str(), O_RDWR | O_CREAT, 0644);
+        if (fd_ < 0) return;
+        for (int attempt = 0; attempt < 10; ++attempt) {
+            if (::flock(fd_, LOCK_EX | LOCK_NB) == 0) {
+                locked_ = true;
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+    ~MaintenanceLock() {
+        if (fd_ >= 0) {
+            if (locked_) (void)::flock(fd_, LOCK_UN);
+            (void)::close(fd_);
+        }
+    }
+    bool locked() const { return locked_; }
+private:
+    int fd_ = -1;
+    bool locked_ = false;
+};
+
+std::uintmax_t attachmentBytes(const std::filesystem::path& path) {
+    std::error_code ec;
+    const auto rootStatus = std::filesystem::symlink_status(path, ec);
+    if (ec || std::filesystem::is_symlink(rootStatus) || !std::filesystem::exists(rootStatus)) return 0;
+    std::uintmax_t total = 0;
+    if (std::filesystem::is_regular_file(rootStatus)) {
+        const auto size = std::filesystem::file_size(path, ec);
+        return ec ? 0 : size;
+    }
+    if (!std::filesystem::is_directory(rootStatus)) return 0;
+    for (std::filesystem::recursive_directory_iterator it(path, ec), end; it != end && !ec; it.increment(ec)) {
+        if (it->is_symlink(ec) || ec) { ec.clear(); continue; }
+        if (!it->is_regular_file(ec) || ec) { ec.clear(); continue; }
+        const auto size = it->file_size(ec);
+        if (!ec && size <= std::numeric_limits<std::uintmax_t>::max() - total) total += size;
+        ec.clear();
+    }
+    return total;
+}
+
+bool attachmentExists(const std::filesystem::path& path) {
+    std::error_code ec;
+    const auto status = std::filesystem::symlink_status(path, ec);
+    return !ec && !std::filesystem::is_symlink(status) && std::filesystem::exists(status);
+}
+
+int cleanWorkspace(const std::filesystem::path& workspace, bool apply,
+                   bool includeKept, bool includeFailed, bool json) {
+    std::error_code ec;
+    if (!std::filesystem::is_directory(workspace, ec) || ec) {
+        std::cerr << "Error: workspace does not exist: " << workspace << "\n";
+        return 1;
+    }
+    MaintenanceLock lock(workspace);
+    if (!lock.locked()) {
+        std::cerr << "Error: workspace is in use or its lock cannot be acquired: " << workspace << "\n";
+        return 1;
+    }
+
+    std::array<std::size_t, 4> counts{};
+    std::array<std::uintmax_t, 4> bytes{};
+    std::size_t removed = 0;
+    std::uintmax_t reclaimed = 0;
+    bool failed = false;
+    for (const bool failedState : {false, true}) {
+        const auto parent = workspace / (failedState ? contract::kFailedDir : contract::kOutputDir);
+        const auto parentStatus = std::filesystem::symlink_status(parent, ec);
+        if (ec || std::filesystem::is_symlink(parentStatus) || !std::filesystem::is_directory(parentStatus)) { ec.clear(); continue; }
+        for (std::filesystem::directory_iterator it(parent, ec), end; it != end && !ec; it.increment(ec)) {
+            const auto jobStatus = it->symlink_status(ec);
+            if (ec || std::filesystem::is_symlink(jobStatus) || !std::filesystem::is_directory(jobStatus)) { ec.clear(); continue; }
+            const auto id = it->path().filename().string();
+            if (!contract::isValidJobId(id)) continue;
+            const auto metaStatus = std::filesystem::symlink_status(it->path() / contract::kMetaFile, ec);
+            if (ec || std::filesystem::is_symlink(metaStatus) || !std::filesystem::is_regular_file(metaStatus)) { ec.clear(); continue; }
+            const auto meta = readMetaJson(it->path());
+            if (!meta) continue;
+            if (!failedState && !contract::findOutputArtifact(it->path())) continue;
+            if (failedState && !std::filesystem::is_regular_file(it->path() / contract::kErrorFile, ec)) { ec.clear(); continue; }
+            // Older jobs retained copied inputs by default.
+            const bool kept = meta->keep_files.value_or(true);
+            const auto imagesPath = it->path() / contract::kImagesDir;
+            const auto audioPath = it->path() / contract::kAudioInputDir;
+            if (!attachmentExists(imagesPath) && !attachmentExists(audioPath)) continue;
+            const auto images = attachmentBytes(imagesPath);
+            const auto audio = attachmentBytes(audioPath);
+            const std::size_t bucket = failedState ? (kept ? 3U : 2U) : (kept ? 1U : 0U);
+            const auto jobBytes = audio <= std::numeric_limits<std::uintmax_t>::max() - images
+                ? images + audio : std::numeric_limits<std::uintmax_t>::max();
+            ++counts[bucket];
+            if (jobBytes <= std::numeric_limits<std::uintmax_t>::max() - bytes[bucket]) bytes[bucket] += jobBytes;
+
+            const bool eligible = (!failedState || includeFailed) && (!kept || includeKept);
+            if (!apply || !eligible) continue;
+            bool itemOk = true;
+            for (const char* name : {contract::kImagesDir, contract::kAudioInputDir}) {
+                std::filesystem::remove_all(it->path() / name, ec);
+                if (ec) {
+                    std::cerr << "Error: cannot remove " << id << "/" << name << ": " << ec.message() << "\n";
+                    ec.clear();
+                    itemOk = false;
+                }
+            }
+            if (itemOk) {
+                ++removed;
+                if (jobBytes <= std::numeric_limits<std::uintmax_t>::max() - reclaimed) reclaimed += jobBytes;
+            } else failed = true;
+        }
+    }
+
+    if (json) {
+        std::cout << "{\"mode\":\"" << (apply ? "applied" : "preview") << "\",\"buckets\":{";
+        const char* names[] = {"completed_default", "completed_kept", "failed_default", "failed_kept"};
+        for (std::size_t i = 0; i < 4; ++i) {
+            if (i) std::cout << ',';
+            const bool eligible = (i < 2 ? (i == 0 || includeKept) : (includeFailed && (i == 2 || includeKept)));
+            std::cout << '"' << names[i] << "\":{\"jobs\":" << counts[i]
+                      << ",\"bytes\":" << bytes[i] << ",\"eligible\":" << (eligible ? "true" : "false") << '}';
+        }
+        std::cout << "},\"removed_jobs\":" << removed << ",\"reclaimed_bytes\":" << reclaimed << "}\n";
+    } else {
+        std::cout << (apply ? "Cleanup complete.\n" : "Cleanup preview; no files removed.\n");
+        const char* labels[] = {"Completed", "Completed (kept by wrk)", "Failed", "Failed (kept by wrk)"};
+        for (std::size_t i = 0; i < 4; ++i) {
+            const bool eligible = (i < 2 ? (i == 0 || includeKept) : (includeFailed && (i == 2 || includeKept)));
+            std::cout << "  " << labels[i] << ": " << counts[i] << " jobs, " << bytes[i]
+                      << " bytes" << (eligible ? " (included)" : " (protected)") << "\n";
+        }
+        if (apply) std::cout << "  Removed: " << removed << " jobs, " << reclaimed << " bytes\n";
+        else std::cout << "Run with --apply to remove included attachments.\n";
+    }
+    return failed ? 1 : 0;
+}
+}
 
 void signalHandler(int signal) {
     (void) signal;
@@ -111,22 +255,6 @@ bool parseIntStrict(const char* raw, int minValue, int maxValue, int& out) {
         value < minValue || value > maxValue) return false;
     out = static_cast<int>(value);
     return true;
-}
-
-int daemonGpuLayers() {
-    const char* value = std::getenv("NRVNA_GPU_LAYERS");
-    if (!value) return 0;
-
-    errno = 0;
-    char* end = nullptr;
-    long parsed = std::strtol(value, &end, 10);
-    if (end == value || *end != '\0' || errno == ERANGE ||
-        parsed < std::numeric_limits<int>::min() ||
-        parsed > std::numeric_limits<int>::max()) {
-        LOG_WARN("Invalid integer for NRVNA_GPU_LAYERS='" + std::string(value) + "', using default 0");
-        return 0;
-    }
-    return static_cast<int>(parsed);
 }
 
 std::filesystem::path resolveModelsDir(const char * argv0) {
@@ -275,16 +403,6 @@ void applyModelDefaults(const std::filesystem::path & modelPath, const ModelInfo
         applyDefaultEnv("NRVNA_TEMP", "0.6", lockedKeys, applied);
     }
 
-    constexpr uint64_t VRAM_4GB = 4ULL * 1024 * 1024 * 1024;
-    if (info.model_size_bytes > VRAM_4GB) {
-        int gpuLayers = daemonGpuLayers();
-        if (gpuLayers > 0) {
-            double gb = static_cast<double>(info.model_size_bytes) / (1024.0 * 1024.0 * 1024.0);
-            LOG_WARN("Model size " + std::to_string(gb).substr(0, 4) + " GB may exceed efficient GPU fit (4 GB VRAM). "
-                     "Set NRVNA_GPU_LAYERS=0 to force CPU if inference produces garbage.");
-        }
-    }
-
     if (info.n_embd_out > 0 && info.has_encoder && !info.has_decoder) {
         LOG_INFO("Embedding model detected: output dim=" + std::to_string(info.n_embd_out));
     }
@@ -299,25 +417,30 @@ void applyModelDefaults(const std::filesystem::path & modelPath, const ModelInfo
 }
 
 void printHelp() {
-    std::cout << "Run jobs from one workspace with a local GGUF model.\n\n";
+    std::cout << "Run queued jobs from one workspace with a local model.\n\n";
     std::cout << "Usage:\n";
     std::cout << "  nrvnad <workspace> <model> [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "      --mmproj <path>    Multimodal projector for vision, STT, and LFM3 TTS\n";
-    std::cout << "      --vocoder <path>   Vocoder model for TTS jobs\n";
-    std::cout << "  -w, --workers <n>      Worker threads (default 4; 1-64)\n";
-    std::cout << "      --drain            Process queued jobs until idle, then exit\n";
+    std::cout << "      --mmproj <path>    Extra projector file for some vision and audio models\n";
+    std::cout << "      --vocoder <path>   Audio decoder file for some speech models\n";
+    std::cout << "  -w, --workers <n>      Concurrent jobs (default 1; range 1-64)\n";
+    std::cout << "      --drain            Process queued jobs, then exit when idle\n";
     std::cout << "  -h, --help             Show help\n";
     std::cout << "  -v, --version          Show version\n\n";
     std::cout << "Commands:\n";
     std::cout << "  nrvnad status <workspace> [--json]   Check whether a daemon is ready\n";
     std::cout << "  nrvnad stop <workspace> [--timeout <1-3600>]\n";
     std::cout << "    Stop gracefully. Default timeout: 20 seconds.\n\n";
+    std::cout << "  nrvnad clean <workspace> [options]\n";
+    std::cout << "    Preview copied inputs. Use --apply to remove eligible files.\n";
+    std::cout << "    Options: --include-kept, --include-failed, --json\n";
+    std::cout << "    Run nrvnad clean --help for details.\n\n";
     std::cout << "Model names resolve under ./models or NRVNA_MODELS_DIR.\n";
     std::cout << "nrvnad detects matching mmproj and vocoder files beside the model.\n\n";
+    std::cout << "llama.cpp fits model layers to available GPU memory when supported.\n";
+    std::cout << "NRVNA_GPU_LAYERS overrides automatic placement.\n";
     std::cout << "Settings: NRVNA_GPU_LAYERS, NRVNA_WORKERS, NRVNA_MODELS_DIR,\n";
-    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. Full list:\n";
-    std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
+    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. See the installed CONFIGURATION.md.\n\n";
     std::cout << "Example:\n";
     std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
     std::cout << "Submit job types with wrk. Each job starts with fresh context.\n";
@@ -326,7 +449,10 @@ void printHelp() {
 void printStatusHelp() {
     std::cout << "Check whether the daemon for a workspace is ready.\n\n";
     std::cout << "Usage: nrvnad status <workspace> [--json]\n\n";
-    std::cout << "Exit codes: 0 ready, 2 starting, 1 stopped or error\n";
+    std::cout << "Exit codes:\n";
+    std::cout << "  0: ready\n";
+    std::cout << "  2: starting\n";
+    std::cout << "  1: stopped or error\n";
 }
 
 void printStopHelp() {
@@ -335,8 +461,41 @@ void printStopHelp() {
     std::cout << "The default timeout is 20 seconds.\n";
 }
 
+void printCleanHelp() {
+    std::cout << "Preview or remove copied inputs from jobs that finished or failed.\n\n";
+    std::cout << "Usage: nrvnad clean <workspace> [--apply] [--include-kept] [--include-failed] [--json]\n\n";
+    std::cout << "Preview is the default. --apply removes eligible copied image and audio files.\n";
+    std::cout << "Use --include-failed for failed jobs. Use --include-kept for kept files.\n";
+    std::cout << "Kept files in failed jobs need both flags. Prompts, metadata, and results stay.\n";
+    std::cout << "Stop the daemon before cleanup.\n";
+}
+
 int main(int argc, char * argv[]) {
     g_models_dir = resolveModelsDir(argv[0]);
+
+    if (argc >= 2 && std::string(argv[1]) == "clean") {
+        if ((argc == 3 && (std::string(argv[2]) == "-h" || std::string(argv[2]) == "--help"))) {
+            printCleanHelp();
+            return 0;
+        }
+        if (argc < 3 || argv[2][0] == '\0' || argv[2][0] == '-') {
+            std::cerr << "Usage: nrvnad clean <workspace> [--apply] [--include-kept] [--include-failed] [--json]\n";
+            return 1;
+        }
+        bool apply = false, includeKept = false, includeFailed = false, json = false;
+        for (int i = 3; i < argc; ++i) {
+            const std::string arg = argv[i];
+            if (arg == "--apply") apply = true;
+            else if (arg == "--include-kept") includeKept = true;
+            else if (arg == "--include-failed") includeFailed = true;
+            else if (arg == "--json") json = true;
+            else {
+                std::cerr << "Error: unknown clean option: " << arg << "\n";
+                return 1;
+            }
+        }
+        return cleanWorkspace(std::filesystem::path(argv[2]), apply, includeKept, includeFailed, json);
+    }
 
     if (argc >= 2 && std::string(argv[1]) == "status") {
         if ((argc == 3 && (std::string(argv[2]) == "-h" || std::string(argv[2]) == "--help")) ||
@@ -422,7 +581,7 @@ int main(int argc, char * argv[]) {
     std::string mmprojPath;
     std::string vocoderPath;
     bool drainMode = false;
-    int workers = 4;
+    int workers = 1;
     if (const char* envWorkers = std::getenv("NRVNA_WORKERS")) {
         if (!parseIntStrict(envWorkers, 1, 64, workers)) {
             std::cerr << "Error: Invalid NRVNA_WORKERS value\n";
@@ -577,7 +736,8 @@ int main(int argc, char * argv[]) {
              " workers=" + std::to_string(workers) +
              " mmproj=" + (mmprojPath.empty() ? std::string("none") : mmprojPath) +
              " vocoder=" + (vocoderPath.empty() ? std::string("none") : vocoderPath) +
-             " gpu_layers=" + std::to_string(daemonGpuLayers()));
+             " gpu_layers=" + (std::getenv("NRVNA_GPU_LAYERS")
+                 ? std::string(std::getenv("NRVNA_GPU_LAYERS")) : std::string("auto-fit")));
 
     const bool interactive = terminal::stderrIsTerminal();
     const bool useColor = terminal::colorEnabled(interactive, std::getenv("NO_COLOR"));
@@ -679,9 +839,9 @@ int main(int argc, char * argv[]) {
         }
 
         if (g_shutdown_requested) {
-            std::cerr << "\nShutdown requested, stopping server..." << std::endl;
+            std::cerr << "\nShutdown requested, stopping daemon..." << std::endl;
         }
-        LOG_DEBUG("Shutdown requested, stopping server...");
+        LOG_DEBUG("Shutdown requested, stopping daemon...");
         {
             std::error_code ec;
             std::filesystem::remove(pidPath, ec);
@@ -697,11 +857,11 @@ int main(int argc, char * argv[]) {
 
     } catch (const std::exception & e) {
         releaseWorkspaceLock();
-        LOG_ERROR("Server error: " + std::string(e.what()));
+        LOG_ERROR("Daemon error: " + std::string(e.what()));
         return 1;
     } catch (...) {
         releaseWorkspaceLock();
-        LOG_ERROR("Unknown server error");
+        LOG_ERROR("Unknown daemon error");
         return 1;
     }
 

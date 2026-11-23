@@ -8,16 +8,20 @@
 #include "nrvna/logger.hpp"
 #include "llama_util.hpp"
 #include "chat.h"
+#include "common.h"
+#include "fit.h"
 #include "llama.h"
 #include "mtmd.h"
 #include "mtmd-helper.h"
 #include "think_filter.hpp"
 #include "vision_sampling.hpp"
+#include "worker_threads.hpp"
 #include <chrono>
 #include <thread>
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <limits>
 #include <memory>
 
 namespace nrvna {
@@ -169,6 +173,8 @@ ModelInfo Runner::probeModelInfo(const std::string& modelPath) {
 
     llama_model_params params = llama_model_default_params();
     params.n_gpu_layers = 0;  // Use CPU for a small probe without GPU contention.
+    params.no_alloc = true;   // The probe reads GGUF metadata, not model weights.
+    params.load_mode = LLAMA_LOAD_MODE_NONE;
     restrictModelToCpu(params);
 
     llama_model* model = llama_model_load_from_file(modelPath.c_str(), params);
@@ -183,7 +189,7 @@ ModelInfo Runner::probeModelInfo(const std::string& modelPath) {
 }
 
 Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int numWorkers)
-    : mmproj_path_(mmprojPath) {
+    : mmproj_path_(mmprojPath), num_workers_(std::max(1, numWorkers)) {
     llama_log_set(filtered_llama_log, nullptr);
     ggml_backend_load_all();
 
@@ -193,10 +199,68 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
         if (!shared_model_ || current_model_path_ != modelPath) {
             LOG_INFO("Loading model: " + modelPath);
 
+            const bool gpuLayersOverridden = std::getenv("NRVNA_GPU_LAYERS") != nullptr;
             llama_model_params model_params = llama_model_default_params();
-
-            model_params.n_gpu_layers = effective_gpu_layers();
-            if (model_params.n_gpu_layers <= 0) {
+            common_params fit_params;
+            bool fitted = false;
+            if (gpuLayersOverridden) {
+                model_params.n_gpu_layers = std::max(0, env_int("NRVNA_GPU_LAYERS", 0));
+            } else if (llama_supports_gpu_offload()) {
+                fit_params.model.path = modelPath;
+                const int workers = num_workers_;
+                const int batch = env_positive_int("NRVNA_BATCH", 2048);
+                const int ubatch = std::min(batch, env_positive_int("NRVNA_UBATCH", batch));
+                const auto scaleForWorkers = [workers](int value) {
+                    return static_cast<int32_t>(std::min<int64_t>(
+                        static_cast<int64_t>(value) * workers,
+                        std::numeric_limits<int32_t>::max()));
+                };
+                // Fit one shared model against the aggregate contexts used by all workers.
+                fit_params.n_ctx = scaleForWorkers(env_positive_int("NRVNA_MAX_CTX", 8192));
+                fit_params.n_parallel = workers;
+                fit_params.n_batch = scaleForWorkers(batch);
+                fit_params.n_ubatch = scaleForWorkers(ubatch);
+                fit_params.tensor_buft_overrides.resize(llama_max_tensor_buft_overrides());
+                model_params = common_model_params_to_llama(fit_params);
+                auto context_params = common_context_params_to_llama(fit_params);
+                bool fitInputsAvailable = true;
+                if (!mmprojPath.empty()) {
+                    auto mmproj_params = mtmd_context_params_default();
+                    mmproj_params.use_gpu = true;
+                    const auto mmproj_usage = mtmd_get_memory_usage(mmprojPath.c_str(), mmproj_params);
+                    fitInputsAvailable = !mmproj_usage.backend_mem_usage.empty();
+                    if (!fitInputsAvailable) {
+                        LOG_WARN("Could not estimate projector GPU memory; using CPU inference");
+                    }
+                    for (const auto& [device, bytes] : mmproj_usage.backend_mem_usage) {
+                        for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+                            if (ggml_backend_dev_get(i) == device && i < fit_params.fit_params_target.size()) {
+                                auto& target = fit_params.fit_params_target[i];
+                                target = bytes > std::numeric_limits<size_t>::max() - target
+                                    ? std::numeric_limits<size_t>::max()
+                                    : target + bytes;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (fitInputsAvailable) {
+                    const auto status = common_fit_params(
+                        fit_params.model.get_paths(), &model_params, &context_params,
+                        fit_params.tensor_split, fit_params.tensor_buft_overrides.data(),
+                        fit_params.fit_params_target.data(), fit_params.fit_params_min_ctx,
+                        nullptr, GGML_LOG_LEVEL_ERROR);
+                    fitted = status == COMMON_PARAMS_FIT_STATUS_SUCCESS;
+                }
+                if (!fitted) {
+                    if (fitInputsAvailable) LOG_WARN("GPU memory fit failed; using CPU inference");
+                    model_params = llama_model_default_params();
+                    model_params.n_gpu_layers = 0;
+                }
+            } else {
+                model_params.n_gpu_layers = 0;
+            }
+            if (!fitted && model_params.n_gpu_layers == 0) {
                 restrictModelToCpu(model_params);
             }
 
@@ -214,6 +278,11 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
 
             shared_model_ = std::shared_ptr<llama_model>(model, llama_model_free);
             current_model_path_ = modelPath;
+            if (!gpuLayersOverridden) {
+                set_auto_gpu_layers(model_params.n_gpu_layers < 0
+                    ? static_cast<int>(llama_model_n_layer(model))
+                    : model_params.n_gpu_layers);
+            }
 
             // Resolve GGUF sampling defaults once. Log values from the model.
             auto resolveGgufFloat = [&](const char* key, float hardcoded, float& out) {
@@ -266,13 +335,13 @@ Runner::Runner(const std::string& modelPath, const std::string& mmprojPath, int 
     if (!mmprojPath.empty()) {
         LOG_INFO("Loading mmproj: " + mmprojPath);
         mtmd_context_params mparams = mtmd_context_params_default();
-        mparams.use_gpu = effective_gpu_layers() > 0;
+        mparams.use_gpu = effective_gpu_layers() != 0;
 
         // Divide threads among workers to prevent parallel vision corruption
         int total_threads = std::thread::hardware_concurrency();
-        mparams.n_threads = std::max(1, total_threads / std::max(1, numWorkers));
+        mparams.n_threads = detail::threadsPerWorker(total_threads, num_workers_);
         LOG_INFO("Vision threads per worker: " + std::to_string(mparams.n_threads) +
-                 " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(numWorkers) + ")");
+                 " (total: " + std::to_string(total_threads) + ", workers: " + std::to_string(num_workers_) + ")");
         mparams.print_timings = false;
         mparams.warmup = env_int("NRVNA_WARMUP", 0) != 0;
 
@@ -346,6 +415,9 @@ Runner::SamplingConfig Runner::buildSamplingConfig() const {
 
 void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llama_context_params& params) const {
     params = llama_context_default_params();
+    const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+    params.n_threads = threads;
+    params.n_threads_batch = threads;
     params.n_ctx = std::min(n_prompt + config.n_predict + 64, config.max_ctx);
     const int n_batch = std::max(1, std::min(n_prompt, env_positive_int("NRVNA_BATCH", 2048)));
     params.n_batch = n_batch;
@@ -353,7 +425,7 @@ void Runner::buildContextParams(int n_prompt, const SamplingConfig& config, llam
     params.n_ubatch = std::max(1, std::min(n_batch, env_positive_int("NRVNA_UBATCH", n_batch)));
     params.no_perf = false;
 
-    if (effective_gpu_layers() <= 0) {
+    if (effective_gpu_layers() == 0) {
         params.offload_kqv = false;
         params.op_offload = false;
     }
@@ -429,9 +501,12 @@ EmbedResult Runner::embed(const std::string& text) {
         ctx_params.n_ctx = n_tokens + 1;
         ctx_params.n_batch = n_tokens;
         ctx_params.n_ubatch = n_tokens;  // encoder requires n_ubatch >= n_tokens
+        const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+        ctx_params.n_threads = threads;
+        ctx_params.n_threads_batch = threads;
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_UNSPECIFIED;  // Honor the model's declared pooling strategy.
-        if (effective_gpu_layers() <= 0) {
+        if (effective_gpu_layers() == 0) {
             ctx_params.offload_kqv = false;
             ctx_params.op_offload = false;
         }
@@ -531,10 +606,13 @@ EmbedResult Runner::embedVision(const std::string& prompt, const std::vector<std
         llama_context_params ctx_params = llama_context_default_params();
         ctx_params.n_ctx = std::max(n_prompt + 8, 128);
         ctx_params.n_batch = std::max(1, std::min(n_prompt, env_int("NRVNA_BATCH", 2048)));
+        const int threads = detail::threadsPerWorker(std::thread::hardware_concurrency(), num_workers_);
+        ctx_params.n_threads = threads;
+        ctx_params.n_threads_batch = threads;
         ctx_params.embeddings = true;
         ctx_params.pooling_type = LLAMA_POOLING_TYPE_MEAN;
         ctx_params.no_perf = false;
-        if (effective_gpu_layers() <= 0) {
+        if (effective_gpu_layers() == 0) {
             ctx_params.offload_kqv = false;
             ctx_params.op_offload = false;
         }

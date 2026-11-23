@@ -16,9 +16,12 @@ struct JobMeta {
     // Submission phase (written by Work)
     std::string submitted_at;
     std::string mode;           // "text", "embed", "vision", "tts", "stt"
+    bool reference_inputs = false;
+    std::vector<std::string> input_paths;
     JobId parent;               // empty if none
     std::vector<std::string> tags;
     std::string output_format;  // "json_schema" or "gbnf"; empty if unconstrained
+    std::optional<bool> keep_files; // absent in older jobs; explicit on new submissions
     unsigned int recovery_attempts = 0;
 
     // Completion phase (written by Processor)

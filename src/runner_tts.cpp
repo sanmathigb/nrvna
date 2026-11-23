@@ -839,8 +839,6 @@ TtsResult TtsRunner::runLfm3Audio(const std::string& text) {
         inp.prompt = prompt.c_str();
         inp.prompt_len = prompt.size();
         inp.lang = "en";
-        inp.voice = "female";
-        inp.top_k = 128;
         inp.seed = static_cast<uint32_t>(env_int("NRVNA_SEED", 0));
         inp.out_type = MTMD_HELPER_GEN_AUDIO_OUTTYPE_PCM;
         if (gen.set_input(&inp) != 0) {

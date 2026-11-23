@@ -101,6 +101,7 @@ private:
     // Per-instance mtmd context for thread-safe vision processing
     std::shared_ptr<mtmd_context> mtmd_owned_;
     std::string mmproj_path_;
+    int num_workers_ = 1;
 
     [[nodiscard]] bool initializeModel(const std::string& modelPath) noexcept;
     void cleanup() noexcept;

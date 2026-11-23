@@ -93,12 +93,16 @@ RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
     RecoveryReport report;
     try {
         auto processingDir = workspace / contract::kProcessingDir;
-        if (!std::filesystem::exists(processingDir)) {
+        std::error_code rootError;
+        const auto rootStatus = std::filesystem::symlink_status(processingDir, rootError);
+        if (rootError || std::filesystem::is_symlink(rootStatus) || !std::filesystem::is_directory(rootStatus)) {
             return report;
         }
 
         for (const auto& entry : std::filesystem::directory_iterator(processingDir)) {
-            if (!entry.is_directory()) {
+            std::error_code entryError;
+            const auto entryStatus = entry.symlink_status(entryError);
+            if (entryError || std::filesystem::is_symlink(entryStatus) || !std::filesystem::is_directory(entryStatus)) {
                 continue;
             }
 
@@ -163,7 +167,7 @@ RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
 Server::Server(const std::string& modelPath, const std::filesystem::path& workspace, int workers,
                const std::string& mmprojPath, const std::string& vocoderPath)
     : modelPath_(modelPath), mmprojPath_(mmprojPath), vocoderPath_(vocoderPath), workspace_(workspace), workers_(workers) {
-    LOG_DEBUG("Server created - model: " + modelPath + ", workspace: " + workspace_.string() +
+    LOG_DEBUG("Daemon created - model: " + modelPath + ", workspace: " + workspace_.string() +
               ", workers: " + std::to_string(workers));
 }
 
@@ -173,11 +177,11 @@ Server::~Server() {
 
 bool Server::start() {
     if (running_.load()) {
-        LOG_WARN("Server already running");
+        LOG_WARN("Daemon already running");
         return false;
     }
 
-    LOG_INFO("Starting nrvna server...");
+    LOG_INFO("Starting nrvna daemon...");
 
     // Reset shutdown flag so server is restartable after shutdown()
     shutdown_.store(false);
@@ -198,7 +202,7 @@ bool Server::start() {
 
     // Log startup banner
     LOG_DEBUG("========================================");
-    LOG_DEBUG("nrvna Server Starting");
+    LOG_DEBUG("nrvna daemon starting");
     LOG_DEBUG("========================================");
     LOG_DEBUG("Model: " + modelPath_);
     if (!mmprojPath_.empty()) {
@@ -209,6 +213,14 @@ bool Server::start() {
     LOG_DEBUG("nrvna Log Level: " + std::string(getenv("NRVNA_LOG_LEVEL") ? getenv("NRVNA_LOG_LEVEL") : "INFO"));
     LOG_DEBUG("llama.cpp Log Level: " + std::string(getenv("LLAMA_LOG_LEVEL") ? getenv("LLAMA_LOG_LEVEL") : "ERROR"));
     LOG_DEBUG("========================================");
+
+    const unsigned int cpuThreads = std::thread::hardware_concurrency();
+    LOG_INFO("Worker pool: " + std::to_string(workers_) +
+             " worker(s). Set --workers or NRVNA_WORKERS to change.");
+    if (cpuThreads > 0 && workers_ > static_cast<int>(cpuThreads)) {
+        LOG_WARN("Worker count exceeds detected CPU thread count; each worker still gets at least one CPU thread, "
+                 "so CPU oversubscription is possible.");
+    }
 
     // Create components
     try {
@@ -246,11 +258,11 @@ bool Server::start() {
         // Start scanner loop in background
         scannerThread_ = std::thread(&Server::scanLoop, this);
 
-        LOG_DEBUG("Server started successfully");
+        LOG_DEBUG("Daemon started successfully");
         return true;
 
     } catch (const std::exception& e) {
-        LOG_ERROR("Failed to start server: " + std::string(e.what()));
+        LOG_ERROR("Failed to start daemon: " + std::string(e.what()));
         // Clean up anything that was partially started
         shutdown_.store(true);
         running_.store(false);
@@ -267,7 +279,7 @@ void Server::shutdown() noexcept {
         return;
     }
 
-    LOG_INFO("Shutting down server...");
+    LOG_INFO("Shutting down daemon...");
 
     shutdown_.store(true);
     running_.store(false);
@@ -287,7 +299,7 @@ void Server::shutdown() noexcept {
     pool_.reset();
     scanner_.reset();
 
-    LOG_INFO("Server shutdown complete");
+    LOG_INFO("Daemon shutdown complete");
 }
 
 bool Server::createWorkspace() noexcept {

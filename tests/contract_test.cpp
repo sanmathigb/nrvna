@@ -48,8 +48,9 @@ int main() {
     CHECK(!contract::isValidJobId(""));
     CHECK(!contract::isValidJobId("_123"));
     CHECK(!contract::isValidJobId("123_"));
-    CHECK(!contract::isValidJobId("12__34"));
-    CHECK(!contract::isValidJobId("abc"));
+    CHECK(contract::isValidCallerJobId("p_abcdef0123456789"));
+    CHECK(!contract::isValidCallerJobId("123_456"));
+    CHECK(!contract::isValidJobId("bad/id"));
     CHECK(!contract::isValidJobId(std::string(129, '1')));
 
     // Terminal color: only interactive stderr without NO_COLOR.

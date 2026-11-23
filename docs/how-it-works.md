@@ -51,6 +51,32 @@ input/ready/  →  processing/  →  output/
 Workers claim jobs and publish results with atomic directory renames. Do not
 edit a job after `wrk` publishes it under `input/ready/`.
 
+## Work types
+
+| Work | Submit with | Result |
+| --- | --- | --- |
+| Text generation | prompt or stdin | `result.txt` |
+| Text embedding | prompt with `--embed` | `embedding.json` |
+| Image analysis | prompt with `--image` | `result.txt` |
+| Image embedding | `--embed` with `--image` | `embedding.json` |
+| Transcription | `--audio` | `transcript.txt` |
+| Speech generation | prompt with `--tts` | `audio.wav` |
+
+Use a model that supports the requested work. Vision and transcription need a
+matching projector. Speech generation requirements depend on the model. See
+[Configuration](../CONFIGURATION.md#vision-speech-and-media).
+
+Image and audio inputs reference source files by default. Keep those files
+available and unchanged until jobs finish, including recovery. Use
+`wrk --keep-files` to copy and retain inputs within the job.
+
+`nrvnad clean <workspace>` previews copied attachments eligible for removal.
+It does not remove referenced source files. See [AGENTS.md](../AGENTS.md) for
+retention and cleanup rules. Check installed command help for options in your
+release.
+
+nrvna does not accept video or mixed image-and-audio jobs.
+
 ## Recovery
 
 After a daemon crash, the next daemon can recover a job left in `processing/`.

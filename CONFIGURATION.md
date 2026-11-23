@@ -9,21 +9,33 @@ Most users need only these:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NRVNA_MODELS_DIR` | discovered `models/` | Model search directory |
-| `NRVNA_WORKERS` | `4` | Concurrent jobs |
-| `NRVNA_GPU_LAYERS` | `0` | Layers offloaded to a supported GPU backend |
+| `NRVNA_WORKERS` | `1` | Concurrent jobs |
+| `NRVNA_GPU_LAYERS` | automatic fit | Set `0` for CPU or a positive layer count to override GPU placement |
 | `NRVNA_REPACK` | `1` | Set `0` to disable CPU weight repacking and reduce extra memory use |
 | `NRVNA_MAX_CTX` | `8192` | Per-job context limit |
 | `NRVNA_PREDICT` | `2048` | Maximum generated tokens |
 | `NRVNA_MAX_RECOVERY_ATTEMPTS` | `3` | Orphaned `processing/` recoveries before terminal failure |
 
-CPU inference is the default. `nrvnad` resolves model names under `./models` or
-`NRVNA_MODELS_DIR`. It also accepts a full model path. It detects matching
-projector and vocoder files beside the model.
+When the build has a supported GPU backend, llama.cpp estimates GPU placement
+from available device memory. It includes the model, worker contexts, and the
+projector size when one is set. It leaves llama.cpp's default memory margin.
+The estimate does not predict speed. It assumes host memory is available. If
+the fit fails, nrvna loads the model on the CPU. Set `NRVNA_GPU_LAYERS=0` to
+force CPU placement, or set a positive value to choose a fixed layer count.
 
-There is no worker count that is fastest on every machine. More workers can run
+`nrvnad` resolves model names under `./models` or `NRVNA_MODELS_DIR`. It also
+accepts a full model path. It detects matching projector and vocoder files
+beside the model. TTS models and vocoders use CPU placement in this release.
+
+There is no worker count that is fastest on every machine. The default is one
+to avoid CPU oversubscription and excess context memory. More workers can run
 more jobs at once, but each active job needs its own context and compute
-memory. On a memory-limited machine, start with `--workers 1`. Increase the
-count only when your workload finishes sooner without causing memory pressure.
+memory. Text and text-embedding contexts divide CPU threads across workers.
+Some modality work is serialized: image and audio media evaluation, and LFM3
+speech generation. More workers may add memory use without speeding up those
+stages. Increase the count only when your workload finishes sooner without
+causing memory pressure. Counts above the logical CPU thread count can still
+oversubscribe the CPU because each worker gets at least one thread.
 
 `NRVNA_REPACK=0` disables llama.cpp's extra CPU buffer types for CPU model
 loads. It can reduce memory use. It can also change speed. Measure both modes

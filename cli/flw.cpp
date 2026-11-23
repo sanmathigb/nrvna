@@ -26,15 +26,15 @@ constexpr const char* VERSION = NRVNA_VERSION;
 void printUsage() {
     std::cout << "Read job results or workspace status.\n\n";
     std::cout << "Usage:\n";
-    std::cout << "  flw <workspace> [job_id] [options]\n\n";
+    std::cout << "  flw <workspace> [job-id] [options]\n\n";
     std::cout << "Options:\n";
-    std::cout << "  -w, --wait          Wait for the job ID argument or stdin\n";
-    std::cout << "  -W, --wait-idle     Wait for the workspace or selected jobs to finish\n";
-    std::cout << "      --json          Print status or results as JSON\n";
-    std::cout << "      --tag <name>    Select jobs with this tag\n";
-    std::cout << "      --children <id> Select direct child jobs\n";
-    std::cout << "  -h, --help        Show help\n";
-    std::cout << "  -v, --version     Show version\n";
+    std::cout << "  -w, --wait                Wait for a job ID from an argument or stdin\n";
+    std::cout << "  -W, --wait-idle           Wait until the workspace or selected jobs finish\n";
+    std::cout << "      --json                Print status or results as JSON\n";
+    std::cout << "      --tag <name>          Select jobs by tag\n";
+    std::cout << "      --children <job-id>   Select direct child jobs\n";
+    std::cout << "  -h, --help                Show help\n";
+    std::cout << "  -v, --version             Show version\n";
     std::cout << "\n";
     std::cout << "Examples:\n";
     std::cout << "  flw ./ws <job-id>                  read one result\n";
@@ -43,8 +43,8 @@ void printUsage() {
     std::cout << "  flw ./ws --tag nightly --json      read tagged results as NDJSON\n";
     std::cout << "\n";
     std::cout << "Exit codes:\n";
-    std::cout << "  One job: 0 done, 1 failed/missing/error, 2 queued or running\n";
-    std::cout << "  -w needs a job ID. -W waits for the workspace or selected jobs.\n";
+    std::cout << "  One job: 0 done; 1 failed, missing, or error; 2 queued or running\n";
+    std::cout << "  With -w, provide a job ID as an argument or through stdin.\n";
 }
 
 std::string readFileRaw(const std::filesystem::path& path) {
@@ -115,6 +115,14 @@ int printJobJson(Flow& flow, const std::filesystem::path& wsPath, const Job& job
     out << ",\"status\":\"" << escapeJson(std::string(statusToJsonString(job.status))) << "\"";
     if (meta) {
         if (!meta->mode.empty()) out << ",\"mode\":\"" << escapeJson(meta->mode) << "\"";
+        if (meta->reference_inputs) {
+            out << ",\"input_mode\":\"reference\",\"input_paths\":[";
+            for (size_t i = 0; i < meta->input_paths.size(); ++i) {
+                if (i > 0) out << ",";
+                out << "\"" << escapeJson(meta->input_paths[i]) << "\"";
+            }
+            out << "]";
+        }
         if (!meta->submitted_at.empty()) out << ",\"submitted_at\":\"" << escapeJson(meta->submitted_at) << "\"";
         if (!meta->completed_at.empty()) out << ",\"completed_at\":\"" << escapeJson(meta->completed_at) << "\"";
         if (meta->duration_s >= 0.0) out << ",\"duration_s\":" << meta->duration_s;

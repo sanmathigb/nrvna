@@ -17,12 +17,87 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 namespace nrvna {
 
 namespace {
+class CallerIdLock final {
+public:
+    CallerIdLock() = default;
+    CallerIdLock(const CallerIdLock&) = delete;
+    CallerIdLock& operator=(const CallerIdLock&) = delete;
+    ~CallerIdLock() {
+        if (fd_ >= 0) {
+            (void)::flock(fd_, LOCK_UN);
+            (void)::close(fd_);
+        }
+    }
+
+    bool acquire(const std::filesystem::path& path) noexcept {
+        fd_ = ::open(path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
+        if (fd_ < 0) return false;
+        while (::flock(fd_, LOCK_EX) != 0) {
+            if (errno == EINTR) continue;
+            (void)::close(fd_);
+            fd_ = -1;
+            return false;
+        }
+        return true;
+    }
+
+private:
+    int fd_ = -1;
+};
+
+bool findCallerId(const std::filesystem::path& workspace, const JobId& id,
+                  bool& existing, std::string& error) {
+    // State moves are atomic and only move forward. Scan in lifecycle order
+    // so a job moving during this check is found in its next state.
+    std::error_code ec;
+    const char* states[] = {contract::kReadyDir, contract::kProcessingDir,
+                            contract::kOutputDir, contract::kFailedDir};
+    for (const auto* state : states) {
+        const auto path = workspace / state / id;
+        ec.clear();
+        const auto status = std::filesystem::symlink_status(path, ec);
+        if (!ec && std::filesystem::is_symlink(status)) {
+            error = "Caller job ID path is a symlink";
+            return false;
+        }
+        if (!ec && std::filesystem::is_directory(status)) {
+            existing = true;
+            return true;
+        }
+        if (!ec && std::filesystem::exists(status)) {
+            error = "Caller job ID path is not a job directory";
+            return false;
+        }
+        if (ec && ec != std::errc::no_such_file_or_directory) {
+            error = "Could not inspect caller job ID";
+            return false;
+        }
+    }
+    return true;
+}
+
+bool lockCallerIdPublication(const std::filesystem::path& workspace, CallerIdLock& lock,
+                             std::string& error) {
+    // One short publication lock closes the race across all caller-ID states.
+    const auto lockPath = workspace / contract::kIdSubmitLock;
+    std::error_code ec;
+    std::filesystem::create_directories(lockPath.parent_path(), ec);
+    if (ec || !lock.acquire(lockPath)) {
+        error = "Could not lock caller-ID publication";
+        return false;
+    }
+    return true;
+}
+
 std::size_t env_size(const char* name, std::size_t defv) {
     const char* val = std::getenv(name);
     if (!val || !*val) {
@@ -138,6 +213,22 @@ Work::Work(const std::filesystem::path& workspace, bool createIfMissing)
 }
 
 SubmitResult Work::submit(const std::string& prompt, JobType type, const std::vector<std::filesystem::path>& imagePaths, const SubmitOptions& opts) {
+    if (!opts.id.empty() && !contract::isValidCallerJobId(opts.id)) {
+        return {false, "", SubmissionError::InvalidContent, "Invalid caller job ID"};
+    }
+    JobId jobId = opts.id.empty() ? generateId() : opts.id;
+    JobId stagingId = opts.id.empty() ? jobId : generateId();
+    if (!opts.id.empty()) {
+        bool existing = false;
+        std::string error;
+        CallerIdLock lock;
+        if (!lockCallerIdPublication(workspace_, lock, error) ||
+            !findCallerId(workspace_, jobId, existing, error)) {
+            return {false, "", SubmissionError::IoError, error};
+        }
+        if (existing) return {true, jobId, SubmissionError::None, ""};
+    }
+
     const bool hasStructuredOutput = !opts.output_format.empty() || !opts.schema.empty() || !opts.grammar.empty();
     const bool validStructuredOutput =
         !hasStructuredOutput ||
@@ -173,57 +264,71 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
         }
     }
 
-    JobId jobId = generateId();
-    LOG_DEBUG("Generated job ID: " + jobId);
+    LOG_DEBUG("Using job ID: " + jobId);
 
-    if (!createJobDirectory(jobId)) {
+    if (!createJobDirectory(stagingId)) {
         LOG_ERROR("Failed to create job directory for: " + jobId);
         return {false, "", SubmissionError::IoError, "Failed to create job directory"};
     }
 
-    if (!writePromptFile(jobId, prompt)) {
+    if (!writePromptFile(stagingId, prompt)) {
         LOG_ERROR("Failed to write prompt file for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write prompt file"};
     }
 
     if (!imagePaths.empty()) {
-        if (!writeImageFiles(jobId, imagePaths)) {
+        if (opts.keep_files && !writeImageFiles(stagingId, imagePaths)) {
             LOG_ERROR("Failed to write image files for: " + jobId);
-            cleanupFailedJob(jobId);
+            cleanupFailedJob(stagingId);
             return {false, "", SubmissionError::IoError, "Failed to write image files"};
         }
-        if (!writeTypeFile(jobId, type)) {
+        if (!writeTypeFile(stagingId, type)) {
             LOG_ERROR("Failed to write type file for: " + jobId);
-            cleanupFailedJob(jobId);
+            cleanupFailedJob(stagingId);
             return {false, "", SubmissionError::IoError, "Failed to write type file"};
         }
     } else if (type != JobType::Text) {
-        if (!writeTypeFile(jobId, type)) {
+        if (!writeTypeFile(stagingId, type)) {
             LOG_ERROR("Failed to write type file for: " + jobId);
-            cleanupFailedJob(jobId);
+            cleanupFailedJob(stagingId);
             return {false, "", SubmissionError::IoError, "Failed to write type file"};
         }
     }
 
-    if (!writeStructuredOutputFiles(jobId, opts)) {
+    if (!writeStructuredOutputFiles(stagingId, opts)) {
         LOG_ERROR("Failed to write structured output files for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write structured output files"};
     }
 
-    if (!writeMetaFile(jobId, type, opts)) {
+    if (!writeMetaFile(stagingId, type, opts, imagePaths)) {
         // Metadata is part of the contract now: tags, lineage, and set
         // collection all read it. A job without meta.json is invisible to
         // --tag/--children, so refuse to publish rather than lose lineage.
         LOG_ERROR("Failed to write meta.json for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write job metadata"};
     }
 
-    if (!atomicPublish(jobId)) {
+    CallerIdLock callerIdLock;
+    if (!opts.id.empty()) {
+        bool existing = false;
+        std::string error;
+        if (!lockCallerIdPublication(workspace_, callerIdLock, error) ||
+            !findCallerId(workspace_, jobId, existing, error)) {
+            cleanupFailedJob(stagingId);
+            return {false, "", SubmissionError::IoError, error};
+        }
+        if (existing) {
+            cleanupFailedJob(stagingId);
+            LOG_INFO("Returning existing job: " + jobId);
+            return {true, jobId, SubmissionError::None, ""};
+        }
+    }
+    if (!atomicPublish(stagingId, jobId)) {
         LOG_ERROR("Failed to publish job: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to publish job"};
     }
 
@@ -232,6 +337,22 @@ SubmitResult Work::submit(const std::string& prompt, JobType type, const std::ve
 }
 
 SubmitResult Work::submitAudio(const std::string& prompt, const std::vector<std::filesystem::path>& audioPaths, const SubmitOptions& opts) {
+    if (!opts.id.empty() && !contract::isValidCallerJobId(opts.id)) {
+        return {false, "", SubmissionError::InvalidContent, "Invalid caller job ID"};
+    }
+    JobId jobId = opts.id.empty() ? generateId() : opts.id;
+    JobId stagingId = opts.id.empty() ? jobId : generateId();
+    if (!opts.id.empty()) {
+        bool existing = false;
+        std::string error;
+        CallerIdLock lock;
+        if (!lockCallerIdPublication(workspace_, lock, error) ||
+            !findCallerId(workspace_, jobId, existing, error)) {
+            return {false, "", SubmissionError::IoError, error};
+        }
+        if (existing) return {true, jobId, SubmissionError::None, ""};
+    }
+
     if (!opts.output_format.empty() || !opts.schema.empty() || !opts.grammar.empty()) {
         return {false, "", SubmissionError::InvalidContent, "Structured output is not supported for audio jobs"};
     }
@@ -253,41 +374,55 @@ SubmitResult Work::submitAudio(const std::string& prompt, const std::vector<std:
         }
     }
 
-    JobId jobId = generateId();
-    LOG_DEBUG("Generated audio job ID: " + jobId);
+    LOG_DEBUG("Using audio job ID: " + jobId);
 
-    if (!createJobDirectory(jobId)) {
+    if (!createJobDirectory(stagingId)) {
         LOG_ERROR("Failed to create job directory for: " + jobId);
         return {false, "", SubmissionError::IoError, "Failed to create job directory"};
     }
 
-    if (!writePromptFile(jobId, prompt)) {
+    if (!writePromptFile(stagingId, prompt)) {
         LOG_ERROR("Failed to write prompt file for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write prompt file"};
     }
 
-    if (!writeAudioFiles(jobId, audioPaths)) {
+    if (opts.keep_files && !writeAudioFiles(stagingId, audioPaths)) {
         LOG_ERROR("Failed to write audio files for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write audio files"};
     }
 
-    if (!writeTypeFile(jobId, JobType::Stt)) {
+    if (!writeTypeFile(stagingId, JobType::Stt)) {
         LOG_ERROR("Failed to write type file for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write type file"};
     }
 
-    if (!writeMetaFile(jobId, JobType::Stt, opts)) {
+    if (!writeMetaFile(stagingId, JobType::Stt, opts, audioPaths)) {
         LOG_ERROR("Failed to write meta.json for: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to write job metadata"};
     }
 
-    if (!atomicPublish(jobId)) {
+    CallerIdLock callerIdLock;
+    if (!opts.id.empty()) {
+        bool existing = false;
+        std::string error;
+        if (!lockCallerIdPublication(workspace_, callerIdLock, error) ||
+            !findCallerId(workspace_, jobId, existing, error)) {
+            cleanupFailedJob(stagingId);
+            return {false, "", SubmissionError::IoError, error};
+        }
+        if (existing) {
+            cleanupFailedJob(stagingId);
+            LOG_INFO("Returning existing job: " + jobId);
+            return {true, jobId, SubmissionError::None, ""};
+        }
+    }
+    if (!atomicPublish(stagingId, jobId)) {
         LOG_ERROR("Failed to publish job: " + jobId);
-        cleanupFailedJob(jobId);
+        cleanupFailedJob(stagingId);
         return {false, "", SubmissionError::IoError, "Failed to publish job"};
     }
 
@@ -340,9 +475,9 @@ bool Work::isValidPrompt(const std::string& prompt) const noexcept {
 
 bool Work::createJobDirectory(const JobId& jobId) const noexcept {
     try {
+        std::filesystem::create_directories(workspace_ / contract::kWritingDir);
         auto jobPath = workspace_ / contract::kWritingDir / jobId;
-        std::filesystem::create_directories(jobPath);
-        return std::filesystem::exists(jobPath) && std::filesystem::is_directory(jobPath);
+        return std::filesystem::create_directory(jobPath);
     } catch (...) {
         return false;
     }
@@ -380,8 +515,7 @@ bool Work::writeImageFiles(const JobId& jobId, const std::vector<std::filesystem
             std::string destFilename = filename.str();
             auto destPath = imagesDir / destFilename;
             std::error_code ec;
-            // Jobs must remain self-contained after submission. Always copy source
-            // images into the staged job directory instead of linking back out.
+            // --keep-files requests a self-contained input snapshot.
             std::filesystem::copy_file(srcPath, destPath, std::filesystem::copy_options::overwrite_existing, ec);
             if (ec) {
                 LOG_ERROR("Failed to write image file: " + srcPath.string());
@@ -413,7 +547,7 @@ bool Work::writeAudioFiles(const JobId& jobId, const std::vector<std::filesystem
             filename << "audio_" << std::setw(6) << std::setfill('0') << idx << ext;
             auto destPath = audioDir / filename.str();
             std::error_code ec;
-            // Jobs must remain self-contained after submission.
+            // --keep-files requests a self-contained input snapshot.
             std::filesystem::copy_file(srcPath, destPath, std::filesystem::copy_options::overwrite_existing, ec);
             if (ec) {
                 LOG_ERROR("Failed to write audio file: " + srcPath.string());
@@ -465,13 +599,21 @@ bool Work::writeStructuredOutputFiles(const JobId& jobId, const SubmitOptions& o
     }
 }
 
-bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& opts) const noexcept {
+bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& opts,
+                         const std::vector<std::filesystem::path>& inputPaths) const noexcept {
     try {
         JobMeta meta;
         meta.submitted_at = formatTimestamp();
         meta.mode = contract::toString(type);
+        meta.reference_inputs = !inputPaths.empty() && !opts.keep_files;
+        if (meta.reference_inputs) {
+            for (const auto& path : inputPaths) {
+                meta.input_paths.push_back(std::filesystem::canonical(path).string());
+            }
+        }
         meta.parent = opts.parent;
         meta.output_format = opts.output_format;
+        meta.keep_files = opts.keep_files;
         for (const auto& tag : opts.tags) {
             if (isValidTag(tag)) {
                 meta.tags.push_back(tag);
@@ -485,9 +627,9 @@ bool Work::writeMetaFile(const JobId& jobId, JobType type, const SubmitOptions& 
     }
 }
 
-bool Work::atomicPublish(const JobId& jobId) const noexcept {
+bool Work::atomicPublish(const JobId& stagingId, const JobId& jobId) const noexcept {
     try {
-        auto writingPath = workspace_ / contract::kWritingDir / jobId;
+        auto writingPath = workspace_ / contract::kWritingDir / stagingId;
         auto readyPath = workspace_ / contract::kReadyDir / jobId;
 
         std::filesystem::rename(writingPath, readyPath);

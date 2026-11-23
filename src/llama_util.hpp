@@ -7,6 +7,7 @@
 #pragma once
 
 #include "llama.h"
+#include <atomic>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -65,8 +66,20 @@ inline float env_float(const char* name, float defv) {
     return defv;
 }
 
+inline std::atomic<int>& auto_gpu_layers() {
+    static std::atomic<int> layers{0};
+    return layers;
+}
+
+inline void set_auto_gpu_layers(int layers) {
+    auto_gpu_layers().store(layers, std::memory_order_relaxed);
+}
+
 inline int effective_gpu_layers() {
-    return env_int("NRVNA_GPU_LAYERS", 0);
+    if (std::getenv("NRVNA_GPU_LAYERS")) {
+        return std::max(0, env_int("NRVNA_GPU_LAYERS", 0));
+    }
+    return auto_gpu_layers().load(std::memory_order_relaxed);
 }
 
 // Filter llama.cpp logs to keep application output clean.
