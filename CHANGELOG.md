@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-11-23)
 
 - Install matching agent and reference guides alongside the commands. Include
   referenced docs and the optional agent skill in release archives.
