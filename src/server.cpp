@@ -164,35 +164,6 @@ RecoveryReport recoverOrphanedJobs(const std::filesystem::path& workspace,
     return report;
 }
 
-namespace {
-void finishInputCleanup(const std::filesystem::path& workspace) noexcept {
-    try {
-        const auto outputDir = workspace / contract::kOutputDir;
-        std::error_code outputError;
-        const auto outputStatus = std::filesystem::symlink_status(outputDir, outputError);
-        if (outputError || std::filesystem::is_symlink(outputStatus) ||
-            !std::filesystem::is_directory(outputStatus)) return;
-        for (const auto& entry : std::filesystem::directory_iterator(outputDir)) {
-            std::error_code statusError;
-            const auto status = entry.symlink_status(statusError);
-            if (statusError || std::filesystem::is_symlink(status) || !std::filesystem::is_directory(status)) continue;
-            const auto meta = readMetaJson(entry.path());
-            if (!meta || !meta->keep_files.has_value() || *meta->keep_files) continue;
-            if (!contract::findOutputArtifact(entry.path())) continue;
-            for (const char* name : {contract::kImagesDir, contract::kAudioInputDir}) {
-                std::error_code ec;
-                std::filesystem::remove_all(entry.path() / name, ec);
-                if (ec) LOG_WARN("Failed to finish input cleanup for " + entry.path().filename().string() + ": " + ec.message());
-            }
-        }
-    } catch (const std::exception& e) {
-        LOG_WARN("Completed-job input cleanup sweep failed: " + std::string(e.what()));
-    } catch (...) {
-        LOG_WARN("Completed-job input cleanup sweep failed");
-    }
-}
-}
-
 Server::Server(const std::string& modelPath, const std::filesystem::path& workspace, int workers,
                const std::string& mmprojPath, const std::string& vocoderPath)
     : modelPath_(modelPath), mmprojPath_(mmprojPath), vocoderPath_(vocoderPath), workspace_(workspace), workers_(workers) {
@@ -225,7 +196,6 @@ bool Server::start() {
     if (!recoverOrphanedJobs()) {
         LOG_WARN("Some orphaned jobs could not be recovered");
     }
-    finishInputCleanup(workspace_);
 
     // Name the main thread
     setThreadName("Main");
