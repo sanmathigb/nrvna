@@ -64,9 +64,18 @@ bool findCallerId(const std::filesystem::path& workspace, const JobId& id,
     for (const auto* state : states) {
         const auto path = workspace / state / id;
         ec.clear();
-        if (std::filesystem::is_directory(path, ec)) {
+        const auto status = std::filesystem::symlink_status(path, ec);
+        if (!ec && std::filesystem::is_symlink(status)) {
+            error = "Caller job ID path is a symlink";
+            return false;
+        }
+        if (!ec && std::filesystem::is_directory(status)) {
             existing = true;
             return true;
+        }
+        if (!ec && std::filesystem::exists(status)) {
+            error = "Caller job ID path is not a job directory";
+            return false;
         }
         if (ec && ec != std::errc::no_such_file_or_directory) {
             error = "Could not inspect caller job ID";

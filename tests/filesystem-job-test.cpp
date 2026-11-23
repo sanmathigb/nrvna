@@ -82,6 +82,15 @@ int main() {
     CHECK(fs::exists(outside / "images/keep.txt"));
     CHECK(fs::exists(outside / "audio/keep.txt"));
 
+    const JobId linkedId = "linked-id";
+    fs::create_directory_symlink(outside, workspace / "output" / linkedId);
+    SubmitOptions linkedOptions;
+    linkedOptions.id = linkedId;
+    const auto linkedJob = work.submit("new work", JobType::Text, {}, linkedOptions);
+    CHECK(!linkedJob.ok);
+    CHECK(!fs::exists(workspace / "input/ready" / linkedId));
+    CHECK(readText(outside / "meta.json") == outsideMeta);
+
     fs::remove_all(root);
     if (failures != 0) return 1;
     std::puts("filesystem-job-test: all checks passed");
