@@ -13,6 +13,7 @@
 #include "nrvna/runner.hpp"
 #include "nrvna/runner_tts.hpp"
 #include "nrvna/logger.hpp"
+#include "worker_threads.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
@@ -243,6 +244,11 @@ bool Server::start() {
     LOG_DEBUG("nrvna Log Level: " + std::string(getenv("NRVNA_LOG_LEVEL") ? getenv("NRVNA_LOG_LEVEL") : "INFO"));
     LOG_DEBUG("llama.cpp Log Level: " + std::string(getenv("LLAMA_LOG_LEVEL") ? getenv("LLAMA_LOG_LEVEL") : "ERROR"));
     LOG_DEBUG("========================================");
+
+    // Report effective concurrency so a user sees what they got and the knob to change it.
+    LOG_INFO("Concurrency: " + std::to_string(workers_) + " worker(s), ~" +
+             std::to_string(detail::threadsPerWorker(std::thread::hardware_concurrency(), workers_)) +
+             " CPU threads each. Set NRVNA_WORKERS to change.");
 
     // Create components
     try {
