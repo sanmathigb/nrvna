@@ -34,7 +34,8 @@ memory. Text and text-embedding contexts divide CPU threads across workers.
 Some modality work is serialized: image and audio media evaluation, and LFM3
 speech generation. More workers may add memory use without speeding up those
 stages. Increase the count only when your workload finishes sooner without
-causing memory pressure.
+causing memory pressure. Counts above the logical CPU thread count can still
+oversubscribe the CPU because each worker gets at least one thread.
 
 `NRVNA_REPACK=0` disables llama.cpp's extra CPU buffer types for CPU model
 loads. It can reduce memory use. It can also change speed. Measure both modes

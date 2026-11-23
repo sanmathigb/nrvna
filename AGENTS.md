@@ -137,10 +137,6 @@ and versioned source. Models are separate downloads; reuse a compatible local mo
 7. Run a drain, or use the existing daemon and a `flw` wait. Collect on completion, not repeated status checks.
 8. Validate the results against the source. Report failed jobs, missing facts, and unsupported claims explicitly.
 
-The published `v0.1.1` uses `nrvnad <model> <workspace>`. This source revision
-uses `nrvnad <workspace> <model>`. Installed help decides which syntax applies.
-New options such as `--id` require binaries built from a revision that supports them.
-
 ## Choose a Model
 
 nrvna uses local GGUF models supported by its bundled llama.cpp revision and
@@ -190,7 +186,8 @@ accepts every job type, but this does
 not mean every type runs inference in parallel. Vision, image-embedding, and
 STT media evaluation is serialized. LFM3 TTS generation is serialized. More
 workers can still add memory use without improving those stages. Measure each
-work type before increasing the count.
+work type before increasing the count. Counts above the CPU thread count can
+still oversubscribe the CPU because each worker gets at least one thread.
 
 The main controls cover concurrency (`NRVNA_WORKERS`), context and output
 limits (`NRVNA_MAX_CTX`, `NRVNA_PREDICT`), prompt processing and memory
@@ -204,6 +201,14 @@ controls. Do not change every setting as a tuning ritual.
 The useful unit is a complete piece of work that can finish without the caller
 staying open. Submit independent pieces together. Waiting belongs at the point
 where another task needs their results.
+
+## Build Goal Workflows
+
+Keep goal rules in caller-owned files. Record the outcome, success measure,
+guardrail measure, review batch, checkpoint, and stop or escalation rules.
+Group jobs so one review lesson can guide later jobs. Save approved feedback in
+a file and include it explicitly in later prompts. The caller owns review,
+metrics, schedules, and stop decisions. nrvna stores jobs and preserves results.
 
 The workspace owns job state. The model process and the calling application
 can stop without deleting that record. A job needs a running daemon to make

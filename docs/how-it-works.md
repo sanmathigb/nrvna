@@ -72,8 +72,8 @@ available and unchanged until jobs finish, including recovery. Use
 
 `nrvnad clean <workspace>` previews copied attachments eligible for removal.
 It does not remove referenced source files. See [AGENTS.md](../AGENTS.md) for
-retention and cleanup rules. These input options are unreleased changes; check
-your installed commands' help before using them.
+retention and cleanup rules. Check installed command help for options in your
+release.
 
 nrvna does not accept video or mixed image-and-audio jobs.
 

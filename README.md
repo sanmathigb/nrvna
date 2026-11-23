@@ -29,9 +29,9 @@ curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-The installer downloads the latest published release. Documentation on `main`
-may describe changes that are not released yet. Check the installed commands'
-`--help` output.
+The installer downloads the latest published release. Use the guides installed
+with those commands. Docs on `main` can describe newer commands. Check `--help`
+before using a command.
 
 The installer does not download a model. Follow [Install](INSTALL.md) for a
 verified example-model download, archive checksums, and source builds.
@@ -41,10 +41,6 @@ The `PATH` change applies to this terminal. Add it to your shell startup file
 for future terminals.
 
 ## Submit now, run later
-
-These examples target the 0.2.0 candidate. Until it is published, the installer
-returns an older release. Use that release's help and tagged documentation, or
-build this revision from source.
 
 Use a new workspace for this example. Submit two independent jobs:
 

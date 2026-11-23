@@ -7,8 +7,12 @@ trap 'rm -rf "$tmp"' EXIT
 
 help="$("$bin_dir/nrvnad" --help)"
 case "$help" in
-    *'https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md'*) ;;
-    *) echo "nrvnad help does not link the configuration reference" >&2; exit 1 ;;
+    *'See the installed CONFIGURATION.md.'*) ;;
+    *) echo "nrvnad help does not point to the installed configuration guide" >&2; exit 1 ;;
+esac
+case "$help" in
+    *'Development reference (may differ from this release)'*)
+        echo "nrvnad help points users to mismatched development docs" >&2; exit 1 ;;
 esac
 case "$help" in
     *'nrvnad <workspace> <model> [options]'*'Each job starts with fresh context.'*) ;;

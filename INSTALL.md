@@ -25,11 +25,10 @@ NRVNA_INSTALL_DIR="$PWD/bin" sh install.sh
 ```
 
 Guides then go under `./share/nrvna`. Read the installed `AGENTS.md` before
-handing work to an agent. Keep all three commands from the same release.
+handing work to an agent.
 
-Check `nrvnad --version` and `nrvnad --help`. The published `v0.1.1` starts with
-`nrvnad <model> <workspace>`; this source revision uses workspace first.
-Use the installed help and matching guides, not examples from a different revision.
+Check `nrvnad --version` and `nrvnad --help`. Keep all three commands and their
+guides from the same release. Use the installed help when command syntax differs.
 
 For a downloaded release archive and checksum in `./releases`, install locally:
 
@@ -38,7 +37,7 @@ NRVNA_RELEASE_BASE_URL="file://$PWD/releases" NRVNA_INSTALL_DIR="$PWD/bin" sh in
 ```
 
 Use the installer and guides from that release. This path also supports testing
-an unpublished candidate without installing an older public release.
+an archive from a local directory.
 
 ## Choose a model for your hardware
 

@@ -15,8 +15,8 @@ directly for precise control; use this skill to invoke it from the conversation.
 Use the model and workspace the user names. Do not choose, download, or install a model.
 
 Read the matching `AGENTS.md` for model calibration, validation, and application
-rules. Check installed `--version` and `--help`; older releases use a different
-daemon argument order. A completed job is not evidence of a correct answer.
+rules. Check installed `--version` and `--help` before using command examples.
+A completed job is not evidence of a correct answer.
 
 ## Invoke
 

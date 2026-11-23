@@ -440,9 +440,7 @@ void printHelp() {
     std::cout << "llama.cpp fits model layers to available GPU memory when supported.\n";
     std::cout << "NRVNA_GPU_LAYERS overrides automatic placement.\n";
     std::cout << "Settings: NRVNA_GPU_LAYERS, NRVNA_WORKERS, NRVNA_MODELS_DIR,\n";
-    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. See the installed CONFIGURATION.md.\n";
-    std::cout << "Development reference (may differ from this release):\n";
-    std::cout << "https://github.com/sanmathigb/nrvna/blob/main/CONFIGURATION.md\n\n";
+    std::cout << "NRVNA_PREDICT, NRVNA_MAX_CTX. See the installed CONFIGURATION.md.\n\n";
     std::cout << "Example:\n";
     std::cout << "  nrvnad ./ws ./models/model.gguf --drain\n";
     std::cout << "Submit job types with wrk. Each job starts with fresh context.\n";
