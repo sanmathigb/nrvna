@@ -33,43 +33,47 @@ The installer downloads the latest published release. Use the guides installed
 with those commands. Docs on `main` can describe newer commands. Check `--help`
 before using a command.
 
-The installer does not download a model. Follow [Install](INSTALL.md) for a
-verified example-model download, archive checksums, and source builds.
-That guide creates `./models/smollm2-1.7b.gguf`, used below.
+The installer does not download a model. Follow [Install](INSTALL.md) to choose
+a model, get an optional checksummed text example, or build from source.
 
 The `PATH` change applies to this terminal. Add it to your shell startup file
 for future terminals.
 
 ## Submit now, run later
 
-Use a new workspace for this example. Submit two independent jobs:
+Put source text in `report.txt`. Use a new workspace for this example. Submit
+the file contents as one job:
 
 ```sh
-wrk ./workspace "Summarize in one sentence: Sales rose 8%. Costs rose 3%." --tag first-run
-wrk ./workspace "Name one risk: Our only supplier has delayed two deliveries." --tag first-run
-flw ./workspace --json
+JOB=$(
+  {
+    printf '%s\n' 'Summarize this report in one sentence:'
+    cat report.txt
+  } | wrk ./workspace -
+)
 ```
 
-Both jobs are queued. No model needed to run during submission. Each `wrk`
-command prints a job ID.
+`wrk` prints a job ID. No model needs to run during submission. The job stays
+in the workspace until a daemon processes it.
 
-Process the queue with your downloaded model:
+Set `MODEL` to a local GGUF that supports your task. Then process the job:
 
 ```sh
-nrvnad ./workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
+MODEL=/path/to/model.gguf
+nrvnad ./workspace "$MODEL" --drain
 ```
 
-`--drain` waits until the queue is idle, then exits. Read the batch results:
+`--drain` waits until the queue is idle, then exits. Save the result as text:
 
 ```sh
-flw ./workspace --tag first-run --json
+flw ./workspace "$JOB" > summary.txt
 ```
 
-The output contains one JSON object per line. To read one result as text,
-replace `JOB_ID` with an ID from submission:
+`summary.txt` is the model output. The workspace keeps the job and its result.
+To inspect job status and metadata, use:
 
 ```sh
-flw ./workspace JOB_ID
+flw ./workspace "$JOB" --json
 ```
 
 A nonzero drain exit means the drain failed. Inspect the workspace with `flw`
@@ -118,9 +122,10 @@ input/ready/ → processing/ → output/
                          └→ failed/
 ```
 
-The workspace holds job state and results. After a process crash, a new daemon
-can recover abandoned work. A recovered job starts again; token generation
-does not resume. Execution is at least once, with a recovery ceiling.
+The workspace holds job state and results. Text, embeddings, transcripts, and
+generated audio remain files under `output/<job-id>/`. After a process crash, a
+new daemon can recover abandoned work. A recovered job starts again; token
+generation does not resume. Execution is at least once, with a recovery ceiling.
 
 Use a separate workspace for each model role. Put prior results in the next
 prompt when needed. `--parent` records lineage; it does not pass context or
