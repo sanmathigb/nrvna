@@ -4,80 +4,30 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built on llama.cpp](https://img.shields.io/badge/built%20on-llama.cpp-orange.svg)](https://github.com/ggml-org/llama.cpp/tree/b1b770d90)
 
-Durable local AI work, built from three commands.
+Local inference through three independent commands.
+
+nrvna separates prompt submission from inference. `wrk` saves work without
+waiting for a model. `nrvnad` processes that work. `flw` reads status and results.
+This separation makes the work asynchronous.
 
 | Command | Purpose |
 | --- | --- |
-| `wrk` | Submit a job and return its ID without waiting for inference. |
-| `nrvnad` | Run queued jobs with a local model. |
-| `flw` | Read job status and results. |
+| `wrk` | Save a job in a workspace and return its ID. |
+| `nrvnad` | Load a local model and process jobs from that workspace. |
+| `flw` | Read job status and saved results. |
 
-Submit work before loading a model, or while a daemon runs. Jobs and results
-stay in a workspace directory after the commands exit. Each job starts with
-fresh context.
+Run each command on its own, like a Unix utility. They share files in a
+workspace directory. Jobs and results remain after the commands exit.
+Each job starts with fresh context.
 
-**Experimental developer preview.** nrvna runs on macOS and Linux. It does
-not claim production readiness.
+Keep a daemon running to process incoming jobs, or use `--drain` to process
+the queue and exit. Submission works in either mode, or without a daemon.
 
-## Install
-
-Install the prebuilt commands for macOS Apple Silicon, macOS Intel, or Linux
-x86-64:
-
-```sh
-curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-The installer downloads the latest published release. Use the guides installed
-with those commands. Docs on `main` can describe newer commands. Check `--help`
-before using a command.
-
-The installer does not download a model. Follow [Install](INSTALL.md) to choose
-a model, get an optional checksummed text example, or build from source.
-
-The `PATH` change applies to this terminal. Add it to your shell startup file
-for future terminals.
-
-## Submit now, run later
-
-Put source text in `report.txt`. Use a new workspace for this example. Submit
-the file contents as one job:
-
-```sh
-JOB=$(
-  {
-    printf '%s\n' 'Summarize this report in one sentence:'
-    cat report.txt
-  } | wrk ./workspace -
-)
-```
-
-`wrk` prints a job ID. No model needs to run during submission. The job stays
-in the workspace until a daemon processes it.
-
-Set `MODEL` to a local GGUF that supports your task. Then process the job:
-
-```sh
-MODEL=/path/to/model.gguf
-nrvnad ./workspace "$MODEL" --drain
-```
-
-`--drain` waits until the queue is idle, then exits. Save the result as text:
-
-```sh
-flw ./workspace "$JOB" > summary.txt
-```
-
-`summary.txt` is the model output. The workspace keeps the job and its result.
-To inspect job status and metadata, use:
-
-```sh
-flw ./workspace "$JOB" --json
-```
-
-A nonzero drain exit means the drain failed. Inspect the workspace with `flw`
-before continuing. Model output needs review before you rely on it.
+**Experimental developer preview.** nrvna runs on macOS and Linux, and it is not
+production-ready. The primitives are small and the design is settled, but it is
+lightly exercised. It needs more users, more machines, more models, more use
+cases, and far more jobs actually run. Try it, report what breaks, and check its
+output before you rely on it.
 
 ## Give it to your agent
 
@@ -103,16 +53,78 @@ The installer prints its location for custom installations.
 Agents can also use the optional [nrvna skill](skills/nrvna/SKILL.md).
 Applications use the same commands and durable file contract.
 
-## Examples
+## Install
 
-[Three examples](ADVANCED.md) show how to:
+Install the prebuilt commands for macOS Apple Silicon, macOS Intel, or Linux
+x86-64:
 
-- Submit a batch before loading the model.
-- Submit to a running daemon and collect results later.
-- Pass a completed result into a new job.
+```sh
+curl -fsSL https://github.com/sanmathigb/nrvna/raw/main/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
 
-Text, images, embeddings, transcription, and speech generation use the same
-job lifecycle. Each needs a compatible model. See [work types](docs/how-it-works.md#work-types)
+The installer downloads the latest published release. Use the guides installed
+with those commands. Docs on `main` can describe newer commands. Check `--help`
+before using a command.
+
+The installer does not download a model. Follow [Install](INSTALL.md) to choose
+a model, get an optional checksummed text example, or build from source.
+
+The `PATH` change applies to this terminal. Add it to your shell startup file
+for future terminals.
+
+## Use the three commands
+
+```sh
+wrk <workspace> "<prompt>"      # save a job, print its ID (no model needed)
+nrvnad <workspace> <model>      # process the workspace (--drain exits when idle)
+flw <workspace> <job>           # read status and result
+```
+
+That is the whole interface: submit, process, read. A job is a file in the
+workspace, so it waits there until a model runs it.
+
+A runnable example - read the text out of a screenshot:
+
+```sh
+job=$(wrk ./ws "Transcribe the text." --image screenshot.png)
+nrvnad ./ws vision-model.gguf --drain
+flw ./ws "$job"
+```
+
+The work type is a flag on `wrk`:
+
+| Flag | Work | Result |
+| --- | --- | --- |
+| *(prompt only)* | text | `result.txt` |
+| `--image <file>` | vision | `result.txt` |
+| `--audio <file> --stt` | transcription | `transcript.txt` |
+| `--tts` | speech | `audio.wav` |
+| `--embed` | embedding, for search | `embedding.json` |
+
+Submit one job or a thousand. Each result is a durable file. Stop if submission
+or inference fails, and check model output against its source before you use it.
+
+## How it's used
+
+Pick a mode for the work:
+
+- **Drain** - run a batch and exit. Best for bounded jobs, swapping models, and
+  tight hardware. `nrvnad ./ws model.gguf --drain`
+- **Service** - keep a model loaded for repeated, low-latency work.
+  `nrvnad ./ws model.gguf`. Submit from any terminal, a script, or your phone
+  over Tailscale. nrvna exposes no port, so the only remote path is your own SSH.
+
+Because it is CLI commands over a file contract, anything that runs a command or
+reads a file can build on it, in any language, with no SDK or API:
+
+- **Apps** - wrap the commands in a product. The app owns the experience; nrvna
+  owns the durable work.
+- **Workflows and recipes** - a script, a cron job, or a Makefile that composes
+  `wrk`, `nrvnad`, and `flw` into a repeatable pipeline.
+- **Agents** - hand an agent [AGENTS.md](AGENTS.md); it uses the commands directly.
+
+See [composition examples](ADVANCED.md), [work types](docs/how-it-works.md#work-types),
 and [model settings](INSTALL.md#use-model-specific-settings).
 
 ## The contract
@@ -136,8 +148,8 @@ and result validation. nrvna provides independent durable inference jobs.
 
 ## Why
 
-I wanted to submit work, leave, and read the results later. The lifetime of
-the work should not be tied to the runtime of a model.
+Prompt submission should not depend on inference. Work should remain available
+when the caller exits or the model stops. Files provide that shared record.
 
 - [Asynchronous. Inference. Primitives.](https://sanmathigb.com/asynchronous-inference-primitives/)
 - [GAI before AGI?](https://sanmathigb.com/generallyavailableintelligence/)
