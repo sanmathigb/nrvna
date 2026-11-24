@@ -188,19 +188,19 @@ retrieval. Everything else is the caller's: input discovery, document parsing,
 prompts, model choice, order between jobs, search, review, and any external action.
 An application builds on the same commands and the same files.
 
-Chain work by passing one result into the next prompt. Keep the evidence explicit:
+Chain work by reading one result and putting it in the next prompt. Keep the
+evidence explicit:
 
 ```bash
 PARENT=$(wrk "$WS" "Extract the facts: Sales rose 8%. Costs rose 3%.")
 nrvnad "$WS" "$MODEL" --drain
-flw "$WS" "$PARENT" > facts.txt
-{ echo "Name one unanswered question about these facts:"; cat facts.txt; } \
-  | wrk "$WS" - --parent "$PARENT" --tag followup
+FACTS=$(flw "$WS" "$PARENT")
+wrk "$WS" "Name one unanswered question about these facts: $FACTS" --parent "$PARENT" --tag followup
 nrvnad "$WS" "$MODEL" --drain
 flw "$WS" --tag followup --json
 ```
 
-Check `facts.txt` against the source before you submit the next stage. For a
+Read the parent result, check it against the source, then submit the next stage. For a
 goal-driven workflow, keep the goal, the success measure, the guardrail, and the
 stop rule in your own files. Group jobs so one review can guide the next batch, and
 save approved feedback to include in later prompts. nrvna stores the jobs. You own
