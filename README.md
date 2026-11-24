@@ -99,23 +99,29 @@ The work type is a flag on `wrk`:
 | `--tts` | speech | `audio.wav` |
 | `--embed` | embedding, for search | `embedding.json` |
 
-Submit one job or a thousand. `--drain` clears a batch and exits; or leave a
-daemon running (`nrvnad ./ws model.gguf`) and fire jobs at it from any terminal,
-a script, or your phone over Tailscale. Either way, each result is a durable file.
+Submit one job or a thousand. Each result is a durable file. Stop if submission
+or inference fails, and check model output against its source before you use it.
 
-Stop if submission or inference fails, and check model output against its source
-before you use it.
+## How it's used
 
-## Examples
+Pick a mode for the work:
 
-[Three examples](ADVANCED.md) show how to:
+- **Drain** - run a batch and exit. Best for bounded jobs, swapping models, and
+  tight hardware. `nrvnad ./ws model.gguf --drain`
+- **Service** - keep a model loaded for repeated, low-latency work.
+  `nrvnad ./ws model.gguf`. Submit from any terminal, a script, or your phone
+  over Tailscale. nrvna exposes no port, so the only remote path is your own SSH.
 
-- Submit a batch before loading the model.
-- Submit to a running daemon and collect results later.
-- Pass a completed result into a new job.
+Because it is CLI commands over a file contract, anything that runs a command or
+reads a file can build on it, in any language, with no SDK or API:
 
-Text, images, embeddings, transcription, and speech generation use the same
-job lifecycle. Each needs a compatible model. See [work types](docs/how-it-works.md#work-types)
+- **Apps** - wrap the commands in a product. The app owns the experience; nrvna
+  owns the durable work.
+- **Workflows and recipes** - a script, a cron job, or a Makefile that composes
+  `wrk`, `nrvnad`, and `flw` into a repeatable pipeline.
+- **Agents** - hand an agent [AGENTS.md](AGENTS.md); it uses the commands directly.
+
+See [composition examples](ADVANCED.md), [work types](docs/how-it-works.md#work-types),
 and [model settings](INSTALL.md#use-model-specific-settings).
 
 ## The contract
