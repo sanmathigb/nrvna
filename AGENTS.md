@@ -34,15 +34,11 @@ commands. Each job needs a compatible model and complete input evidence.
 - **Work survives process exits.** The next daemon recovers interrupted jobs.
   Recovery restarts inference. It does not resume tokens. Execution is at least once.
 - **Each job has fresh context.** Put instructions and evidence in every prompt.
-  Pass selected results into later jobs. Parents record lineage only.
+  Pass selected results into later jobs.
 - **Models have separate roles.** Use one workspace per role. Drain roles in
   sequence when their models do not fit in memory together.
 - **Callers compose the work.** Use files, pipes, JSON, and exit codes. Keep
   product policy outside the primitives.
-
-A persistent daemon reduces repeated model loads. It still accepts independent
-asynchronous jobs. A user interface can show progress without holding submission
-open. Do not make a request, chat session, or frontend process own job durability.
 
 ## Use the Files
 
@@ -78,10 +74,10 @@ contract. Add an index only for a measured need. State its source and its rebuil
 rule. Keep application behavior outside the core.
 
 Build applications around independent jobs and saved results. A persistent daemon
-is still asynchronous. Submission does not wait for inference. nrvna does not
-stream generated tokens or guarantee response times. Use another interface when
-the task needs those features. Keep application transactions and external actions
-in the caller.
+is still asynchronous. nrvna does not stream generated tokens or guarantee
+response times. Use another interface when the task needs those features. Keep
+application transactions and external actions in the caller. Do not make a
+request, chat session, or frontend process own job durability.
 
 ## Install From This Guide
 
