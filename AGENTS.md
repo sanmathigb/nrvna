@@ -169,10 +169,11 @@ only after you measure the workload on that machine. Workers share the loaded
 model, but each active job needs its own context memory, and the default does not
 adapt to hardware.
 
-More workers help text and text-embedding jobs. They do not help vision,
-image-embedding, transcription, or speech generation, because those evaluate media
-one job at a time. Extra workers there only add memory use. A worker count above
-the CPU thread count oversubscribes the CPU.
+Text and text-embedding jobs can run in parallel across workers. Vision,
+image-embedding, transcription, and speech generation evaluate media one job at a
+time, so extra workers there only add memory use. Whether more workers help the
+parallel jobs depends on the machine, so measure before you raise the count. A
+worker count above the CPU thread count oversubscribes the CPU.
 
 The settings you will use most are `NRVNA_WORKERS`, `NRVNA_MAX_CTX`,
 `NRVNA_PREDICT`, `NRVNA_BATCH`, `NRVNA_UBATCH`, the sampling values (`NRVNA_TEMP`,
