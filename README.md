@@ -72,49 +72,39 @@ for future terminals.
 
 ## Use the three commands
 
-Use a new workspace. Submit two independent jobs:
-
 ```sh
-wrk ./workspace "Summarize: Sales rose 8%. Costs rose 3%." --tag first-run
-wrk ./workspace "Extract the deadline: Send the draft by Friday." --tag first-run
-flw ./workspace --json
+wrk <workspace> "<prompt>"      # save a job, print its ID (no model needed)
+nrvnad <workspace> <model>      # process the workspace (--drain exits when idle)
+flw <workspace> <job>           # read status and result
 ```
 
-Each submission prints a job ID. Both jobs are queued. No model is loaded.
-The prompts include the source text, so no input file is needed.
+That is the whole interface: submit, process, read. A job is a file in the
+workspace, so it waits there until a model runs it.
 
-Check daemon status before starting inference:
-
-```sh
-nrvnad status ./workspace --json
-```
-
-For a new workspace, status reports not running and exits with code `1`.
-Replace `/path/to/model.gguf` below with a compatible local text model.
-Process the queue and exit:
+A runnable example - read the text out of a screenshot:
 
 ```sh
-nrvnad ./workspace /path/to/model.gguf --drain
+job=$(wrk ./ws "Transcribe the text." --image screenshot.png)
+nrvnad ./ws vision-model.gguf --drain
+flw ./ws "$job"
 ```
 
-Read both results as one JSON object per line:
+The work type is a flag on `wrk`:
 
-```sh
-flw ./workspace --tag first-run --json
-```
+| Flag | Work | Result |
+| --- | --- | --- |
+| *(prompt only)* | text | `result.txt` |
+| `--image <file>` | vision | `result.txt` |
+| `--audio <file> --stt` | transcription | `transcript.txt` |
+| `--tts` | speech | `audio.wav` |
+| `--embed` | embedding, for search | `embedding.json` |
 
-To save one result as text, replace `JOB_ID` with its submission ID:
+Submit one job or a thousand. `--drain` clears a batch and exits; or leave a
+daemon running (`nrvnad ./ws model.gguf`) and fire jobs at it from any terminal,
+a script, or your phone over Tailscale. Either way, each result is a durable file.
 
-```sh
-flw ./workspace JOB_ID > result.txt
-```
-
-For ongoing work, omit `--drain`. Keep that daemon running in one terminal.
-Use `wrk` and `flw` from another terminal. Submission still returns without
-waiting for inference. See [the persistent-daemon example](ADVANCED.md#submit-to-a-running-daemon-and-collect-later).
-
-Stop if submission or inference fails. Inspect the workspace with `flw`.
-Check model output against its source before using it.
+Stop if submission or inference fails, and check model output against its source
+before you use it.
 
 ## Examples
 
