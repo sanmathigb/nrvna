@@ -23,8 +23,11 @@ Each job starts with fresh context.
 Keep a daemon running to process incoming jobs, or use `--drain` to process
 the queue and exit. Submission works in either mode, or without a daemon.
 
-**Experimental developer preview.** nrvna runs on macOS and Linux. It does
-not claim production readiness.
+**Experimental developer preview.** nrvna runs on macOS and Linux, and it is not
+production-ready. The primitives are small and the design is settled, but it is
+lightly exercised. It needs more users, more machines, more models, more use
+cases, and far more jobs actually run. Try it, report what breaks, and check its
+output before you rely on it.
 
 ## Give it to your agent
 
