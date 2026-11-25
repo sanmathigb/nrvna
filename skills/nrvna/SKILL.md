@@ -40,7 +40,7 @@ Pass the prompt, model, and workspace in either form:
 Example:
 
 ```text
-$nrvna --model ~/models/qwen-coder.gguf --workspace ~/nrvna/code-review "Find every unchecked error path in these files."
+$nrvna --model ~/models/your-model.gguf --workspace ~/nrvna/code-review "Find every unchecked error path in these files."
 ```
 
 Ask for any missing model or workspace.

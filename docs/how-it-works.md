@@ -26,7 +26,7 @@ the next prompt. `--parent` records lineage only.
 bounded batch. The command exits when the queue becomes idle.
 
 ```sh
-nrvnad ./writing ./models/smollm2-1.7b.gguf --drain
+nrvnad ./writing ./models/your-model.gguf --drain
 ```
 
 For repeated work, run one daemon for the workspace. Check its state with

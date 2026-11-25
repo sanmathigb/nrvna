@@ -68,7 +68,7 @@ with those commands. Docs on `main` can describe newer commands. Check `--help`
 before using a command.
 
 The installer does not download a model. Follow [Install](INSTALL.md) to choose
-a model, get an optional checksummed text example, or build from source.
+a model or build from source.
 
 The `PATH` change applies to this terminal. Add it to your shell startup file
 for future terminals.

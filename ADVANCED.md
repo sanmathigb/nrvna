@@ -1,7 +1,7 @@
 # Examples
 
-These examples use the three commands directly. Install nrvna and download the
-example model from [INSTALL.md](INSTALL.md) first. Run commands from the folder
+These examples use the three commands directly. Install nrvna and get a compatible
+model (see [INSTALL.md](INSTALL.md)) first. Run commands from the folder
 that contains `models/`. Use a new workspace for each example.
 
 Stop if submission or a drain fails. Inspect the workspace with `flw` before
@@ -20,7 +20,7 @@ flw ./batch-workspace --json
 Both jobs are queued. Submission does not require a running model.
 
 ```sh
-nrvnad ./batch-workspace ./models/smollm2-1.7b.gguf --drain
+nrvnad ./batch-workspace ./models/your-model.gguf --drain
 flw ./batch-workspace --tag triage --json
 ```
 
@@ -39,7 +39,7 @@ Start a daemon only if status reports that none is running. Exit code `1`
 means not running; `0` means ready; `2` means starting.
 
 ```sh
-nrvnad ./live-workspace ./models/smollm2-1.7b.gguf
+nrvnad ./live-workspace ./models/your-model.gguf
 ```
 
 Leave that terminal open. In another terminal, submit work as it arrives:
@@ -70,7 +70,7 @@ Submit an extraction job and save its ID:
 
 ```sh
 first=$(wrk ./followup-workspace "List the action items with owners: Priya ships the docs Wednesday; Raj migrates billing; the designer role is unassigned.")
-nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --drain
+nrvnad ./followup-workspace ./models/your-model.gguf --drain
 items=$(flw ./followup-workspace "$first")
 ```
 
@@ -84,7 +84,7 @@ wrk ./followup-workspace "Which of these action items has no owner? $items" --pa
 That job is queued independently. Process it when ready:
 
 ```sh
-nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --drain
+nrvnad ./followup-workspace ./models/your-model.gguf --drain
 flw ./followup-workspace --tag followup --json
 ```
 

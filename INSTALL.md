@@ -39,6 +39,20 @@ NRVNA_RELEASE_BASE_URL="file://$PWD/releases" NRVNA_INSTALL_DIR="$PWD/bin" sh in
 Use the installer and guides from that release. This path also supports testing
 an archive from a local directory.
 
+## Verify the commands
+
+You can verify the commands without a model. Submission does not need one.
+
+```sh
+wrk ./check "Test prompt."
+flw ./check
+nrvnad status ./check
+```
+
+`wrk` prints a job ID and returns at once. `flw` shows the job queued, and
+`nrvnad status` exits `1` because no daemon runs yet. This confirms the three
+commands work. Processing the job needs a model, which you choose next.
+
 ## Choose a model for your hardware
 
 Add your hardware to your Hugging Face profile. Model pages can then estimate
@@ -57,26 +71,6 @@ their local paths to `nrvnad`. llama.cpp estimates GPU placement from available
 memory when the build supports a GPU backend. The estimate is not a speed test.
 Set `NRVNA_GPU_LAYERS=0` to force CPU placement. This release runs TTS models
 and vocoders on the CPU.
-
-## Get a GGUF model
-
-nrvna runs local GGUF models supported by its llama.cpp build. Use a compatible
-GGUF that you already have, or download this checksummed text-model example.
-It is for a first run, not a recommendation for every machine or work type.
-nrvna does not download models by name or use Hugging Face model IDs directly.
-
-The example is SmolLM2 1.7B Q4_K_M. The download is about 1 GB. The model uses
-the Apache-2.0 license. It is an example, not a limit.
-
-```bash
-mkdir -p models
-curl -fL --continue-at - -o models/smollm2-1.7b.gguf \
-  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/2d4a76a30b4af41ecd395c35725ac11688d4cfe4/smollm2-1.7b-instruct-q4_k_m.gguf
-
-echo "decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33  models/smollm2-1.7b.gguf" | shasum -a 256 -c -
-```
-
-On Linux, replace `shasum -a 256 -c -` with `sha256sum -c -`.
 
 ## Use model-specific settings
 
@@ -111,13 +105,12 @@ Before a larger run:
 4. Check output truncation, missing facts, and invented claims separately from job status and JSON validity.
 5. Change one setting or prompt choice at a time. Check the change on fresh inputs.
 
-For example, the [SmolLM2 model card](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct)
-shows temperature `0.2` and top-p `0.9` for sampled generation. These settings
-are specific to that model. They do not guarantee extraction quality. Set
-supported overrides on the daemon command, not on `wrk`:
+For example, a model card may show temperature `0.2` and top-p `0.9` for sampled
+generation. Such values are specific to that model and do not guarantee
+extraction quality. Set supported overrides on the daemon command, not on `wrk`:
 
 ```sh
-NRVNA_TEMP=0.2 NRVNA_TOP_P=0.9 nrvnad ./workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
+NRVNA_TEMP=0.2 NRVNA_TOP_P=0.9 nrvnad ./workspace ./models/your-model.gguf --workers 1 --drain
 ```
 
 Check daemon status first. Settings take effect when that daemon starts; they
@@ -138,7 +131,7 @@ reserve the full context for every job.
 
 ```bash
 wrk ./workspace "Reply with exactly: first"
-nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+nrvnad ./workspace ./models/your-model.gguf --drain
 flw ./workspace JOB_ID
 ```
 
@@ -152,7 +145,7 @@ Use drain mode for a bounded batch. It loads the model, processes queued jobs,
 then exits:
 
 ```bash
-nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+nrvnad ./workspace ./models/your-model.gguf --drain
 ```
 
 Use a persistent daemon when you expect repeated work. Check the workspace
@@ -160,7 +153,7 @@ first. Start one daemon only when status reports that none is running:
 
 ```bash
 nrvnad status ./workspace
-nrvnad ./workspace ./models/smollm2-1.7b.gguf
+nrvnad ./workspace ./models/your-model.gguf
 ```
 
 Keep the daemon terminal open. In another terminal, submit work and copy the
@@ -204,7 +197,7 @@ Then repeat the CMake commands. Source builds put the commands under `./build`:
 
 ```bash
 ./build/wrk ./workspace "Reply with exactly: first"
-./build/nrvnad ./workspace ./models/smollm2-1.7b.gguf --drain
+./build/nrvnad ./workspace ./models/your-model.gguf --drain
 ./build/flw ./workspace JOB_ID
 ```
 
