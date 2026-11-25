@@ -88,7 +88,7 @@ A runnable example - read the text out of a screenshot:
 
 ```sh
 job=$(wrk ./ws "Transcribe the text." --image screenshot.png)
-nrvnad ./ws vision-model.gguf --drain
+nrvnad ./ws vision-model.gguf --mmproj mmproj.gguf --drain
 flw ./ws "$job"
 ```
 
