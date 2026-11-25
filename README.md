@@ -98,7 +98,7 @@ The work type is a flag on `wrk`:
 | --- | --- | --- |
 | *(prompt only)* | text | `result.txt` |
 | `--image <file>` | vision | `result.txt` |
-| `--audio <file> --stt` | transcription | `transcript.txt` |
+| `--audio <file>` | transcription | `transcript.txt` |
 | `--tts` | speech | `audio.wav` |
 | `--embed` | embedding, for search | `embedding.json` |
 
