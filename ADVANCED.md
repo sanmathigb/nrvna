@@ -9,19 +9,19 @@ continuing. Generated answers vary; check their content before using them.
 
 ## Submit a batch before loading the model
 
-Submit two requests about the same report. Each receives its own evidence:
+Submit two independent triage jobs. Each carries its own text:
 
 ```sh
-wrk ./batch-workspace "Summarize: Sales rose 8%. Costs rose 3%." --tag report
-wrk ./batch-workspace "Name one unanswered question: Sales rose 8%. Costs rose 3%." --tag report
+wrk ./batch-workspace "Label as bug, billing, or account: I was charged twice this month." --tag triage
+wrk ./batch-workspace "Label as bug, billing, or account: The app crashes on launch." --tag triage
 flw ./batch-workspace --json
 ```
 
 Both jobs are queued. Submission does not require a running model.
 
 ```sh
-nrvnad ./batch-workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
-flw ./batch-workspace --tag report --json
+nrvnad ./batch-workspace ./models/smollm2-1.7b.gguf --drain
+flw ./batch-workspace --tag triage --json
 ```
 
 The daemon loads once, processes both jobs, then exits. Collection emits one
@@ -39,22 +39,22 @@ Start a daemon only if status reports that none is running. Exit code `1`
 means not running; `0` means ready; `2` means starting.
 
 ```sh
-nrvnad ./live-workspace ./models/smollm2-1.7b.gguf --workers 1
+nrvnad ./live-workspace ./models/smollm2-1.7b.gguf
 ```
 
-Leave that terminal open. In another terminal, submit work:
+Leave that terminal open. In another terminal, submit work as it arrives:
 
 ```sh
-wrk ./live-workspace "Extract the deadline: Please send the draft by Friday." --tag deadlines
-wrk ./live-workspace "Extract the deadline: Review comments are due Monday." --tag deadlines
+wrk ./live-workspace "Label as urgent or routine: the production database is down." --tag triage
+wrk ./live-workspace "Label as urgent or routine: update the footer copyright year." --tag triage
 ```
 
 Each submission returns immediately after publishing its job. Continue other
 work. When you need both results, wait for the tagged batch, then collect it:
 
 ```sh
-flw ./live-workspace -W --tag deadlines
-flw ./live-workspace --tag deadlines --json
+flw ./live-workspace -W --tag triage
+flw ./live-workspace --tag triage --json
 ```
 
 The batch wait prints no results. Collection reports results and failures.
@@ -66,31 +66,31 @@ nrvnad stop ./live-workspace
 
 ## Use a completed result in another job
 
-Submit a fact extraction job and save its ID:
+Submit an extraction job and save its ID:
 
 ```sh
-first=$(wrk ./followup-workspace "Extract the facts: Sales rose 8%. Costs rose 3%.")
-nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
-flw ./followup-workspace "$first" > facts.txt
+first=$(wrk ./followup-workspace "List the action items with owners: Priya ships the docs Wednesday; Raj migrates billing; the designer role is unassigned.")
+nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --drain
+items=$(flw ./followup-workspace "$first")
 ```
 
-Continue only if retrieval succeeded. Read `facts.txt` and check it against the
-original evidence. Then submit the next job with those facts:
+Continue only if retrieval succeeded. Check the result against the original
+note. Then submit the next job with those items in the prompt:
 
 ```sh
-{ printf '%s\n' 'Name one unanswered question about these facts:'; cat facts.txt; } | wrk ./followup-workspace - --parent "$first" --tag followup
+wrk ./followup-workspace "Which of these action items has no owner? $items" --parent "$first" --tag followup
 ```
 
 That job is queued independently. Process it when ready:
 
 ```sh
-nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --workers 1 --drain
+nrvnad ./followup-workspace ./models/smollm2-1.7b.gguf --drain
 flw ./followup-workspace --tag followup --json
 ```
 
-The pipe supplies context. `--parent` records lineage only. It neither reads
-the earlier result nor waits for it. A file path in a prompt does not read the
-file; pipe its contents to `wrk` as shown above.
+The prompt includes the earlier result. `--parent` records lineage only. It
+neither reads the earlier result nor waits for it. A file path in a prompt does
+not read the file; include the text you need, as shown.
 
 An application can use the same sequence. It owns the dependency between stages
 and must check each stage before submitting the next one. The job files remain

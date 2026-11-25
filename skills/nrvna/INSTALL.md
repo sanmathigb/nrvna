@@ -19,7 +19,7 @@ Mac. You do not need a model to install the skill or engine.
 | --- | --- | --- |
 | `npx skills add` | Skill folder and installer package | nrvna commands or models |
 | nrvna installer | Mac release archive and checksum; installs three commands | GGUF models |
-| You provide | Nothing if you already have a compatible GGUF | — |
+| You provide | Nothing if you already have a compatible GGUF | None |
 
 ## 1. Install the skill for your agents
 

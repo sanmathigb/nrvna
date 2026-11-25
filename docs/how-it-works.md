@@ -12,8 +12,8 @@ needed. A model process can stop without deleting workspace data.
 submitting as new work arrives. You can submit jobs before starting a model.
 
 ```sh
-wrk ./writing "Write a short essay about neighborhood repair shops."
-{ printf '%s\n' 'Summarize this meeting transcript in ten bullets:'; cat meeting.txt; } | wrk ./writing -
+wrk ./writing "List the action items: Priya ships the docs Wednesday and Raj migrates billing."
+wrk ./writing - < notes.txt
 ```
 
 Each job starts with fresh context. nrvna does not add earlier jobs to a later

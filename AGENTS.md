@@ -82,8 +82,8 @@ The next section helps you choose one.
 ```bash
 WS=/tmp/nrvna-first
 MODEL=/path/to/model.gguf
-wrk "$WS" "Summarize: Sales rose 8%. Costs rose 3%." --tag first
-wrk "$WS" "Extract the deadline: Send the draft by Friday." --tag first
+wrk "$WS" "Label as bug, billing, or account: I was charged twice this month." --tag first
+wrk "$WS" "Label as bug, billing, or account: The export button does nothing." --tag first
 flw "$WS" --json
 nrvnad status "$WS" --json
 nrvnad "$WS" "$MODEL" --drain
@@ -192,10 +192,10 @@ Chain work by reading one result and putting it in the next prompt. Keep the
 evidence explicit:
 
 ```bash
-PARENT=$(wrk "$WS" "Extract the facts: Sales rose 8%. Costs rose 3%.")
+PARENT=$(wrk "$WS" "List the action items with owners: Priya ships the docs Wednesday; Raj migrates billing; the designer role is unassigned.")
 nrvnad "$WS" "$MODEL" --drain
 FACTS=$(flw "$WS" "$PARENT")
-wrk "$WS" "Name one unanswered question about these facts: $FACTS" --parent "$PARENT" --tag followup
+wrk "$WS" "Which of these action items has no owner? $FACTS" --parent "$PARENT" --tag followup
 nrvnad "$WS" "$MODEL" --drain
 flw "$WS" --tag followup --json
 ```
