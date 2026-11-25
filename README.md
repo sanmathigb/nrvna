@@ -124,6 +124,9 @@ reads a file can build on it, in any language, with no SDK or API:
   `wrk`, `nrvnad`, and `flw` into a repeatable pipeline.
 - **Agents** - hand an agent [AGENTS.md](AGENTS.md); it uses the commands directly.
 
+This release ships the primitives. Apps built on nrvna ship and are announced
+separately; anyone can build one on the same three commands.
+
 See [composition examples](ADVANCED.md), [work types](docs/how-it-works.md#work-types),
 and [model settings](INSTALL.md#use-model-specific-settings).
 

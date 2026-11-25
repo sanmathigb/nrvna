@@ -186,7 +186,8 @@ not as a ritual.
 nrvna owns submission, job identity, state changes, inference, crash recovery, and
 retrieval. Everything else is the caller's: input discovery, document parsing,
 prompts, model choice, order between jobs, search, review, and any external action.
-An application builds on the same commands and the same files.
+An application builds on the same commands and the same files. This release ships
+the primitives; apps that use nrvna ship and are announced separately.
 
 Chain work by reading one result and putting it in the next prompt. Keep the
 evidence explicit:

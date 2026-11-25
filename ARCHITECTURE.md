@@ -156,10 +156,10 @@ Run `bash tests/backend-smoke.sh` with existing models to check text, structured
 JSON, and embeddings. Supply a vision model and projector to also check image
 input. The script retains temporary artifacts and downloads nothing.
 
-The October 29, 2026 local check passed all ten CTest cases and the backend smoke
-checks for text, constrained JSON, and embeddings on Intel macOS. It used
-SmolLM2 and nomic-embed. Speech, vision, TTS, GPU inference, and Linux were not
-runtime-tested in this check.
+The CTest suite and `tests/backend-smoke.sh` cover text, constrained JSON, and
+embeddings; run them to verify a build. Speech, vision, TTS, GPU inference, and
+Linux have no automated runtime check, so validate those paths on your own
+hardware.
 
 ### Text/Vision (Runner)
 
