@@ -10,6 +10,7 @@ continue between jobs. `--parent` records lineage only.
 ## Start
 
 - [README](https://raw.githubusercontent.com/sanmathigb/nrvna/main/README.md)
+- [Why nrvna](https://raw.githubusercontent.com/sanmathigb/nrvna/main/docs/why.md)
 - [Install](https://raw.githubusercontent.com/sanmathigb/nrvna/main/INSTALL.md)
 - [Agent guide](https://raw.githubusercontent.com/sanmathigb/nrvna/main/AGENTS.md)
 - [Agent skill](https://raw.githubusercontent.com/sanmathigb/nrvna/main/skills/nrvna/SKILL.md)
