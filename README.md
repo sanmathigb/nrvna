@@ -81,10 +81,11 @@ nrvnad <workspace> <model>      # process the workspace (--drain exits when idle
 flw <workspace> <job>           # read status and result
 ```
 
-That is the whole interface: submit, process, read. A job is a file in the
+That is the whole interface: submit, process, read. A job is a directory in the
 workspace, so it waits there until a model runs it.
 
-A runnable example - read the text out of a screenshot:
+An example that reads text from a screenshot. It needs the screenshot, a vision
+model, and its matching projector; check daemon status before you drain:
 
 ```sh
 job=$(wrk ./ws "Transcribe the text." --image screenshot.png)

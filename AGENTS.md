@@ -102,9 +102,12 @@ low-latency work, start a daemon and leave it running:
 nrvnad "$WS" "$MODEL"
 ```
 
-Submit and collect from another terminal, then stop the daemon when done:
+Submit and collect from another terminal. Shell variables do not carry to a new
+terminal, so set the workspace path again before you submit. Stop the daemon when
+done:
 
 ```bash
+WS=/tmp/nrvna-first
 JOB=$(wrk "$WS" "task")
 flw "$WS" -w "$JOB"
 nrvnad stop "$WS"
@@ -196,13 +199,18 @@ evidence explicit:
 PARENT=$(wrk "$WS" "List the action items with owners: Priya ships the docs Wednesday; Raj migrates billing; the designer role is unassigned.")
 nrvnad "$WS" "$MODEL" --drain
 FACTS=$(flw "$WS" "$PARENT")
+```
+
+Read the parent result and check it against the source before you continue. Then
+submit the next stage with the facts in the prompt:
+
+```bash
 wrk "$WS" "Which of these action items has no owner? $FACTS" --parent "$PARENT" --tag followup
 nrvnad "$WS" "$MODEL" --drain
 flw "$WS" --tag followup --json
 ```
 
-Read the parent result, check it against the source, then submit the next stage. For a
-goal-driven workflow, keep the goal, the success measure, the guardrail, and the
+For a goal-driven workflow, keep the goal, the success measure, the guardrail, and the
 stop rule in your own files. Group jobs so one review can guide the next batch, and
 save approved feedback to include in later prompts. nrvna stores the jobs. You own
 the review and the stop decision.
@@ -215,9 +223,9 @@ until you validate it. Add a queue, database, or cache only for a measured need,
 and record its owner and its rebuild rule.
 
 nrvna does not stream tokens or promise a response time. A request, chat session,
-or front end must not own job durability. When the task needs streaming, an
-always-on endpoint, or a transaction, that work is synchronous. Use a different
-tool for it, inside the caller.
+or front end must not own job durability. nrvna gives no token streaming, no
+response-time guarantee, no always-on endpoint, and no transactions. When the task
+needs any of those, the caller owns it and builds it with a different tool.
 
 ## Reference
 
