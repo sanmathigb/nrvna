@@ -82,11 +82,11 @@ llama.cpp reads the chat template stored in GGUF metadata. nrvna uses that
 template by default. Use `NRVNA_CHAT_TEMPLATE_FILE` only when the model needs a
 separate Jinja template file.
 TranslateGemma's `source to target: text` format uses the repository's
-`models/templates/translategemma.jinja`. The 0.2.0 binary archive does not include
+`models/templates/translategemma.jinja`. The 0.2.1 binary archive does not include
 this file. Download the template from the matching release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/v0.2.0/models/templates/translategemma.jinja -o translategemma.jinja
+curl -fsSL https://raw.githubusercontent.com/sanmathigb/nrvna/v0.2.1/models/templates/translategemma.jinja -o translategemma.jinja
 ```
 
 Set `NRVNA_CHAT_TEMPLATE_FILE` to the downloaded file's absolute path before

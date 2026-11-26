@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.1 (2026-11-25)
+
+Documentation-only release. The binaries are unchanged from 0.2.0. This release
+rebuilds the archives so the bundled guides match the shipped commands.
+
+- Remove the `--stt` flag from the README work-type table. The 0.2.0 binary
+  already rejects `--stt`; use `--audio` for transcription.
+- Stop suggesting a specific model. The guides tell the caller to bring a
+  compatible GGUF, and examples use `./models/your-model.gguf`.
+- Show the required `--mmproj` projector in the README vision example and list
+  its prerequisites.
+- Split the agent chaining example at retrieval, so the validation step comes
+  before the next submission.
+- State nrvna's limits directly: no token streaming, no response-time
+  guarantee, no always-on endpoint, and no transactions. The caller owns those.
+- Correct wording: a job is a directory, not a file. List `why.md` in the agent
+  index. Remove the stale landing-page draft and unreferenced demo files.
+- Known limitation: runtime coverage is still limited across models,
+  modalities, and hardware. Validate speech, vision, TTS, GPU, and Linux paths
+  on your own hardware.
+
 ## 0.2.0 (2026-11-23)
 
 - Install matching agent and reference guides alongside the commands. Include
